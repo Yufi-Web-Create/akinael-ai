@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">ミセサポAI シンボル</title>
+  <desc id="desc">店舗の軒先、チャット、確認チェックを組み合わせたシンボル</desc>
+  <path fill="#F7F3EA" stroke="#164E4A" stroke-width="8" stroke-linejoin="round" d="M24 49h80v42a12 12 0 0 1-12 12H58l-18 15v-15h-4a12 12 0 0 1-12-12z"/>
+  <path fill="#164E4A" d="M18 45 31 17h66l13 28a13 13 0 0 1-23 8 13 13 0 0 1-23 0 13 13 0 0 1-23 0 13 13 0 0 1-23-8Z"/>
+  <path fill="#F7F3EA" d="m42 17-5 28a7 7 0 0 0 14 0l2-28zm33 0 2 28a7 7 0 0 0 14 0l-5-28z"/>
+  <circle cx="41" cy="76" r="5" fill="#E87861"/><circle cx="58" cy="76" r="5" fill="#E87861"/><circle cx="75" cy="76" r="5" fill="#E87861"/>
+  <circle cx="96" cy="91" r="25" fill="#E87861" stroke="#F7F3EA" stroke-width="5"/>
+  <path d="m84 91 8 8 16-18" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 128" role="img" aria-label="ミセサポAI">
+  <g fill="none" stroke="#17302E" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M24 49h80v42a12 12 0 0 1-12 12H58l-18 15v-15h-4a12 12 0 0 1-12-12z"/>
+    <path d="M18 45 31 17h66l13 28M42 17l-5 28M64 17v28M86 17l5 28"/>
+    <circle cx="96" cy="91" r="24" fill="#fff"/><path d="m84 91 8 8 16-18"/>
+  </g>
+  <circle cx="41" cy="76" r="5" fill="#17302E"/><circle cx="58" cy="76" r="5" fill="#17302E"/><circle cx="75" cy="76" r="5" fill="#17302E"/>
+  <text x="138" y="78" fill="#17302E" font-family="'Noto Sans JP','Hiragino Sans','Yu Gothic',sans-serif" font-size="48" font-weight="800">ミセサポAI</text>
+</svg>

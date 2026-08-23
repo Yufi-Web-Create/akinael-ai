@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: misesapo-ai
+    runtime: node
+    plan: starter
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_FILE
+        value: /var/data/store.json
+      - key: STORAGE_DIR
+        value: /var/data/uploads
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: LLM_PROVIDER
+        value: OpenAI
+      - key: LLM_BASE_URL
+        value: https://api.openai.com/v1/chat/completions
+      - key: LLM_MODEL
+        value: gpt-4o-mini
+      - key: LLM_API_KEY
+        sync: false
+      - key: PAYMENT_PROVIDER
+        value: Stripe
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: NOTIFICATION_PROVIDER
+        value: Resend
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: OBJECT_STORAGE_PROVIDER
+        value: local
+    disk:
+      name: misesapo-data
+      mountPath: /var/data
+      sizeGB: 1

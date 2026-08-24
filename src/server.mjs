@@ -165,7 +165,13 @@ export const seedAdmin = (email, password) => {
   if (!email || !password || password.length < 12) throw new Error('admin email and password of at least 12 characters are required');
   const normalizedEmail = email.trim().toLowerCase();
   const existing = [...users.values()].find((user) => user.email === normalizedEmail && user.role === 'admin');
-  if (existing) return existing.id;
+  if (existing) {
+    if (!verifyPassword(password, existing)) {
+      Object.assign(existing, hashPassword(password));
+      persistStore();
+    }
+    return existing.id;
+  }
   const id = randomUUID();
   users.set(id, { id, email: normalizedEmail, role: 'admin', ...hashPassword(password) });
   persistStore();

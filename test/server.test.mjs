@@ -52,6 +52,15 @@ test('administrator can log in with the admin ID', async () => {
   assert.equal(result.user.role, 'admin');
 });
 
+test('configured administrator password updates an existing administrator', async () => {
+  seedAdmin('admin@example.com', 'previous-secure-password');
+  seedAdmin('admin@example.com', 'updated-secure-password');
+  const previous = await request('/api/auth/login', { method: 'POST', body: { username: 'admin', password: 'previous-secure-password' } });
+  const updated = await request('/api/auth/login', { method: 'POST', body: { username: 'admin', password: 'updated-secure-password' } });
+  assert.equal(previous.status, 401);
+  assert.equal(updated.status, 200);
+});
+
 test('admin settings are protected and persisted through the settings API', async () => {
   seedAdmin('admin@example.com', 'another-secure-password');
   const unauthenticated = await request('/api/admin/settings');

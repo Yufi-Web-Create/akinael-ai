@@ -30,7 +30,7 @@ npm start
 
 公開、課金、返金、データ削除などの不可逆操作は、決済APIや外部公開APIを直接呼ばず、承認レコードを作成するところで止まります。AIワークフローも `model` を記録するアダプター境界までで、モデルの認証情報や推論結果をコードへ固定していません。
 
-顧客案件ごとにRenderやXServerの設定を繰り返さないため、承認済みHTML成果物は同じWeb Serviceから `/sites/project-XXXXXXXX` で公開します。本番ドメインを使う場合は、初回だけ `*.misesapo-ai.com` をこのサービスへ向けるワイルドカードDNSを設定し、以後は案件の公開操作だけで配信できます。
+顧客案件ごとにRenderやXServerの設定を繰り返さないため、承認済みHTML成果物は同じWeb Serviceから `/sites/project-XXXXXXXX` で公開します。`POST /api/admin/projects/:id/deploy` の `domain` に顧客ドメインを渡すと案件へ紐付けられ、以後そのHostへのアクセスで配信されます。本番ドメインを使う場合は、初回だけ `*.misesapo-ai.com` をこのサービスへ向けるワイルドカードDNSを設定し、以後は案件の公開操作だけで配信できます。
 
 ## テスト
 

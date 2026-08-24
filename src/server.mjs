@@ -120,6 +120,7 @@ const projectFor = (user, projectId) => {
 };
 const publicUser = ({ id, email, role }) => ({ id, email, role });
 const siteSlug = (project) => `project-${project.id.slice(0, 8)}`;
+const validDomain = (value) => typeof value === 'string' && /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(value.trim());
 const notify = (userId, projectId, type, message) => {
   const notification = { id: randomUUID(), userId, projectId, type, message, readAt: null, createdAt: new Date().toISOString() };
   notifications.set(notification.id, notification);
@@ -179,6 +180,15 @@ export const createApp = () => http.createServer(async (request, response) => {
 
     if (method === 'GET' && url.pathname === '/health') return json(response, 200, { status: 'ok' });
     if (method === 'GET' && url.pathname === '/api/public/pricing') return json(response, 200, businessConfig);
+    if (method === 'GET' && !url.pathname.startsWith('/api/') && !url.pathname.startsWith('/assets/')) {
+      const host = (request.headers.host || '').split(':')[0].toLowerCase();
+      const deployment = [...deployments.values()].find((item) => item.customDomain === host && item.status === 'published');
+      if (deployment) {
+        const artifact = artifacts.get(deployment.artifactId);
+        response.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; img-src https: data:; font-src https:; script-src 'none'" });
+        return response.end(artifact.content);
+      }
+    }
     if (method === 'GET' && parts[0] === 'sites' && parts[1]) {
       const deployment = [...deployments.values()].find((item) => item.slug === parts[1] && item.status === 'published');
       if (!deployment) return error(response, 404, 'site not found');
@@ -399,7 +409,11 @@ export const createApp = () => http.createServer(async (request, response) => {
       if (!authorization) return error(response, 409, 'approved publish authorization is required');
       const latest = [...artifacts.values()].filter((artifact) => artifact.projectId === project.id).sort((left, right) => right.version - left.version)[0];
       if (!latest || typeof latest.content !== 'string') return error(response, 409, 'an HTML artifact is required');
-      const deployment = { id: randomUUID(), projectId: project.id, artifactId: latest.id, slug: siteSlug(project), status: 'published', publishedBy: admin.id, publishedAt: new Date().toISOString() };
+      const body = await readBody(request);
+      const requestedDomain = typeof body.domain === 'string' ? body.domain.trim().toLowerCase() : '';
+      if (requestedDomain && !validDomain(requestedDomain)) return error(response, 400, 'a valid custom domain is required');
+      if (requestedDomain && [...deployments.values()].some((item) => item.customDomain === requestedDomain && item.projectId !== project.id && item.status === 'published')) return error(response, 409, 'custom domain is already assigned');
+      const deployment = { id: randomUUID(), projectId: project.id, artifactId: latest.id, slug: siteSlug(project), customDomain: requestedDomain || null, status: 'published', publishedBy: admin.id, publishedAt: new Date().toISOString() };
       for (const current of deployments.values()) if (current.projectId === project.id) current.status = 'superseded';
       deployments.set(deployment.id, deployment); project.status = 'published'; project.needsAttention = false; project.attentionReasons = []; project.updatedAt = deployment.publishedAt;
       recordAudit(admin, 'site.published', 'deployment', deployment.id, { projectId: project.id, artifactId: latest.id, slug: deployment.slug });

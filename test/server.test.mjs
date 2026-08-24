@@ -187,3 +187,20 @@ test('approved HTML artifact can be published without creating another hosting s
   assert.equal(response.status, 200);
   assert.match(await response.text(), /公開テスト/);
 });
+
+test('custom domain is assigned at publish time and serves the approved artifact', async () => {
+  const customer = await (await request('/api/auth/register', { method: 'POST', body: { email: 'domain@example.com', password: 'a-secure-password' } })).json();
+  const project = await (await request('/api/projects', { method: 'POST', token: customer.token, body: { name: '独自ドメイン公開' } })).json();
+  seedAdmin('admin@example.com', 'another-secure-password');
+  const admin = await (await request('/api/auth/login', { method: 'POST', body: { email: 'admin@example.com', password: 'another-secure-password' } })).json();
+  await request(`/api/admin/projects/${project.id}/artifacts`, { method: 'POST', token: admin.token, body: { name: 'index.html', version: 1, content: '<!doctype html><title>独自ドメイン</title>' } });
+  const approval = await (await request(`/api/admin/projects/${project.id}/approvals`, { method: 'POST', token: admin.token, body: { type: 'publish' } })).json();
+  await request(`/api/admin/approvals/${approval.id}/decision`, { method: 'POST', token: admin.token, body: { status: 'approved' } });
+  const publishedResponse = await request(`/api/admin/projects/${project.id}/deploy`, { method: 'POST', token: admin.token, body: { domain: 'shop.example.com' } });
+  const published = await publishedResponse.json();
+  assert.equal(publishedResponse.status, 201);
+  assert.equal(published.customDomain, 'shop.example.com');
+  const response = await fetch(`${baseUrl}${published.url}`);
+  assert.equal(response.status, 200);
+  assert.match(await response.text(), /独自ドメイン/);
+});

@@ -20,6 +20,7 @@ const workflowRuns = new Map();
 const notifications = new Map();
 const files = new Map();
 const payments = new Map();
+const deployments = new Map();
 const operationalSettings = new Map();
 const auditLogs = [];
 const rateLimits = new Map();
@@ -118,6 +119,7 @@ const projectFor = (user, projectId) => {
   return user && project && (user.role === 'admin' || project.ownerId === user.id) ? project : null;
 };
 const publicUser = ({ id, email, role }) => ({ id, email, role });
+const siteSlug = (project) => `project-${project.id.slice(0, 8)}`;
 const notify = (userId, projectId, type, message) => {
   const notification = { id: randomUUID(), userId, projectId, type, message, readAt: null, createdAt: new Date().toISOString() };
   notifications.set(notification.id, notification);
@@ -126,7 +128,7 @@ const notify = (userId, projectId, type, message) => {
 
 const persistStore = () => {
   if (!DATA_FILE) return;
-  const snapshot = { users: [...users.values()], projects: [...projects.values()], approvals: [...approvals.values()], tasks: [...tasks.values()], artifacts: [...artifacts.values()], qualityChecks: [...qualityChecks.values()], workflowRuns: [...workflowRuns.values()], notifications: [...notifications.values()], files: [...files.values()], payments: [...payments.values()], operationalSettings: [...operationalSettings.entries()], auditLogs };
+  const snapshot = { users: [...users.values()], projects: [...projects.values()], approvals: [...approvals.values()], tasks: [...tasks.values()], artifacts: [...artifacts.values()], qualityChecks: [...qualityChecks.values()], workflowRuns: [...workflowRuns.values()], notifications: [...notifications.values()], files: [...files.values()], payments: [...payments.values()], deployments: [...deployments.values()], operationalSettings: [...operationalSettings.entries()], auditLogs };
   mkdirSync(dirname(DATA_FILE), { recursive: true });
   writeFileSync(DATA_FILE, JSON.stringify(snapshot), { mode: 0o600 });
 };
@@ -145,6 +147,7 @@ const loadStore = () => {
     for (const item of snapshot.notifications || []) notifications.set(item.id, item);
     for (const item of snapshot.files || []) files.set(item.id, item);
     for (const item of snapshot.payments || []) payments.set(item.id, item);
+    for (const item of snapshot.deployments || []) deployments.set(item.id, item);
     for (const [key, value] of snapshot.operationalSettings || []) operationalSettings.set(key, value);
     auditLogs.push(...(snapshot.auditLogs || []));
   } catch (caught) {
@@ -164,7 +167,7 @@ export const seedAdmin = (email, password) => {
 };
 
 export const resetStore = () => {
-  sessions.clear(); users.clear(); projects.clear(); approvals.clear(); tasks.clear(); artifacts.clear(); qualityChecks.clear(); workflowRuns.clear(); notifications.clear(); files.clear(); payments.clear(); operationalSettings.clear(); rateLimits.clear(); auditLogs.length = 0;
+  sessions.clear(); users.clear(); projects.clear(); approvals.clear(); tasks.clear(); artifacts.clear(); qualityChecks.clear(); workflowRuns.clear(); notifications.clear(); files.clear(); payments.clear(); deployments.clear(); operationalSettings.clear(); rateLimits.clear(); auditLogs.length = 0;
 };
 
 export const createApp = () => http.createServer(async (request, response) => {
@@ -176,6 +179,13 @@ export const createApp = () => http.createServer(async (request, response) => {
 
     if (method === 'GET' && url.pathname === '/health') return json(response, 200, { status: 'ok' });
     if (method === 'GET' && url.pathname === '/api/public/pricing') return json(response, 200, businessConfig);
+    if (method === 'GET' && parts[0] === 'sites' && parts[1]) {
+      const deployment = [...deployments.values()].find((item) => item.slug === parts[1] && item.status === 'published');
+      if (!deployment) return error(response, 404, 'site not found');
+      const artifact = artifacts.get(deployment.artifactId);
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; img-src https: data:; font-src https:; script-src 'none'" });
+      return response.end(artifact.content);
+    }
     if (method === 'POST' && url.pathname === '/api/auth/register') {
       const body = await readBody(request);
       if (typeof body.email !== 'string' || !body.email.includes('@') || typeof body.password !== 'string' || body.password.length < 12) return error(response, 400, 'valid email and password of at least 12 characters are required');
@@ -381,6 +391,20 @@ export const createApp = () => http.createServer(async (request, response) => {
       artifacts.set(artifact.id, artifact); recordAudit(admin, 'artifact.created', 'artifact', artifact.id, { projectId: project.id, version: artifact.version });
       persistStore();
       return json(response, 201, artifact);
+    }
+    if (method === 'POST' && parts[0] === 'api' && parts[1] === 'admin' && parts[2] === 'projects' && parts[4] === 'deploy') {
+      const admin = requireRole(request, response, 'admin'); if (!admin) return;
+      const project = projects.get(parts[3]); if (!project) return error(response, 404, 'project not found');
+      const authorization = [...approvals.values()].find((item) => item.projectId === project.id && item.type === 'publish' && item.status === 'approved');
+      if (!authorization) return error(response, 409, 'approved publish authorization is required');
+      const latest = [...artifacts.values()].filter((artifact) => artifact.projectId === project.id).sort((left, right) => right.version - left.version)[0];
+      if (!latest || typeof latest.content !== 'string') return error(response, 409, 'an HTML artifact is required');
+      const deployment = { id: randomUUID(), projectId: project.id, artifactId: latest.id, slug: siteSlug(project), status: 'published', publishedBy: admin.id, publishedAt: new Date().toISOString() };
+      for (const current of deployments.values()) if (current.projectId === project.id) current.status = 'superseded';
+      deployments.set(deployment.id, deployment); project.status = 'published'; project.needsAttention = false; project.attentionReasons = []; project.updatedAt = deployment.publishedAt;
+      recordAudit(admin, 'site.published', 'deployment', deployment.id, { projectId: project.id, artifactId: latest.id, slug: deployment.slug });
+      persistStore();
+      return json(response, 201, { ...deployment, url: `/sites/${deployment.slug}` });
     }
     if (method === 'POST' && parts[0] === 'api' && parts[1] === 'admin' && parts[2] === 'projects' && parts[4] === 'payments') {
       const admin = requireRole(request, response, 'admin'); if (!admin) return;

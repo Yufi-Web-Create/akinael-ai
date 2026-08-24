@@ -171,3 +171,19 @@ test('customer file upload stores content privately and returns metadata only', 
   assert.equal(response.status, 201);
   assert.equal(Object.hasOwn(file, 'content'), false);
 });
+
+test('approved HTML artifact can be published without creating another hosting service', async () => {
+  const customer = await (await request('/api/auth/register', { method: 'POST', body: { email: 'site@example.com', password: 'a-secure-password' } })).json();
+  const project = await (await request('/api/projects', { method: 'POST', token: customer.token, body: { name: '顧客サイト公開' } })).json();
+  seedAdmin('admin@example.com', 'another-secure-password');
+  const admin = await (await request('/api/auth/login', { method: 'POST', body: { email: 'admin@example.com', password: 'another-secure-password' } })).json();
+  const artifact = await (await request(`/api/admin/projects/${project.id}/artifacts`, { method: 'POST', token: admin.token, body: { name: 'index.html', version: 1, content: '<!doctype html><title>公開テスト</title>' } })).json();
+  const pending = await (await request(`/api/admin/projects/${project.id}/approvals`, { method: 'POST', token: admin.token, body: { type: 'publish' } })).json();
+  await request(`/api/admin/approvals/${pending.id}/decision`, { method: 'POST', token: admin.token, body: { status: 'approved' } });
+  const publishedResponse = await request(`/api/admin/projects/${project.id}/deploy`, { method: 'POST', token: admin.token, body: {} });
+  const published = await publishedResponse.json();
+  assert.equal(publishedResponse.status, 201);
+  const response = await fetch(`${baseUrl}${published.url}`);
+  assert.equal(response.status, 200);
+  assert.match(await response.text(), /公開テスト/);
+});

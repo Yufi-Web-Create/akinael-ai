@@ -494,6 +494,6 @@ export const createApp = () => http.createServer(async (request, response) => {
 
 loadStore();
 
-if (process.env.ADMIN_PASSWORD) seedAdmin(process.env.ADMIN_EMAIL || 'admin@localhost', process.env.ADMIN_PASSWORD);
+if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) seedAdmin(process.env.ADMIN_EMAIL, process.env.ADMIN_PASSWORD);
 
 if (process.argv[1] === new URL(import.meta.url).pathname) createApp().listen(PORT, () => console.log(`akinael backend listening on http://localhost:${PORT}`));

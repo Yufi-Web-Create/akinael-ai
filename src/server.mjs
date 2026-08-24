@@ -131,6 +131,7 @@ const notify = (userId, projectId, type, message) => {
 const CHAT_GUARDRAILS = '料金・順位・成果を保証する表現は使わないでください。契約条件や個別見積り、公開・課金・返金・データ削除など不可逆な操作の最終判断は必ず人間の担当者が行う旨を伝え、断定できない事項は「担当者に確認します」と答えてください。簡潔な日本語で答えてください。';
 const buildPublicChatSystemPrompt = () => `あなたは小規模店舗向けWeb改善サービス「アキナエルAI」の窓口AIです。あなたはまだ会員登録前の訪問者と会話しています。\n主な商品: ${businessConfig.pricing.trialPack.name}（税込${businessConfig.pricing.trialPack.standardAmount}円、内容: ${businessConfig.pricing.trialPack.includes.join('、')}）、${businessConfig.pricing.improvementTeam.name}（月額税込${businessConfig.pricing.improvementTeam.monthlyAmount}円）。\n返金方針の要点: ${businessConfig.refundPolicy.items[0]}\n${businessConfig.termsNotice}\n個別の申し込みや詳しい相談は、マイページでの会員登録後に案内してください。\n${CHAT_GUARDRAILS}`;
 const buildCustomerChatSystemPrompt = (project) => `あなたは小規模店舗向けWeb改善サービス「アキナエルAI」の担当AIです。ログイン済みの顧客の案件「${project.name}」（現在のステータス: ${project.status}）についてチャットで相談を受けています。\n${CHAT_GUARDRAILS}`;
+const buildCommanderSystemPrompt = (project) => `あなたは小規模店舗向けWeb改善サービス「アキナエルAI」の管理者向け司令塔AIです。管理者から案件「${project.name}」（現在のステータス: ${project.status}）について運用上の指示や相談を受けています。あなたに公開・課金・返金・データ削除などの不可逆操作を直接実行する権限はなく、それらは既存の承認フローでのみ実行される旨を伝えてください。\n${CHAT_GUARDRAILS}`;
 
 const persistStore = () => {
   if (!DATA_FILE) return;
@@ -385,6 +386,19 @@ export const createApp = () => http.createServer(async (request, response) => {
       recordAudit(admin, 'workflow.started', 'workflow_run', run.id, { projectId: project.id, model: run.model });
       persistStore();
       return json(response, 202, { ...run, tasks: createdTasks });
+    }
+    if (method === 'POST' && parts[0] === 'api' && parts[1] === 'admin' && parts[2] === 'projects' && parts[4] === 'commander') {
+      const admin = requireRole(request, response, 'admin'); if (!admin) return;
+      const project = projects.get(parts[3]); if (!project) return error(response, 404, 'project not found');
+      const body = await readBody(request);
+      if (typeof body.message !== 'string' || !body.message.trim() || body.message.length > 2000) return error(response, 400, 'message must be a non-empty string of at most 2000 characters');
+      try {
+        const result = await providers.llm.generate({ role: 'admin_commander', system: buildCommanderSystemPrompt(project), messages: [{ role: 'user', content: body.message.trim() }] });
+        recordAudit(admin, 'commander.instructed', 'project', project.id, { model: result.model });
+        return json(response, 200, { reply: result.output });
+      } catch (caught) {
+        return error(response, 502, 'AI provider request failed');
+      }
     }
     if (method === 'POST' && parts[0] === 'api' && parts[1] === 'admin' && parts[2] === 'projects' && parts[4] === 'quality-checks') {
       const admin = requireRole(request, response, 'admin'); if (!admin) return;

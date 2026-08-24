@@ -543,12 +543,25 @@ one('[data-confirm-accept]')?.addEventListener('click', () => {
 });
 
 const commandForm = one('[data-command-form]');
-if (commandForm) commandForm.addEventListener('submit', (event) => {
+if (commandForm) commandForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const textarea = one('textarea', commandForm);
+  const commanderMessages = one('[data-commander-messages]');
   const value = textarea.value.trim();
-  if (!value) return;
-  one('[data-commander-messages]').insertAdjacentHTML('beforeend', `<article class="admin-message human"><small>あなた　今</small><p>${value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character])}</p></article><article class="admin-message ai"><small>司令塔AI　今</small><p>指示を受け付けました。影響範囲と承認の要否を整理してから実行計画を提示します。</p></article>`);
+  const headers = adminAuthHeaders();
+  if (!value || !headers || !selectedAdminProjectId) return;
   textarea.value = '';
-  one('[data-commander-messages]').scrollTop = one('[data-commander-messages]').scrollHeight;
+  commanderMessages.insertAdjacentHTML('beforeend', `<article class="admin-message human"><small>あなた　今</small><p>${adminEscape(value)}</p></article><article class="admin-message ai typing" data-commander-typing><p>…</p></article>`);
+  commanderMessages.scrollTop = commanderMessages.scrollHeight;
+  try {
+    const response = await fetch(`/api/admin/projects/${selectedAdminProjectId}/commander`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ message: value }) });
+    if (!response.ok) throw new Error();
+    const body = await response.json();
+    one('[data-commander-typing]')?.remove();
+    commanderMessages.insertAdjacentHTML('beforeend', `<article class="admin-message ai"><small>司令塔AI　今</small><p>${adminEscape(body.reply)}</p></article>`);
+  } catch {
+    one('[data-commander-typing]')?.remove();
+    commanderMessages.insertAdjacentHTML('beforeend', '<article class="admin-message ai"><small>司令塔AI　今</small><p>現在AIに接続できません。時間をおいて再度お試しください。</p></article>');
+  }
+  commanderMessages.scrollTop = commanderMessages.scrollHeight;
 });

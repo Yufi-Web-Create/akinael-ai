@@ -33,7 +33,7 @@ npm start
 
 ローカルでデータを再起動後も保持する場合は `DATA_FILE=./data/store.json` を設定してください。ファイル本体は `STORAGE_DIR=./data/uploads` へ保存し、JSONには保存キーだけを記録します。保存先は公開ディレクトリ外に置き、権限を制限してください。
 
-開発環境ではローカルの `STORAGE_DIR` を使用します。本番ではS3またはCloudflare R2の非公開バケットへ移行し、アプリケーションからは署名付きURLだけを返す構成にしてください。`.env.example` の `OBJECT_STORAGE_PROVIDER` は現在の実装に合わせて `local` としています。
+開発環境ではローカルの `STORAGE_DIR` を使用できます。本番の推奨はCloudflare R2の非公開バケットです。`OBJECT_STORAGE_PROVIDER=cloudflare-r2` と、`R2_ACCOUNT_ID`、`R2_BUCKET`、`R2_ACCESS_KEY_ID`、`R2_SECRET_ACCESS_KEY` を設定するとアップロード本体をR2へ保存します。アプリケーションのレスポンスにはファイル本体を返しません。
 
 ```sh
 npm test

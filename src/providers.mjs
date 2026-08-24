@@ -1,4 +1,5 @@
 const configured = (value, fallback) => String(value || fallback).trim();
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 const requestJson = async (url, options) => {
   const response = await fetch(url, options);
   const body = await response.json().catch(() => ({}));
@@ -36,9 +37,15 @@ export const createProviders = (env = process.env) => ({
     }
   },
   storage: {
-    name: configured(env.OBJECT_STORAGE_PROVIDER, 'local'),
-    mode: env.S3_BUCKET && env.S3_ACCESS_KEY_ID && env.S3_SECRET_ACCESS_KEY ? 'connected' : 'local',
-    private: true
+    name: configured(env.OBJECT_STORAGE_PROVIDER, env.R2_BUCKET ? 'cloudflare-r2' : 'local'),
+    mode: env.R2_ACCOUNT_ID && env.R2_ACCESS_KEY_ID && env.R2_SECRET_ACCESS_KEY && env.R2_BUCKET ? 'connected' : 'local',
+    private: true,
+    putObject: async ({ key, body, contentType }) => {
+      if (!env.R2_ACCOUNT_ID || !env.R2_ACCESS_KEY_ID || !env.R2_SECRET_ACCESS_KEY || !env.R2_BUCKET) return { provider: 'local' };
+      const client = new S3Client({ region: 'auto', endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`, credentials: { accessKeyId: env.R2_ACCESS_KEY_ID, secretAccessKey: env.R2_SECRET_ACCESS_KEY } });
+      await client.send(new PutObjectCommand({ Bucket: env.R2_BUCKET, Key: key, Body: body, ContentType: contentType, CacheControl: 'private, max-age=0, no-store' }));
+      return { provider: 'cloudflare-r2', key };
+    }
   }
 });
 

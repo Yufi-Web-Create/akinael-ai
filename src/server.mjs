@@ -247,9 +247,14 @@ export const createApp = () => http.createServer(async (request, response) => {
         const body = await readBody(request);
         if (typeof body.name !== 'string' || typeof body.content !== 'string' || Buffer.byteLength(body.content, 'base64') > MAX_BODY_BYTES) return error(response, 400, 'file name and base64 content are required');
         const fileId = randomUUID();
-        const file = { id: fileId, projectId: project.id, ownerId: user.id, name: body.name.trim(), contentType: body.contentType || 'application/octet-stream', storageKey: STORAGE_DIR ? `${fileId}.bin` : null, content: STORAGE_DIR ? undefined : body.content, createdAt: new Date().toISOString() };
-        if (STORAGE_DIR) {
+        const storageKey = `${project.id}/${fileId}.bin`;
+        const file = { id: fileId, projectId: project.id, ownerId: user.id, name: body.name.trim(), contentType: body.contentType || 'application/octet-stream', storageKey, storageProvider: providers.storage.name, content: STORAGE_DIR && providers.storage.name === 'local' ? undefined : body.content, createdAt: new Date().toISOString() };
+        if (providers.storage.mode === 'connected') {
+          await providers.storage.putObject({ key: storageKey, body: Buffer.from(body.content, 'base64'), contentType: file.contentType });
+          file.content = undefined;
+        } else if (STORAGE_DIR) {
           mkdirSync(STORAGE_DIR, { recursive: true, mode: 0o700 });
+          file.storageKey = `${fileId}.bin`;
           await writeFile(`${STORAGE_DIR}/${file.storageKey}`, Buffer.from(body.content, 'base64'), { mode: 0o600 });
         }
         files.set(file.id, file); recordAudit(user, 'file.uploaded', 'file', file.id, { projectId: project.id });

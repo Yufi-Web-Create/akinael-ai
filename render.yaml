@@ -36,7 +36,15 @@ services:
       - key: MAIL_FROM
         sync: false
       - key: OBJECT_STORAGE_PROVIDER
-        value: local
+        value: cloudflare-r2
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
     disk:
       name: misesapo-data
       mountPath: /var/data

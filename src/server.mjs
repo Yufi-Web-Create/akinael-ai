@@ -227,7 +227,11 @@ export const createApp = () => http.createServer(async (request, response) => {
     }
     if (method === 'POST' && url.pathname === '/api/auth/login') {
       const body = await readBody(request);
-      const user = [...users.values()].find((candidate) => candidate.email === String(body.email || '').trim().toLowerCase());
+      const email = String(body.email || '').trim().toLowerCase();
+      const username = String(body.username || '').trim().toLowerCase();
+      const user = email
+        ? [...users.values()].find((candidate) => candidate.email === email)
+        : username === 'admin' ? [...users.values()].find((candidate) => candidate.role === 'admin') : null;
       if (!user || typeof body.password !== 'string' || !verifyPassword(body.password, user)) return error(response, 401, 'invalid credentials');
       const token = randomBytes(32).toString('hex'); sessions.set(token, user.id);
       recordAudit(user, 'user.logged_in', 'user', user.id);

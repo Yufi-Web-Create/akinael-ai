@@ -44,6 +44,14 @@ test('public pricing uses the business plan and exposes the provisional refund p
   assert.deepEqual(config.refundPolicy, businessConfig.refundPolicy);
 });
 
+test('administrator can log in with the admin ID', async () => {
+  seedAdmin('admin@example.com', 'another-secure-password');
+  const response = await request('/api/auth/login', { method: 'POST', body: { username: 'admin', password: 'another-secure-password' } });
+  const result = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(result.user.role, 'admin');
+});
+
 test('admin settings are protected and persisted through the settings API', async () => {
   seedAdmin('admin@example.com', 'another-secure-password');
   const unauthenticated = await request('/api/admin/settings');

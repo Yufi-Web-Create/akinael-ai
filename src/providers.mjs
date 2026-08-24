@@ -12,9 +12,11 @@ export const createProviders = (env = process.env) => ({
   llm: {
     name: configured(env.LLM_PROVIDER, 'mock'),
     mode: env.LLM_API_KEY ? 'connected' : 'simulation',
-    generate: async ({ role, input }) => {
-      if (!env.LLM_API_KEY) return { role, model: configured(env.LLM_MODEL, 'adapter/mock'), output: `Mock response for ${role}: ${input}`, usage: { inputTokens: 0, outputTokens: 0 } };
-      const body = await requestJson(env.LLM_BASE_URL || 'https://api.openai.com/v1/chat/completions', { method: 'POST', headers: { authorization: `Bearer ${env.LLM_API_KEY}`, 'content-type': 'application/json' }, body: JSON.stringify({ model: configured(env.LLM_MODEL, 'gpt-4o-mini'), messages: [{ role: 'system', content: `You are the ${role} agent. Return concise structured work.` }, { role: 'user', content: input }], temperature: 0.2 }) });
+    generate: async ({ role, input, system, messages }) => {
+      const conversation = Array.isArray(messages) && messages.length ? messages : [{ role: 'user', content: input }];
+      const systemPrompt = system || `You are the ${role} agent. Return concise structured work.`;
+      if (!env.LLM_API_KEY) return { role, model: configured(env.LLM_MODEL, 'adapter/mock'), output: `Mock response for ${role}: ${conversation[conversation.length - 1]?.content ?? input}`, usage: { inputTokens: 0, outputTokens: 0 } };
+      const body = await requestJson(env.LLM_BASE_URL || 'https://api.openai.com/v1/chat/completions', { method: 'POST', headers: { authorization: `Bearer ${env.LLM_API_KEY}`, 'content-type': 'application/json' }, body: JSON.stringify({ model: configured(env.LLM_MODEL, 'gpt-4o-mini'), messages: [{ role: 'system', content: systemPrompt }, ...conversation], temperature: 0.2 }) });
       return { role, model: body.model, output: body.choices?.[0]?.message?.content || '', usage: body.usage || {} };
     }
   },
@@ -30,7 +32,7 @@ export const createProviders = (env = process.env) => ({
   notification: {
     name: configured(env.NOTIFICATION_PROVIDER, env.RESEND_API_KEY ? 'resend' : 'log'),
     mode: env.RESEND_API_KEY ? 'connected' : 'local',
-    send: async ({ recipient, message, subject = 'ミセサポAIからのお知らせ' }) => {
+    send: async ({ recipient, message, subject = 'アキナエルAIからのお知らせ' }) => {
       if (!env.RESEND_API_KEY) return { delivered: false, recipient, message, reason: 'notification adapter is not connected' };
       const body = await requestJson('https://api.resend.com/emails', { method: 'POST', headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' }, body: JSON.stringify({ from: env.MAIL_FROM || 'onboarding@resend.dev', to: [recipient], subject, text: message }) });
       return { delivered: true, provider: 'resend', id: body.id, recipient };

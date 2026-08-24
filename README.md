@@ -1,4 +1,4 @@
-# ミセサポAI バックエンド
+# アキナエルAI バックエンド
 
 資料に定義された責務分離を検証するための、依存なしNode.js APIの初期実装です。
 
@@ -15,7 +15,7 @@ npm start
 主要API:
 
 - 認証: `/api/auth/register`, `/api/auth/login`
-- 顧客案件: `/api/projects`, `/api/projects/:id`, `/api/projects/:id/messages`, `/api/projects/:id/tasks`, `/api/projects/:id/artifacts`, `/api/projects/:id/files`, `/api/projects/:id/notifications`
+- 顧客案件: `/api/projects`, `/api/projects/:id`, `/api/projects/:id/messages`（顧客の送信にはAIが同一レスポンス内で即時応答する）, `/api/projects/:id/tasks`, `/api/projects/:id/artifacts`, `/api/projects/:id/files`, `/api/projects/:id/notifications`
 - 管理者: `/api/admin/projects`, `/api/admin/notifications`, `/api/admin/audit-logs`
 - AI進行: `/api/admin/projects/:id/workflow`
 - 品質検査: `/api/admin/projects/:id/quality-checks`
@@ -24,13 +24,14 @@ npm start
 - 決済Checkout実行: `/api/admin/payments/:id/checkout`（課金承認後のみ）
 - AIタスク実行: `/api/admin/tasks/:id/execute`
 - 公開料金・返金ポリシー: `/api/public/pricing`
+- 公開ページの窓口AIチャット（未ログイン、会話は保存しない）: `/api/public/chat`
 - 顧客サイト公開: `/api/admin/projects/:id/deploy`（公開承認後のみ）
 - 管理者設定: `/api/admin/settings`（GET / PUT）
 - 外部サービス接続状態: `/api/admin/system-status`
 
 公開、課金、返金、データ削除などの不可逆操作は、決済APIや外部公開APIを直接呼ばず、承認レコードを作成するところで止まります。AIワークフローも `model` を記録するアダプター境界までで、モデルの認証情報や推論結果をコードへ固定していません。
 
-顧客案件ごとにRenderやXServerの設定を繰り返さないため、承認済みHTML成果物は同じWeb Serviceから `/sites/project-XXXXXXXX` で公開します。`POST /api/admin/projects/:id/deploy` の `domain` に顧客ドメインを渡すと案件へ紐付けられ、以後そのHostへのアクセスで配信されます。本番ドメインを使う場合は、初回だけ `*.misesapo-ai.com` をこのサービスへ向けるワイルドカードDNSを設定し、以後は案件の公開操作だけで配信できます。
+顧客案件ごとにRenderやXServerの設定を繰り返さないため、承認済みHTML成果物は同じWeb Serviceから `/sites/project-XXXXXXXX` で公開します。`POST /api/admin/projects/:id/deploy` の `domain` に顧客ドメインを渡すと案件へ紐付けられ、以後そのHostへのアクセスで配信されます。本番ドメインは `akinael-ai.com` とし、XServer DNSでルートA、`www` CNAME、`*` CNAMEをこのRender Web Serviceへ向けます。
 
 ## テスト
 

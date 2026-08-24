@@ -29,6 +29,7 @@ const RATE_LIMIT_MAX = 30;
 const PUBLIC_ROOT = fileURLToPath(new URL('../public/', import.meta.url));
 const DATA_FILE = process.env.DATA_FILE || '';
 const STORAGE_DIR = process.env.STORAGE_DIR || (DATA_FILE ? `${dirname(DATA_FILE)}/uploads` : '');
+const PUBLIC_URL = (process.env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/+$/, '');
 const providers = createProviders();
 
 const MIME_TYPES = {
@@ -127,6 +128,10 @@ const notify = (userId, projectId, type, message) => {
   return notification;
 };
 
+const CHAT_GUARDRAILS = '料金・順位・成果を保証する表現は使わないでください。契約条件や個別見積り、公開・課金・返金・データ削除など不可逆な操作の最終判断は必ず人間の担当者が行う旨を伝え、断定できない事項は「担当者に確認します」と答えてください。簡潔な日本語で答えてください。';
+const buildPublicChatSystemPrompt = () => `あなたは小規模店舗向けWeb改善サービス「アキナエルAI」の窓口AIです。あなたはまだ会員登録前の訪問者と会話しています。\n主な商品: ${businessConfig.pricing.trialPack.name}（税込${businessConfig.pricing.trialPack.standardAmount}円、内容: ${businessConfig.pricing.trialPack.includes.join('、')}）、${businessConfig.pricing.improvementTeam.name}（月額税込${businessConfig.pricing.improvementTeam.monthlyAmount}円）。\n返金方針の要点: ${businessConfig.refundPolicy.items[0]}\n${businessConfig.termsNotice}\n個別の申し込みや詳しい相談は、マイページでの会員登録後に案内してください。\n${CHAT_GUARDRAILS}`;
+const buildCustomerChatSystemPrompt = (project) => `あなたは小規模店舗向けWeb改善サービス「アキナエルAI」の担当AIです。ログイン済みの顧客の案件「${project.name}」（現在のステータス: ${project.status}）についてチャットで相談を受けています。\n${CHAT_GUARDRAILS}`;
+
 const persistStore = () => {
   if (!DATA_FILE) return;
   const snapshot = { users: [...users.values()], projects: [...projects.values()], approvals: [...approvals.values()], tasks: [...tasks.values()], artifacts: [...artifacts.values()], qualityChecks: [...qualityChecks.values()], workflowRuns: [...workflowRuns.values()], notifications: [...notifications.values()], files: [...files.values()], payments: [...payments.values()], deployments: [...deployments.values()], operationalSettings: [...operationalSettings.entries()], auditLogs };
@@ -180,6 +185,18 @@ export const createApp = () => http.createServer(async (request, response) => {
 
     if (method === 'GET' && url.pathname === '/health') return json(response, 200, { status: 'ok' });
     if (method === 'GET' && url.pathname === '/api/public/pricing') return json(response, 200, businessConfig);
+    if (method === 'POST' && url.pathname === '/api/public/chat') {
+      const body = await readBody(request);
+      if (typeof body.message !== 'string' || !body.message.trim() || body.message.length > 2000) return error(response, 400, 'message must be a non-empty string of at most 2000 characters');
+      const history = Array.isArray(body.history) ? body.history.slice(-8) : [];
+      if (!history.every((item) => item && ['user', 'assistant'].includes(item.role) && typeof item.content === 'string' && item.content.length <= 2000)) return error(response, 400, 'history must contain valid role and content entries');
+      try {
+        const result = await providers.llm.generate({ role: 'public_concierge', system: buildPublicChatSystemPrompt(), messages: [...history.map(({ role, content }) => ({ role, content })), { role: 'user', content: body.message.trim() }] });
+        return json(response, 200, { reply: result.output });
+      } catch (caught) {
+        return error(response, 502, 'AI provider request failed');
+      }
+    }
     if (method === 'GET' && !url.pathname.startsWith('/api/') && !url.pathname.startsWith('/assets/')) {
       const host = (request.headers.host || '').split(':')[0].toLowerCase();
       const deployment = [...deployments.values()].find((item) => item.customDomain === host && item.status === 'published');
@@ -250,15 +267,25 @@ export const createApp = () => http.createServer(async (request, response) => {
         const body = await readBody(request);
         if (typeof body.content !== 'string' || !body.content.trim()) return error(response, 400, 'message content is required');
         const message = { id: randomUUID(), authorId: user.id, authorRole: user.role, content: body.content.trim(), createdAt: new Date().toISOString() };
-        project.messages.push(message); project.needsAttention = user.role === 'customer';
-        if (user.role === 'customer') project.attentionReasons = ['customer_message_unanswered'];
+        project.messages.push(message); project.needsAttention = false; project.attentionReasons = [];
+        recordAudit(user, 'message.created', 'project', project.id, { messageId: message.id });
+        let reply = null;
         if (user.role === 'customer') {
-          const admin = [...users.values()].find((candidate) => candidate.role === 'admin');
-          if (admin) notify(admin.id, project.id, 'customer_message', `案件「${project.name}」に顧客メッセージがあります`);
+          try {
+            const recent = project.messages.slice(-12).map((item) => ({ role: item.authorRole === 'customer' ? 'user' : 'assistant', content: item.content }));
+            const result = await providers.llm.generate({ role: 'customer_concierge', system: buildCustomerChatSystemPrompt(project), messages: recent });
+            reply = { id: randomUUID(), authorId: 'ai-assistant', authorRole: 'assistant', content: result.output, createdAt: new Date().toISOString() };
+            project.messages.push(reply);
+            recordAudit({ id: 'ai-assistant', role: 'assistant' }, 'message.ai_replied', 'project', project.id, { messageId: reply.id, model: result.model });
+          } catch (caught) {
+            project.needsAttention = true; project.attentionReasons = ['customer_message_unanswered'];
+            const admin = [...users.values()].find((candidate) => candidate.role === 'admin');
+            if (admin) notify(admin.id, project.id, 'customer_message', `案件「${project.name}」に顧客メッセージがあります（AI応答失敗）`);
+          }
         }
-        project.updatedAt = message.createdAt; recordAudit(user, 'message.created', 'project', project.id, { messageId: message.id });
+        project.updatedAt = new Date().toISOString();
         persistStore();
-        return json(response, 201, message);
+        return json(response, 201, { message, reply });
       }
       if (method === 'GET' && parts[3] === 'tasks') return json(response, 200, [...tasks.values()].filter((task) => task.projectId === project.id));
       if (method === 'GET' && parts[3] === 'artifacts') return json(response, 200, [...artifacts.values()].filter((artifact) => artifact.projectId === project.id));
@@ -437,7 +464,7 @@ export const createApp = () => http.createServer(async (request, response) => {
       if (!approval) return error(response, 409, 'approved charge authorization is required');
       const body = await readBody(request);
       try {
-        const checkout = await providers.payment.createCheckout({ amount: payment.amount, currency: payment.currency, reference: `ミセサポAI ${payment.projectId}`, successUrl: body.successUrl || 'http://localhost:3000/payment/success', cancelUrl: body.cancelUrl || 'http://localhost:3000/payment/cancel' });
+        const checkout = await providers.payment.createCheckout({ amount: payment.amount, currency: payment.currency, reference: `アキナエルAI ${payment.projectId}`, successUrl: body.successUrl || `${PUBLIC_URL}/payment/success`, cancelUrl: body.cancelUrl || `${PUBLIC_URL}/payment/cancel` });
         Object.assign(payment, checkout); payment.updatedAt = new Date().toISOString();
         recordAudit(admin, 'payment.checkout_created', 'payment', payment.id, { projectId: payment.projectId, provider: providers.payment.name });
         persistStore();
@@ -459,4 +486,4 @@ loadStore();
 
 if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) seedAdmin(process.env.ADMIN_EMAIL, process.env.ADMIN_PASSWORD);
 
-if (process.argv[1] === new URL(import.meta.url).pathname) createApp().listen(PORT, () => console.log(`misesapo backend listening on http://localhost:${PORT}`));
+if (process.argv[1] === new URL(import.meta.url).pathname) createApp().listen(PORT, () => console.log(`akinael backend listening on http://localhost:${PORT}`));

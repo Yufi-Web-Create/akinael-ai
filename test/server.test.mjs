@@ -19,7 +19,7 @@ test('frontend pages and project assets are served with the expected indexing bo
   const publicPage = await fetch(`${baseUrl}/`);
   assert.equal(publicPage.status, 200);
   assert.match(publicPage.headers.get('content-type'), /text\/html/);
-  assert.match(await publicPage.text(), /小さな店舗の/);
+  assert.match(await publicPage.text(), /アキナエルAI/);
 
   const customerPage = await fetch(`${baseUrl}/mypage`);
   assert.equal(customerPage.status, 200);
@@ -88,7 +88,7 @@ test('workflow task execution uses the configured provider boundary', async () =
   assert.match(result.output, /Mock response/);
 });
 
-test('customer can create a project and a message flags attention on the server', async () => {
+test('customer message gets an immediate AI reply and clears attention on the server', async () => {
   const registered = await request('/api/auth/register', { method: 'POST', body: { email: 'owner@example.com', password: 'a-secure-password' } });
   assert.equal(registered.status, 201);
   const { token } = await registered.json();
@@ -97,10 +97,41 @@ test('customer can create a project and a message flags attention on the server'
   assert.equal(created.status, 201);
   const message = await request(`/api/projects/${project.id}/messages`, { method: 'POST', token, body: { content: '予約導線を相談したいです' } });
   assert.equal(message.status, 201);
+  const posted = await message.json();
+  assert.equal(posted.message.content, '予約導線を相談したいです');
+  assert.match(posted.reply.content, /Mock response/);
+  assert.equal(posted.reply.authorRole, 'assistant');
   const fetched = await request(`/api/projects/${project.id}`, { token });
   const current = await fetched.json();
-  assert.equal(current.needsAttention, true);
-  assert.deepEqual(current.attentionReasons, ['customer_message_unanswered']);
+  assert.equal(current.needsAttention, false);
+  assert.deepEqual(current.attentionReasons, []);
+  assert.deepEqual(current.messages.map((item) => item.authorRole), ['customer', 'assistant']);
+});
+
+test('public chat answers anonymous visitors without requiring authentication', async () => {
+  const response = await request('/api/public/chat', { method: 'POST', body: { message: '料金を教えてください' } });
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.match(body.reply, /Mock response/);
+  const invalid = await request('/api/public/chat', { method: 'POST', body: { message: '' } });
+  assert.equal(invalid.status, 400);
+});
+
+test('admin can view and reply to a project thread without triggering an AI reply', async () => {
+  const registered = await request('/api/auth/register', { method: 'POST', body: { email: 'owner@example.com', password: 'a-secure-password' } });
+  const { token: customerToken } = await registered.json();
+  const project = await (await request('/api/projects', { method: 'POST', token: customerToken, body: { name: '管理チャットテスト' } })).json();
+  await request(`/api/projects/${project.id}/messages`, { method: 'POST', token: customerToken, body: { content: '営業時間を載せたいです' } });
+  seedAdmin('admin@example.com', 'another-secure-password');
+  const { token: adminToken } = await (await request('/api/auth/login', { method: 'POST', body: { email: 'admin@example.com', password: 'another-secure-password' } })).json();
+  const projects = await (await request('/api/admin/projects', { token: adminToken })).json();
+  assert.equal(projects.some((item) => item.id === project.id), true);
+  const reply = await request(`/api/projects/${project.id}/messages`, { method: 'POST', token: adminToken, body: { content: '承知しました、追加しておきます' } });
+  assert.equal(reply.status, 201);
+  const replyBody = await reply.json();
+  assert.equal(replyBody.reply, null);
+  const current = await (await request(`/api/projects/${project.id}`, { token: adminToken })).json();
+  assert.deepEqual(current.messages.map((item) => item.authorRole), ['customer', 'assistant', 'admin']);
 });
 
 test('project access without authentication returns 401 instead of exposing state', async () => {

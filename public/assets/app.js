@@ -435,8 +435,10 @@ if (loginDialog && loginForm) {
     event.preventDefault();
     loginStatus.textContent = '認証しています…';
     const values = Object.fromEntries(new FormData(loginForm).entries());
+    const identifier = String(values.username || '').trim();
+    const payload = { password: values.password, ...(identifier.includes('@') ? { email: identifier } : { username: identifier }) };
     try {
-      const response = await fetch('/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(values) });
+      const response = await fetch('/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
       const result = await response.json();
       if (!response.ok || result.user?.role !== 'admin') throw new Error('管理者アカウントでログインしてください');
       localStorage.setItem(adminTokenKey, result.token);

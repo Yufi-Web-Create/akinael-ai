@@ -235,11 +235,10 @@ export const createApp = () => http.createServer(async (request, response) => {
       const body = await readBody(request);
       const email = String(body.email || '').trim().toLowerCase();
       const username = String(body.username || '').trim().toLowerCase();
-      const configuredAdmin = username === 'admin' && process.env.ADMIN_PASSWORD === body.password
-        ? [...users.values()].find((candidate) => candidate.role === 'admin')
-        : null;
-      const user = configuredAdmin || (email ? [...users.values()].find((candidate) => candidate.email === email) : username === 'admin' ? [...users.values()].find((candidate) => candidate.role === 'admin') : null);
-      if (!user || typeof body.password !== 'string' || (!configuredAdmin && !verifyPassword(body.password, user))) return error(response, 401, 'invalid credentials');
+      const user = email
+        ? [...users.values()].find((candidate) => candidate.email === email)
+        : username === 'admin' ? [...users.values()].find((candidate) => candidate.role === 'admin') : null;
+      if (!user || typeof body.password !== 'string' || !verifyPassword(body.password, user)) return error(response, 401, 'invalid credentials');
       const token = randomBytes(32).toString('hex'); sessions.set(token, user.id);
       recordAudit(user, 'user.logged_in', 'user', user.id);
       return json(response, 200, { token, user: publicUser(user) });

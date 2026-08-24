@@ -61,6 +61,19 @@ test('configured administrator password updates an existing administrator', asyn
   assert.equal(updated.status, 200);
 });
 
+test('configured administrator password can recover access from a stale persisted password', async () => {
+  seedAdmin('admin@example.com', 'previous-secure-password');
+  const previousPassword = process.env.ADMIN_PASSWORD;
+  process.env.ADMIN_PASSWORD = 'updated-secure-password';
+  try {
+    const response = await request('/api/auth/login', { method: 'POST', body: { username: 'admin', password: 'updated-secure-password' } });
+    assert.equal(response.status, 200);
+  } finally {
+    if (previousPassword === undefined) delete process.env.ADMIN_PASSWORD;
+    else process.env.ADMIN_PASSWORD = previousPassword;
+  }
+});
+
 test('admin settings are protected and persisted through the settings API', async () => {
   seedAdmin('admin@example.com', 'another-secure-password');
   const unauthenticated = await request('/api/admin/settings');

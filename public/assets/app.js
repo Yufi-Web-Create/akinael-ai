@@ -440,7 +440,8 @@ if (loginDialog && loginForm) {
     try {
       const response = await fetch('/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
       const result = await response.json();
-      if (!response.ok || result.user?.role !== 'admin') throw new Error('管理者アカウントでログインしてください');
+      if (!response.ok) throw new Error('IDまたはパスワードが正しくありません');
+      if (result.user?.role !== 'admin') throw new Error('管理者アカウントでログインしてください');
       localStorage.setItem(adminTokenKey, result.token);
       loginForm.reset(); loginStatus.textContent = 'ログインしました。';
       loginDialog.dataset.gate = 'false'; setLoginGateMode(false);

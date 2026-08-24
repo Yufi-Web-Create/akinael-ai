@@ -2,7 +2,7 @@ import http from 'node:http';
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
-import { dirname, extname } from 'node:path';
+import { dirname, extname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { businessConfig } from './business-config.mjs';
 import { createProviders, providerStatus } from './providers.mjs';
@@ -45,7 +45,10 @@ const serveStatic = async (response, pathname) => {
   const relativePath = pages[pathname] || (pathname.startsWith('/assets/') ? pathname.slice(1) : null);
   if (!relativePath || relativePath.includes('..')) return false;
   try {
-    const body = await readFile(new URL(relativePath, new URL('../public/', import.meta.url)));
+    const filePath = join(PUBLIC_ROOT, relativePath);
+    const publicRelativePath = relative(PUBLIC_ROOT, filePath);
+    if (publicRelativePath.startsWith(`..${sep}`) || publicRelativePath === '..') return false;
+    const body = await readFile(filePath);
     const headers = {
       'content-type': MIME_TYPES[extname(relativePath)] || 'application/octet-stream',
       'x-content-type-options': 'nosniff',

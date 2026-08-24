@@ -235,8 +235,7 @@ export const createApp = () => http.createServer(async (request, response) => {
       const body = await readBody(request);
       const email = String(body.email || '').trim().toLowerCase();
       const username = String(body.username || '').trim().toLowerCase();
-      const configuredPassword = process.env.ADMIN_PASSWORD;
-      const configuredAdmin = username === 'admin' && typeof configuredPassword === 'string' && configuredPassword.length > 0 && configuredPassword === body.password
+      const configuredAdmin = username === 'admin' && process.env.ADMIN_PASSWORD === body.password
         ? [...users.values()].find((candidate) => candidate.role === 'admin')
         : null;
       const user = configuredAdmin || (email ? [...users.values()].find((candidate) => candidate.email === email) : username === 'admin' ? [...users.values()].find((candidate) => candidate.role === 'admin') : null);

@@ -166,8 +166,7 @@ export const seedAdmin = (email, password) => {
   const normalizedEmail = email.trim().toLowerCase();
   const existing = [...users.values()].find((user) => user.email === normalizedEmail && user.role === 'admin');
   if (existing) {
-    const hasValidPasswordHash = typeof existing.salt === 'string' && typeof existing.hash === 'string';
-    if (!hasValidPasswordHash || !verifyPassword(password, existing)) {
+    if (!verifyPassword(password, existing)) {
       Object.assign(existing, hashPassword(password));
       persistStore();
     }

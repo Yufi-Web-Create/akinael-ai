@@ -1,0 +1,1087 @@
+{
+  "schemaVersion": 1,
+  "assetSet": "akinael-image-refresh-v2",
+  "auditDate": "2026-08-25",
+  "scope": {
+    "productionRoot": "public/assets/v2",
+    "excluded": [
+      "public/assets/v2/asset-manifest.json"
+    ],
+    "manifest": "public/assets/v2/asset-manifest.json",
+    "metadataReader": "sharp 0.35.3/libvips",
+    "hashAlgorithm": "sha256"
+  },
+  "files": [
+    {
+      "path": "public/assets/v2/avatars/ai-assistant-avatar-192-v2.webp",
+      "format": "webp",
+      "width": 192,
+      "height": 192,
+      "bytes": 8772,
+      "sha256": "0a6be7d652b93a9778ac55b219c53cdde5e263804063cb351307a9ebef5d6b01",
+      "metadataFlags": {
+        "hasAlpha": true,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 4,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/avatars/ai-assistant-avatar-96-v2.webp",
+      "format": "webp",
+      "width": 96,
+      "height": 96,
+      "bytes": 4118,
+      "sha256": "11a267eee6aa6af22f2ae94e0bfd08c575f2b51c1388c3838ce041f995a02d4e",
+      "metadataFlags": {
+        "hasAlpha": true,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 4,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/illustrations/ai-create-review-process-v2-800w.avif",
+      "format": "avif",
+      "width": 800,
+      "height": 500,
+      "bytes": 12401,
+      "sha256": "bdb447cf21cfced23459aef26756a87c644e508a9c6f9c9d1c7782e0020267a0",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "heif",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/illustrations/ai-create-review-process-v2-800w.webp",
+      "format": "webp",
+      "width": 800,
+      "height": 500,
+      "bytes": 18280,
+      "sha256": "5b325dddd6521a70e992b650252bf7d5686fa9ab7dc6b4b74acb05f033c1ca6f",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/illustrations/ai-create-review-process-v2.avif",
+      "format": "avif",
+      "width": 1600,
+      "height": 1000,
+      "bytes": 38229,
+      "sha256": "ac8a6fbcd18f3bdb31ba9471659de9142edbe11323653405e2e477306b7496e1",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "heif",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/illustrations/ai-create-review-process-v2.webp",
+      "format": "webp",
+      "width": 1600,
+      "height": 1000,
+      "bytes": 50392,
+      "sha256": "b80516b596ed9b0b440081b90cb94313d62fa3b489f0c582fd513731648a7a80",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/akinael-hero-desktop-v2-1200w.avif",
+      "format": "avif",
+      "width": 1200,
+      "height": 675,
+      "bytes": 25705,
+      "sha256": "73971292c0c968d546bab059bcc6a37b5ca88f860d5d61172cadcf78af45ee7f",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "heif",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/akinael-hero-desktop-v2-1200w.webp",
+      "format": "webp",
+      "width": 1200,
+      "height": 675,
+      "bytes": 37382,
+      "sha256": "caf68f506b6cfef13cdb029de38e881fce01684c13e5cb5fae4b63a820427ef1",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/akinael-hero-desktop-v2-1920w.avif",
+      "format": "avif",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 44684,
+      "sha256": "03782aa6f4a59cc9b29e11bc69fb0270bbd4dd4fd8c9672883507dc27984c802",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "heif",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/akinael-hero-desktop-v2-1920w.webp",
+      "format": "webp",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 63772,
+      "sha256": "90b07d0530b26c9d974d6932e5068cf6e09717a42a84ad21346063d7f3474019",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/akinael-hero-desktop-v2.avif",
+      "format": "avif",
+      "width": 2400,
+      "height": 1350,
+      "bytes": 58794,
+      "sha256": "6fd00503b3e7915133cff109c578de68bf4eeb7a17fb25f9584a5e3e86c01f63",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "heif",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/akinael-hero-desktop-v2.webp",
+      "format": "webp",
+      "width": 2400,
+      "height": 1350,
+      "bytes": 80670,
+      "sha256": "678126e94d7f95ab363905b7ecf1ecaa6616a84fcab88336b75725942afafc98",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/akinael-hero-mobile-v2-540w.avif",
+      "format": "avif",
+      "width": 540,
+      "height": 720,
+      "bytes": 18907,
+      "sha256": "3493e99ea14d36be505dfd84f98c35f4e9d58c643eeb838ce68691b918b55558",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "heif",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/akinael-hero-mobile-v2-540w.webp",
+      "format": "webp",
+      "width": 540,
+      "height": 720,
+      "bytes": 28924,
+      "sha256": "112aae281334392f3a3ddcbc834c38ffb69be91f5546c1ea9fdba3a08ad8f3de",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/akinael-hero-mobile-v2.avif",
+      "format": "avif",
+      "width": 1080,
+      "height": 1440,
+      "bytes": 46033,
+      "sha256": "c07b37b9885d0583547184cc383173e648c871b957bb3386ad4010cee10fa15f",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "heif",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/akinael-hero-mobile-v2.webp",
+      "format": "webp",
+      "width": 1080,
+      "height": 1440,
+      "bytes": 67122,
+      "sha256": "06cddb4bb0d91ca7316a2d60d1dd9f4c0fa53bf2fd9dddfef4623404f79b42fe",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-beauty-v2-800w.avif",
+      "format": "avif",
+      "width": 800,
+      "height": 600,
+      "bytes": 23315,
+      "sha256": "2cc292b8bd940172fec0bc366dfbaffc4b907fc142d479bd7930917c737451be",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "heif",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-beauty-v2-800w.webp",
+      "format": "webp",
+      "width": 800,
+      "height": 600,
+      "bytes": 34834,
+      "sha256": "3483b57d44e634e7cac8316956e7a0749560091ca9f956f1ab26532fc889045b",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-beauty-v2-mobile-540w.avif",
+      "format": "avif",
+      "width": 540,
+      "height": 675,
+      "bytes": 20255,
+      "sha256": "ca5ff6f1b1593307412b6c3a35295e6d39f2585ef777eaa214b90c145d1edbb2",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "heif",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-beauty-v2-mobile-540w.webp",
+      "format": "webp",
+      "width": 540,
+      "height": 675,
+      "bytes": 29416,
+      "sha256": "c52be62f288e8e19b57b743145988b22b88a311230ca9de3cddbbf92669edff2",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-beauty-v2-mobile.avif",
+      "format": "avif",
+      "width": 1080,
+      "height": 1350,
+      "bytes": 46006,
+      "sha256": "d798dfcaea99c42c40a601ffcbc5afa82967b49439d224001b8bcd4cf89098a0",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "heif",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-beauty-v2-mobile.webp",
+      "format": "webp",
+      "width": 1080,
+      "height": 1350,
+      "bytes": 63462,
+      "sha256": "1b0580d8acb40b0a0cd74ab040794f29d3559cc9f99f321ea98fed0f0a4a1574",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-beauty-v2.avif",
+      "format": "avif",
+      "width": 1600,
+      "height": 1200,
+      "bytes": 53486,
+      "sha256": "5b475f3ec328c844a4a3ce188761e656dc56b38d7ae0b5c27e7ca29d861e94c8",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "heif",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-beauty-v2.webp",
+      "format": "webp",
+      "width": 1600,
+      "height": 1200,
+      "bytes": 78956,
+      "sha256": "ebb68d758e71bffb5f052e026698e3b2e9f9cfc488ace71e24e1bc8346fba603",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-local-service-v2-800w.avif",
+      "format": "avif",
+      "width": 800,
+      "height": 600,
+      "bytes": 28622,
+      "sha256": "8b2d51dbdba640285a306dcb1afd3fab2f284cc693a2949bd2ba528e508d6195",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "heif",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-local-service-v2-800w.webp",
+      "format": "webp",
+      "width": 800,
+      "height": 600,
+      "bytes": 43808,
+      "sha256": "fe946be4e50b881d2dbfce8ed35b0f74c1fdeef9dcfcf304be089674a1ed002f",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-local-service-v2-mobile-540w.avif",
+      "format": "avif",
+      "width": 540,
+      "height": 675,
+      "bytes": 25874,
+      "sha256": "5cda5bf9f2b61da3f20d6b146bdeffbf2e18c89d1fa9e4536cb54894c412d19d",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "heif",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-local-service-v2-mobile-540w.webp",
+      "format": "webp",
+      "width": 540,
+      "height": 675,
+      "bytes": 36566,
+      "sha256": "9d40b3b77ace37493fba604ee924f31b8b668cdb66339d391c1e3e6acd97c0ff",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-local-service-v2-mobile.avif",
+      "format": "avif",
+      "width": 1080,
+      "height": 1350,
+      "bytes": 57516,
+      "sha256": "935b502efbe30679595fdec6f7cab9f0191446b23b38505ed1c6c833dea3dd00",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "heif",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-local-service-v2-mobile.webp",
+      "format": "webp",
+      "width": 1080,
+      "height": 1350,
+      "bytes": 79606,
+      "sha256": "cd0fc200aa1f5da71840d65858003ffd601b363bd1d400762cfe1821d15699e1",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-local-service-v2.avif",
+      "format": "avif",
+      "width": 1600,
+      "height": 1200,
+      "bytes": 66406,
+      "sha256": "0367bc2393843c3b550dbb2061947a79ba6b535b8fb425bd47c098e99e40f14e",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "heif",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-local-service-v2.webp",
+      "format": "webp",
+      "width": 1600,
+      "height": 1200,
+      "bytes": 99676,
+      "sha256": "3ea01191c7704f258012458f1f04c61881e3003f9633b2f47da821dfa5edcbb5",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-restaurant-v2-800w.avif",
+      "format": "avif",
+      "width": 800,
+      "height": 600,
+      "bytes": 23526,
+      "sha256": "c92cc05efeff7b8194891644a6c305e55c5e8bb926ed4f267a19dc43388cee0a",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "heif",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-restaurant-v2-800w.webp",
+      "format": "webp",
+      "width": 800,
+      "height": 600,
+      "bytes": 34576,
+      "sha256": "a5f233105c5ad2c08edf25d87b76f304568641d342284193690b8a6764950ab8",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-restaurant-v2-mobile-540w.avif",
+      "format": "avif",
+      "width": 540,
+      "height": 675,
+      "bytes": 20581,
+      "sha256": "23c572a2f7c764b6362a482b785f1f3040e1b01695d51bf5c43fe1e3e4c235c6",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "heif",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-restaurant-v2-mobile-540w.webp",
+      "format": "webp",
+      "width": 540,
+      "height": 675,
+      "bytes": 28738,
+      "sha256": "974dae53f4f7584a835b12850d09512a194a7ac0cdbf29cca09f0aefa0802647",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-restaurant-v2-mobile.avif",
+      "format": "avif",
+      "width": 1080,
+      "height": 1350,
+      "bytes": 45476,
+      "sha256": "e8931c197398dce8cb81c7da46e9e8ce747edf8f2be6289893dfb2af75676ff8",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "heif",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-restaurant-v2-mobile.webp",
+      "format": "webp",
+      "width": 1080,
+      "height": 1350,
+      "bytes": 61600,
+      "sha256": "9fc02d92986a0bfc86b2d7cae7bc705aa69784890f108c03b847c898ff38ca76",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-restaurant-v2.avif",
+      "format": "avif",
+      "width": 1600,
+      "height": 1200,
+      "bytes": 52302,
+      "sha256": "e5dac254f2041d6987d67f48a3b2c9cbd14d18dd794c6f47e7513162acdb556a",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "heif",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-restaurant-v2.webp",
+      "format": "webp",
+      "width": 1600,
+      "height": 1200,
+      "bytes": 76742,
+      "sha256": "2ccafa72378935a5af3f79b8a97cafa2f715f72661ae8152ec03b455b5f9f243",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-school-v2-800w.avif",
+      "format": "avif",
+      "width": 800,
+      "height": 600,
+      "bytes": 19112,
+      "sha256": "bef5baad7eaaa18c21f089c401cd2d68c579e1c0b447bb6d169fac7c81f7e467",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "heif",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-school-v2-800w.webp",
+      "format": "webp",
+      "width": 800,
+      "height": 600,
+      "bytes": 25878,
+      "sha256": "9b87c8775954a92f8cbd3c5d188b014082aeef2472e3d7fb2ae97a13d9d40df0",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-school-v2-mobile-540w.avif",
+      "format": "avif",
+      "width": 540,
+      "height": 675,
+      "bytes": 13741,
+      "sha256": "905debd8debe66d6de8a6b491baf3551d333f536bd9957e46937fe1f05139297",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "heif",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-school-v2-mobile-540w.webp",
+      "format": "webp",
+      "width": 540,
+      "height": 675,
+      "bytes": 18748,
+      "sha256": "7249d2ffea6348957cc06caa6994330428146d7d0214ea673c8aff141504afa2",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-school-v2-mobile.avif",
+      "format": "avif",
+      "width": 1080,
+      "height": 1350,
+      "bytes": 28915,
+      "sha256": "08e43446de37224df1ec7be1f48e8f89d2edb944e392292bafda459a2ce50d6c",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "heif",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-school-v2-mobile.webp",
+      "format": "webp",
+      "width": 1080,
+      "height": 1350,
+      "bytes": 38588,
+      "sha256": "efca07917bb2ef3f3c6b57a6c79350f74f5e8e927fd75850fea04a22eeee1fd1",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-school-v2.avif",
+      "format": "avif",
+      "width": 1600,
+      "height": 1200,
+      "bytes": 41735,
+      "sha256": "8af32ca0f1ace0998c748cd5e98fecab07e62717a6942bc6dc19cc8403e8ed2a",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "heif",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    },
+    {
+      "path": "public/assets/v2/photos/industry-school-v2.webp",
+      "format": "webp",
+      "width": 1600,
+      "height": 1200,
+      "bytes": 58204,
+      "sha256": "9f8624bfcfc40f2bd876e61fba1cdccfd64f406423db433d05481c0167c40184",
+      "metadataFlags": {
+        "hasAlpha": false,
+        "hasIccProfile": false,
+        "hasExif": false,
+        "hasIptc": false,
+        "hasXmp": false
+      },
+      "detectedContainer": "webp",
+      "colorSpace": "srgb",
+      "channels": 3,
+      "bitDepth": "uchar"
+    }
+  ],
+  "totals": {
+    "productionFileCount": 48,
+    "totalBytes": 1980451,
+    "byFormat": {
+      "webp": {
+        "fileCount": 25,
+        "bytes": 1168830
+      },
+      "avif": {
+        "fileCount": 23,
+        "bytes": 811621
+      }
+    },
+    "targetGroupCount": 8,
+    "filesAssignedToOneTargetGroup": 48,
+    "filesWithinAssignedTargetCap": 48,
+    "filesOverAssignedTargetCap": 0
+  },
+  "targetCaps": {
+    "byteConvention": "decimal bytes; 1KB target is treated as 1000 bytes",
+    "evaluationBasis": "each production file is checked against its logical group cap; group totalBytes is informational",
+    "groups": [
+      {
+        "id": "hero-desktop",
+        "targetCapBytes": 300000,
+        "targetCapBasis": "per-file maximum using decimal bytes",
+        "targetSource": "hero desktop target: 300KB or less",
+        "fileCount": 6,
+        "totalBytes": 311007,
+        "largestFile": {
+          "path": "public/assets/v2/photos/akinael-hero-desktop-v2.webp",
+          "bytes": 80670
+        },
+        "overCapFileCount": 0,
+        "overCapFiles": [],
+        "result": "pass"
+      },
+      {
+        "id": "hero-mobile",
+        "targetCapBytes": 220000,
+        "targetCapBasis": "per-file maximum using decimal bytes",
+        "targetSource": "hero mobile target: 220KB or less",
+        "fileCount": 4,
+        "totalBytes": 160986,
+        "largestFile": {
+          "path": "public/assets/v2/photos/akinael-hero-mobile-v2.webp",
+          "bytes": 67122
+        },
+        "overCapFileCount": 0,
+        "overCapFiles": [],
+        "result": "pass"
+      },
+      {
+        "id": "industry-beauty",
+        "targetCapBytes": 180000,
+        "targetCapBasis": "per-file maximum using decimal bytes",
+        "targetSource": "industry photo target: 180KB or less",
+        "fileCount": 8,
+        "totalBytes": 349730,
+        "largestFile": {
+          "path": "public/assets/v2/photos/industry-beauty-v2.webp",
+          "bytes": 78956
+        },
+        "overCapFileCount": 0,
+        "overCapFiles": [],
+        "result": "pass"
+      },
+      {
+        "id": "industry-restaurant",
+        "targetCapBytes": 180000,
+        "targetCapBasis": "per-file maximum using decimal bytes",
+        "targetSource": "industry photo target: 180KB or less",
+        "fileCount": 8,
+        "totalBytes": 343541,
+        "largestFile": {
+          "path": "public/assets/v2/photos/industry-restaurant-v2.webp",
+          "bytes": 76742
+        },
+        "overCapFileCount": 0,
+        "overCapFiles": [],
+        "result": "pass"
+      },
+      {
+        "id": "industry-school",
+        "targetCapBytes": 180000,
+        "targetCapBasis": "per-file maximum using decimal bytes",
+        "targetSource": "industry photo target: 180KB or less",
+        "fileCount": 8,
+        "totalBytes": 244921,
+        "largestFile": {
+          "path": "public/assets/v2/photos/industry-school-v2.webp",
+          "bytes": 58204
+        },
+        "overCapFileCount": 0,
+        "overCapFiles": [],
+        "result": "pass"
+      },
+      {
+        "id": "industry-local-service",
+        "targetCapBytes": 180000,
+        "targetCapBasis": "per-file maximum using decimal bytes",
+        "targetSource": "industry photo target: 180KB or less",
+        "fileCount": 8,
+        "totalBytes": 438074,
+        "largestFile": {
+          "path": "public/assets/v2/photos/industry-local-service-v2.webp",
+          "bytes": 99676
+        },
+        "overCapFileCount": 0,
+        "overCapFiles": [],
+        "result": "pass"
+      },
+      {
+        "id": "process-illustration",
+        "targetCapBytes": 150000,
+        "targetCapBasis": "per-file maximum using decimal bytes",
+        "targetSource": "AI process illustration target: about 150KB",
+        "fileCount": 4,
+        "totalBytes": 119302,
+        "largestFile": {
+          "path": "public/assets/v2/illustrations/ai-create-review-process-v2.webp",
+          "bytes": 50392
+        },
+        "overCapFileCount": 0,
+        "overCapFiles": [],
+        "result": "pass"
+      },
+      {
+        "id": "assistant-avatar",
+        "targetCapBytes": 30000,
+        "targetCapBasis": "per-file maximum using decimal bytes",
+        "targetSource": "avatar target: 30KB or less",
+        "fileCount": 2,
+        "totalBytes": 12890,
+        "largestFile": {
+          "path": "public/assets/v2/avatars/ai-assistant-avatar-192-v2.webp",
+          "bytes": 8772
+        },
+        "overCapFileCount": 0,
+        "overCapFiles": [],
+        "result": "pass"
+      }
+    ],
+    "assignmentValidation": {
+      "unassignedFiles": [],
+      "multiplyAssignedFiles": [],
+      "result": "pass"
+    }
+  },
+  "manifestValidation": {
+    "manifestAssetCount": 15,
+    "referenceChecks": 72,
+    "uniqueReferencedPathCount": 50,
+    "productionFilesReferenced": 48,
+    "unreferencedProductionFiles": [],
+    "mismatchCount": 0,
+    "mismatches": [],
+    "result": "pass"
+  }
+}

@@ -39,7 +39,11 @@ const MIME_TYPES = {
   '.js': 'text/javascript; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
   '.webp': 'image/webp',
+  '.avif': 'image/avif',
+  '.json': 'application/json; charset=utf-8',
   '.ico': 'image/x-icon',
   '.txt': 'text/plain; charset=utf-8',
   '.xml': 'application/xml; charset=utf-8'
@@ -65,6 +69,8 @@ const serveStatic = async (response, pathname) => {
     if (pathname === '/mypage' || pathname === '/admin' || pathname.startsWith('/payment/')) {
       headers['x-robots-tag'] = 'noindex, nofollow';
       headers['cache-control'] = 'no-store';
+    } else if (pathname.startsWith('/assets/')) {
+      headers['cache-control'] = 'public, max-age=86400';
     }
     response.writeHead(200, headers);
     response.end(body);

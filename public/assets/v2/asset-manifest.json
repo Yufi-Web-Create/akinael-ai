@@ -1,0 +1,426 @@
+{
+  "schemaVersion": 1,
+  "assetSet": "akinael-image-refresh-v2",
+  "generatedAt": "2026-08-25",
+  "basePath": "/assets/v2",
+  "assets": [
+    {
+      "id": "akinael-hero-desktop-v2",
+      "file": "/assets/v2/photos/akinael-hero-desktop-v2.avif",
+      "fallbackFile": "/assets/v2/photos/akinael-hero-desktop-v2.webp",
+      "width": 2400,
+      "height": 1350,
+      "aspectRatio": "16:9",
+      "intendedSection": "homepage hero",
+      "desktopOrMobile": "desktop",
+      "recommendedBreakpoint": "(min-width: 721px)",
+      "focalPointX": 0.70,
+      "focalPointY": 0.45,
+      "recommendedObjectPosition": "70% 45%",
+      "altText": "小さな店舗の作業台で、色見本とノートを手に相談しながら仕事を整理する店主",
+      "decorative": false,
+      "sourceType": "ai-generated-photorealistic-natural",
+      "generationNotes": "Mature Japanese owner; calm left-side copy space; no generated text, logo, price, or UI. Exact prompt is recorded in docs/asset-review/akinael-v2/generation-prompts.md.",
+      "knownLimitations": "The generated source was 1672×941 and was high-quality Lanczos-upscaled to the requested 2400×1350 export. Use the supplied 1200w/1920w variants when a smaller source is sufficient.",
+      "srcset": {
+        "avif": [
+          { "file": "/assets/v2/photos/akinael-hero-desktop-v2-1200w.avif", "width": 1200 },
+          { "file": "/assets/v2/photos/akinael-hero-desktop-v2-1920w.avif", "width": 1920 },
+          { "file": "/assets/v2/photos/akinael-hero-desktop-v2.avif", "width": 2400 }
+        ],
+        "webp": [
+          { "file": "/assets/v2/photos/akinael-hero-desktop-v2-1200w.webp", "width": 1200 },
+          { "file": "/assets/v2/photos/akinael-hero-desktop-v2-1920w.webp", "width": 1920 },
+          { "file": "/assets/v2/photos/akinael-hero-desktop-v2.webp", "width": 2400 }
+        ]
+      }
+    },
+    {
+      "id": "akinael-hero-mobile-v2",
+      "file": "/assets/v2/photos/akinael-hero-mobile-v2.avif",
+      "fallbackFile": "/assets/v2/photos/akinael-hero-mobile-v2.webp",
+      "width": 1080,
+      "height": 1440,
+      "aspectRatio": "3:4",
+      "intendedSection": "homepage hero",
+      "desktopOrMobile": "mobile",
+      "recommendedBreakpoint": "(max-width: 720px)",
+      "focalPointX": 0.55,
+      "focalPointY": 0.44,
+      "recommendedObjectPosition": "55% 44%",
+      "altText": "小さな店舗で、店主が相談相手と色見本やノートを確認する様子",
+      "decorative": false,
+      "sourceType": "ai-generated-identity-preserving-mobile-composition",
+      "generationNotes": "New 3:4 camera composition generated from the desktop hero as identity and color reference; it is not a crop of the desktop file.",
+      "knownLimitations": "At very tall 390×844 and 430×932 hero boxes, cover cropping narrows the visible scene. The face remains safe, but the current large bottom-overlaid mobile copy would compete with the hand/card area unless Claude repositions or constrains the overlay.",
+      "srcset": {
+        "avif": [
+          { "file": "/assets/v2/photos/akinael-hero-mobile-v2-540w.avif", "width": 540 },
+          { "file": "/assets/v2/photos/akinael-hero-mobile-v2.avif", "width": 1080 }
+        ],
+        "webp": [
+          { "file": "/assets/v2/photos/akinael-hero-mobile-v2-540w.webp", "width": 540 },
+          { "file": "/assets/v2/photos/akinael-hero-mobile-v2.webp", "width": 1080 }
+        ]
+      }
+    },
+    {
+      "id": "industry-beauty-desktop-v2",
+      "file": "/assets/v2/photos/industry-beauty-v2.avif",
+      "fallbackFile": "/assets/v2/photos/industry-beauty-v2.webp",
+      "width": 1600,
+      "height": 1200,
+      "aspectRatio": "4:3",
+      "intendedSection": "industry card: beauty and salon",
+      "desktopOrMobile": "desktop",
+      "recommendedBreakpoint": "(min-width: 721px)",
+      "focalPointX": 0.45,
+      "focalPointY": 0.43,
+      "recommendedObjectPosition": "45% 43%",
+      "altText": "美容室の鏡の前で、客と会話しながら施術用ケープを準備する店主",
+      "decorative": false,
+      "sourceType": "ai-generated-photorealistic-natural",
+      "generationNotes": "Client, owner, mirror, chair, cape, brushes, and tool cart are visible; no medical treatment or generated signage.",
+      "knownLimitations": "The generated source was 1448×1086 and was mildly upscaled to 1600×1200. The outermost mirror and cart edges are intentionally secondary in narrow crops.",
+      "srcset": {
+        "avif": [
+          { "file": "/assets/v2/photos/industry-beauty-v2-800w.avif", "width": 800 },
+          { "file": "/assets/v2/photos/industry-beauty-v2.avif", "width": 1600 }
+        ],
+        "webp": [
+          { "file": "/assets/v2/photos/industry-beauty-v2-800w.webp", "width": 800 },
+          { "file": "/assets/v2/photos/industry-beauty-v2.webp", "width": 1600 }
+        ]
+      }
+    },
+    {
+      "id": "industry-beauty-mobile-v2",
+      "file": "/assets/v2/photos/industry-beauty-v2-mobile.avif",
+      "fallbackFile": "/assets/v2/photos/industry-beauty-v2-mobile.webp",
+      "width": 1080,
+      "height": 1350,
+      "aspectRatio": "4:5",
+      "intendedSection": "industry card: beauty and salon",
+      "desktopOrMobile": "mobile",
+      "recommendedBreakpoint": "(max-width: 720px)",
+      "focalPointX": 0.45,
+      "focalPointY": 0.43,
+      "recommendedObjectPosition": "45% 43%",
+      "altText": "美容室で、店主が客と会話しながら施術用ケープを準備する様子",
+      "decorative": false,
+      "sourceType": "deterministic-crop-from-ai-master",
+      "generationNotes": "4:5 mobile derivative preserves the owner, client, working hands, chair, mirror, and core tools.",
+      "knownLimitations": "The far-left edge of the tool cart and far-right mirror reflection are cropped by design.",
+      "srcset": {
+        "avif": [
+          { "file": "/assets/v2/photos/industry-beauty-v2-mobile-540w.avif", "width": 540 },
+          { "file": "/assets/v2/photos/industry-beauty-v2-mobile.avif", "width": 1080 }
+        ],
+        "webp": [
+          { "file": "/assets/v2/photos/industry-beauty-v2-mobile-540w.webp", "width": 540 },
+          { "file": "/assets/v2/photos/industry-beauty-v2-mobile.webp", "width": 1080 }
+        ]
+      }
+    },
+    {
+      "id": "industry-restaurant-desktop-v2",
+      "file": "/assets/v2/photos/industry-restaurant-v2.avif",
+      "fallbackFile": "/assets/v2/photos/industry-restaurant-v2.webp",
+      "width": 1600,
+      "height": 1200,
+      "aspectRatio": "4:3",
+      "intendedSection": "industry card: restaurant and cafe",
+      "desktopOrMobile": "desktop",
+      "recommendedBreakpoint": "(min-width: 721px)",
+      "focalPointX": 0.50,
+      "focalPointY": 0.42,
+      "recommendedObjectPosition": "50% 42%",
+      "altText": "小さな飲食店のカウンターで、店主が客へ料理を差し出す様子",
+      "decorative": false,
+      "sourceType": "ai-generated-photorealistic-natural",
+      "generationNotes": "Active service moment with owner, customer, dish, counter, kitchen, and utensils; no menu or brand marks.",
+      "knownLimitations": "The generated source was 1448×1086 and was mildly upscaled to 1600×1200.",
+      "srcset": {
+        "avif": [
+          { "file": "/assets/v2/photos/industry-restaurant-v2-800w.avif", "width": 800 },
+          { "file": "/assets/v2/photos/industry-restaurant-v2.avif", "width": 1600 }
+        ],
+        "webp": [
+          { "file": "/assets/v2/photos/industry-restaurant-v2-800w.webp", "width": 800 },
+          { "file": "/assets/v2/photos/industry-restaurant-v2.webp", "width": 1600 }
+        ]
+      }
+    },
+    {
+      "id": "industry-restaurant-mobile-v2",
+      "file": "/assets/v2/photos/industry-restaurant-v2-mobile.avif",
+      "fallbackFile": "/assets/v2/photos/industry-restaurant-v2-mobile.webp",
+      "width": 1080,
+      "height": 1350,
+      "aspectRatio": "4:5",
+      "intendedSection": "industry card: restaurant and cafe",
+      "desktopOrMobile": "mobile",
+      "recommendedBreakpoint": "(max-width: 720px)",
+      "focalPointX": 0.50,
+      "focalPointY": 0.42,
+      "recommendedObjectPosition": "50% 42%",
+      "altText": "小さな飲食店で、店主がカウンター越しに客へ料理を出す様子",
+      "decorative": false,
+      "sourceType": "deterministic-crop-from-ai-master",
+      "generationNotes": "4:5 mobile derivative keeps the owner's face, both hands, the dish, and customer interaction.",
+      "knownLimitations": "Some peripheral kitchen shelves are intentionally omitted in the tighter mobile frame.",
+      "srcset": {
+        "avif": [
+          { "file": "/assets/v2/photos/industry-restaurant-v2-mobile-540w.avif", "width": 540 },
+          { "file": "/assets/v2/photos/industry-restaurant-v2-mobile.avif", "width": 1080 }
+        ],
+        "webp": [
+          { "file": "/assets/v2/photos/industry-restaurant-v2-mobile-540w.webp", "width": 540 },
+          { "file": "/assets/v2/photos/industry-restaurant-v2-mobile.webp", "width": 1080 }
+        ]
+      }
+    },
+    {
+      "id": "industry-school-desktop-v2",
+      "file": "/assets/v2/photos/industry-school-v2.avif",
+      "fallbackFile": "/assets/v2/photos/industry-school-v2.webp",
+      "width": 1600,
+      "height": 1200,
+      "aspectRatio": "4:3",
+      "intendedSection": "industry card: classroom and school",
+      "desktopOrMobile": "desktop",
+      "recommendedBreakpoint": "(min-width: 721px)",
+      "focalPointX": 0.50,
+      "focalPointY": 0.43,
+      "recommendedObjectPosition": "50% 43%",
+      "altText": "小さな教室で、講師が2人の受講者に教材を使って説明する様子",
+      "decorative": false,
+      "sourceType": "ai-generated-photorealistic-natural",
+      "generationNotes": "Adult-learning relationship is explicit; the whiteboard uses only nonverbal geometric shapes and contains no pseudo-text.",
+      "knownLimitations": "The generated source was 1448×1086 and was mildly upscaled to 1600×1200. Abstract board shapes are decorative, not teaching content.",
+      "srcset": {
+        "avif": [
+          { "file": "/assets/v2/photos/industry-school-v2-800w.avif", "width": 800 },
+          { "file": "/assets/v2/photos/industry-school-v2.avif", "width": 1600 }
+        ],
+        "webp": [
+          { "file": "/assets/v2/photos/industry-school-v2-800w.webp", "width": 800 },
+          { "file": "/assets/v2/photos/industry-school-v2.webp", "width": 1600 }
+        ]
+      }
+    },
+    {
+      "id": "industry-school-mobile-v2",
+      "file": "/assets/v2/photos/industry-school-v2-mobile.avif",
+      "fallbackFile": "/assets/v2/photos/industry-school-v2-mobile.webp",
+      "width": 1080,
+      "height": 1350,
+      "aspectRatio": "4:5",
+      "intendedSection": "industry card: classroom and school",
+      "desktopOrMobile": "mobile",
+      "recommendedBreakpoint": "(max-width: 720px)",
+      "focalPointX": 0.50,
+      "focalPointY": 0.43,
+      "recommendedObjectPosition": "50% 43%",
+      "altText": "教室で、講師が2人の受講者に教材を示して説明する様子",
+      "decorative": false,
+      "sourceType": "deterministic-crop-from-ai-master",
+      "generationNotes": "4:5 mobile derivative centers the instructor while retaining both learners and learning materials.",
+      "knownLimitations": "The learners become partial figures in the narrowest cover previews, but the teacher–learner relationship remains visible.",
+      "srcset": {
+        "avif": [
+          { "file": "/assets/v2/photos/industry-school-v2-mobile-540w.avif", "width": 540 },
+          { "file": "/assets/v2/photos/industry-school-v2-mobile.avif", "width": 1080 }
+        ],
+        "webp": [
+          { "file": "/assets/v2/photos/industry-school-v2-mobile-540w.webp", "width": 540 },
+          { "file": "/assets/v2/photos/industry-school-v2-mobile.webp", "width": 1080 }
+        ]
+      }
+    },
+    {
+      "id": "industry-local-service-desktop-v2",
+      "file": "/assets/v2/photos/industry-local-service-v2.avif",
+      "fallbackFile": "/assets/v2/photos/industry-local-service-v2.webp",
+      "width": 1600,
+      "height": 1200,
+      "aspectRatio": "4:3",
+      "intendedSection": "industry card: local service (residential maintenance)",
+      "desktopOrMobile": "desktop",
+      "recommendedBreakpoint": "(min-width: 721px)",
+      "focalPointX": 0.54,
+      "focalPointY": 0.44,
+      "recommendedObjectPosition": "54% 44%",
+      "altText": "顧客宅で、住宅メンテナンス事業者が収納扉の金具を点検する様子",
+      "decorative": false,
+      "sourceType": "ai-generated-photorealistic-natural",
+      "generationNotes": "Specific non-medical local-service example: an independent home-maintenance professional visiting a customer.",
+      "knownLimitations": "This image represents residential maintenance specifically and should not be described as generic care, medical, or massage service. The generated source was mildly upscaled from 1448×1086.",
+      "srcset": {
+        "avif": [
+          { "file": "/assets/v2/photos/industry-local-service-v2-800w.avif", "width": 800 },
+          { "file": "/assets/v2/photos/industry-local-service-v2.avif", "width": 1600 }
+        ],
+        "webp": [
+          { "file": "/assets/v2/photos/industry-local-service-v2-800w.webp", "width": 800 },
+          { "file": "/assets/v2/photos/industry-local-service-v2.webp", "width": 1600 }
+        ]
+      }
+    },
+    {
+      "id": "industry-local-service-mobile-v2",
+      "file": "/assets/v2/photos/industry-local-service-v2-mobile.avif",
+      "fallbackFile": "/assets/v2/photos/industry-local-service-v2-mobile.webp",
+      "width": 1080,
+      "height": 1350,
+      "aspectRatio": "4:5",
+      "intendedSection": "industry card: local service (residential maintenance)",
+      "desktopOrMobile": "mobile",
+      "recommendedBreakpoint": "(max-width: 720px)",
+      "focalPointX": 0.54,
+      "focalPointY": 0.44,
+      "recommendedObjectPosition": "54% 44%",
+      "altText": "顧客宅で、住宅メンテナンス事業者が収納扉の金具を点検する様子",
+      "decorative": false,
+      "sourceType": "deterministic-crop-from-ai-master",
+      "generationNotes": "4:5 mobile derivative keeps both people, the working hands, screwdriver, hinge, and tool pouch context.",
+      "knownLimitations": "The lower tool pouch can sit beneath a large text overlay; the hinge and working hands remain above it. Describe the service as residential maintenance.",
+      "srcset": {
+        "avif": [
+          { "file": "/assets/v2/photos/industry-local-service-v2-mobile-540w.avif", "width": 540 },
+          { "file": "/assets/v2/photos/industry-local-service-v2-mobile.avif", "width": 1080 }
+        ],
+        "webp": [
+          { "file": "/assets/v2/photos/industry-local-service-v2-mobile-540w.webp", "width": 540 },
+          { "file": "/assets/v2/photos/industry-local-service-v2-mobile.webp", "width": 1080 }
+        ]
+      }
+    },
+    {
+      "id": "ai-create-review-process-v2",
+      "file": "/assets/v2/illustrations/ai-create-review-process-v2.avif",
+      "fallbackFile": "/assets/v2/illustrations/ai-create-review-process-v2.webp",
+      "width": 1600,
+      "height": 1000,
+      "aspectRatio": "8:5",
+      "intendedSection": "process explanation: separate creation and review",
+      "desktopOrMobile": "both",
+      "recommendedBreakpoint": "all viewports",
+      "focalPointX": 0.50,
+      "focalPointY": 0.50,
+      "recommendedObjectPosition": "50% 50%",
+      "altText": "制作工程と確認工程を分け、抜けを見つける流れを表したイラスト",
+      "decorative": false,
+      "sourceType": "ai-generated-flat-editorial-illustration",
+      "generationNotes": "Flat matte editorial artwork on ivory; coral creation station and teal review station; no text, robot, brain, circuit, or glow.",
+      "knownLimitations": "The illustration explains separation and sequence through shape only; HTML copy must name the two stages explicitly.",
+      "srcset": {
+        "avif": [
+          { "file": "/assets/v2/illustrations/ai-create-review-process-v2-800w.avif", "width": 800 },
+          { "file": "/assets/v2/illustrations/ai-create-review-process-v2.avif", "width": 1600 }
+        ],
+        "webp": [
+          { "file": "/assets/v2/illustrations/ai-create-review-process-v2-800w.webp", "width": 800 },
+          { "file": "/assets/v2/illustrations/ai-create-review-process-v2.webp", "width": 1600 }
+        ]
+      }
+    },
+    {
+      "id": "ai-assistant-avatar-96-v2",
+      "file": "/assets/v2/avatars/ai-assistant-avatar-96-v2.webp",
+      "fallbackFile": null,
+      "width": 96,
+      "height": 96,
+      "aspectRatio": "1:1",
+      "intendedSection": "assistant avatar at 32–48 CSS px",
+      "desktopOrMobile": "both",
+      "recommendedBreakpoint": "1x and low-density displays",
+      "focalPointX": 0.50,
+      "focalPointY": 0.50,
+      "recommendedObjectPosition": "50% 50%",
+      "altText": "",
+      "decorative": true,
+      "sourceType": "deterministic-resize-from-existing-brand-character",
+      "generationNotes": "Downscaled from the existing 1254×1254 transparent brand character; alpha preserved.",
+      "knownLimitations": "Use an adjacent accessible name such as アキナエルAI; do not present this fictional character as a customer testimonial."
+    },
+    {
+      "id": "ai-assistant-avatar-192-v2",
+      "file": "/assets/v2/avatars/ai-assistant-avatar-192-v2.webp",
+      "fallbackFile": null,
+      "width": 192,
+      "height": 192,
+      "aspectRatio": "1:1",
+      "intendedSection": "assistant avatar retina source",
+      "desktopOrMobile": "both",
+      "recommendedBreakpoint": "2x and high-density displays",
+      "focalPointX": 0.50,
+      "focalPointY": 0.50,
+      "recommendedObjectPosition": "50% 50%",
+      "altText": "",
+      "decorative": true,
+      "sourceType": "deterministic-resize-from-existing-brand-character",
+      "generationNotes": "Retina-size derivative from the existing 1254×1254 transparent brand character; alpha preserved.",
+      "knownLimitations": "Use an adjacent accessible name such as アキナエルAI; do not present this fictional character as a customer testimonial."
+    },
+    {
+      "id": "official-logo-horizontal",
+      "file": "/assets/logos/logo-horizontal.svg",
+      "fallbackFile": null,
+      "width": 520,
+      "height": 128,
+      "aspectRatio": "65:16",
+      "intendedSection": "header, footer, and structured brand reference",
+      "desktopOrMobile": "both",
+      "recommendedBreakpoint": "prefer desktop; verify tagline legibility before mobile use",
+      "focalPointX": 0.50,
+      "focalPointY": 0.50,
+      "recommendedObjectPosition": "50% 50%",
+      "altText": "アキナエルAI",
+      "decorative": false,
+      "sourceType": "existing-official-svg",
+      "generationNotes": "Reused without AI generation or modification.",
+      "knownLimitations": "The SVG uses live text rather than outlined glyphs, so rasterization depends on installed Japanese fonts. Do not force the tagline into a tiny mobile lockup."
+    },
+    {
+      "id": "official-logo-mark",
+      "file": "/assets/logos/logo-mark.svg",
+      "fallbackFile": null,
+      "width": 128,
+      "height": 128,
+      "aspectRatio": "1:1",
+      "intendedSection": "compact brand mark and final CTA",
+      "desktopOrMobile": "both",
+      "recommendedBreakpoint": "all viewports",
+      "focalPointX": 0.50,
+      "focalPointY": 0.50,
+      "recommendedObjectPosition": "50% 50%",
+      "altText": "",
+      "decorative": true,
+      "sourceType": "existing-official-svg",
+      "generationNotes": "Reused without AI generation or modification.",
+      "knownLimitations": "No approved symbol-plus-AKINAEL short lockup exists in the repository; do not invent one."
+    }
+  ],
+  "deferredAssets": [
+    {
+      "id": "ui-focused-crops",
+      "status": "not-produced",
+      "reason": "public/assets/photos/mypage-preview.png contains synthetic older-state content and does not match the current live DOM, so it is not a compliant source for actual-UI crops.",
+      "requiredAction": "Capture the real current UI from an isolated in-memory demo account using non-personal example.com data, then crop consultation input, AI response/progress, and result/confirmation as separate readable images."
+    },
+    {
+      "id": "mobile-short-logo-lockup",
+      "status": "not-produced",
+      "reason": "No approved official symbol-plus-AKINAEL short vector lockup exists.",
+      "requiredAction": "Use the existing official mark with accessible HTML text, or obtain an approved vector lockup before export."
+    }
+  ],
+  "implementationNotes": [
+    "Do not replace existing references until responsive picture/srcset wiring is implemented.",
+    "Add .avif => image/avif to src/server.mjs before serving AVIF files; current nosniff headers otherwise block correct use.",
+    "Use the separate mobile hero source at max-width 720px; never derive mobile hero by cropping the desktop asset.",
+    "Use 4:5 mobile industry sources at max-width 720px and preserve the recommended object positions.",
+    "The existing logo SVGs were not modified."
+  ]
+}

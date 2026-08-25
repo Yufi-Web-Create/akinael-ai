@@ -1,0 +1,65 @@
+[
+  {
+    "index": 1,
+    "id": "hero-desktop",
+    "title": "Hero — desktop 16:9",
+    "src": "../../../public/assets/v2/photos/akinael-hero-desktop-v2-1200w.webp",
+    "href": "../../../public/assets/v2/photos/akinael-hero-desktop-v2.webp"
+  },
+  {
+    "index": 2,
+    "id": "hero-mobile",
+    "title": "Hero — mobile-specific 3:4",
+    "src": "../../../public/assets/v2/photos/akinael-hero-mobile-v2-540w.webp",
+    "href": "../../../public/assets/v2/photos/akinael-hero-mobile-v2.webp"
+  },
+  {
+    "index": 3,
+    "id": "industry-beauty",
+    "title": "Industry — beauty / salon",
+    "src": "../../../public/assets/v2/photos/industry-beauty-v2-800w.webp",
+    "href": "../../../public/assets/v2/photos/industry-beauty-v2.webp"
+  },
+  {
+    "index": 4,
+    "id": "industry-restaurant",
+    "title": "Industry — restaurant",
+    "src": "../../../public/assets/v2/photos/industry-restaurant-v2-800w.webp",
+    "href": "../../../public/assets/v2/photos/industry-restaurant-v2.webp"
+  },
+  {
+    "index": 5,
+    "id": "industry-school",
+    "title": "Industry — classroom / school",
+    "src": "../../../public/assets/v2/photos/industry-school-v2-800w.webp",
+    "href": "../../../public/assets/v2/photos/industry-school-v2.webp"
+  },
+  {
+    "index": 6,
+    "id": "industry-local-service",
+    "title": "Industry — residential maintenance",
+    "src": "../../../public/assets/v2/photos/industry-local-service-v2-800w.webp",
+    "href": "../../../public/assets/v2/photos/industry-local-service-v2.webp"
+  },
+  {
+    "index": 7,
+    "id": "create-review-illustration",
+    "title": "Process — create / independently review",
+    "src": "../../../public/assets/v2/illustrations/ai-create-review-process-v2-800w.webp",
+    "href": "../../../public/assets/v2/illustrations/ai-create-review-process-v2.webp"
+  },
+  {
+    "index": 8,
+    "id": "assistant-avatar",
+    "title": "Assistant avatar — 192 px",
+    "src": "../../../public/assets/v2/avatars/ai-assistant-avatar-192-v2.webp",
+    "href": "../../../public/assets/v2/avatars/ai-assistant-avatar-192-v2.webp"
+  },
+  {
+    "index": 9,
+    "id": "responsive-crop-qa",
+    "title": "Responsive crop QA — all requested viewports",
+    "src": "qa/crop-previews-contact-sheet.webp",
+    "href": "qa/crop-previews-contact-sheet.webp"
+  }
+]

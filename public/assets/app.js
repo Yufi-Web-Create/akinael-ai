@@ -86,6 +86,9 @@ if (authDialog) {
   const authSwitchLabel = one('[data-auth-switch-label]');
   const authSwitchButton = one('[data-auth-switch]');
   const authPasswordField = one('input[name="password"]', authForm);
+  const authConsentWrap = one('[data-auth-consent-wrap]');
+  const authConsentInput = one('[data-auth-consent]');
+  const authPasswordToggle = one('[data-auth-password-toggle]');
   const authCopy = {
     register: { title: '無料相談をはじめる', subtitle: 'メールアドレスとパスワードでアカウントを作成します。', submit: 'アカウントを作成して相談をはじめる', switchLabel: 'すでにアカウントをお持ちですか？', switchAction: 'ログインはこちら', switchTo: 'login', autocomplete: 'new-password' },
     login: { title: 'マイページへログイン', subtitle: '登録済みのメールアドレスとパスワードを入力してください。', submit: 'ログインする', switchLabel: 'はじめてのご利用ですか？', switchAction: '新規登録はこちら', switchTo: 'register', autocomplete: 'current-password' }
@@ -106,9 +109,18 @@ if (authDialog) {
     authSwitchButton.textContent = copy.switchAction;
     authHint.hidden = mode !== 'register';
     authPasswordField.autocomplete = copy.autocomplete;
+    if (authConsentWrap) { authConsentWrap.hidden = mode !== 'register'; if (authConsentInput) authConsentInput.checked = false; }
+    if (authPasswordToggle) { authPasswordField.type = 'password'; authPasswordToggle.textContent = '表示'; authPasswordToggle.setAttribute('aria-label', 'パスワードを表示'); authPasswordToggle.setAttribute('aria-pressed', 'false'); }
     all('[data-auth-tab]').forEach((button) => button.classList.toggle('active', button.dataset.authTab === mode));
     authStatus.textContent = '';
   };
+  authPasswordToggle?.addEventListener('click', () => {
+    const showing = authPasswordField.type === 'text';
+    authPasswordField.type = showing ? 'password' : 'text';
+    authPasswordToggle.textContent = showing ? '表示' : '非表示';
+    authPasswordToggle.setAttribute('aria-label', showing ? 'パスワードを表示' : 'パスワードを非表示にする');
+    authPasswordToggle.setAttribute('aria-pressed', String(!showing));
+  });
   const openAuthDialog = (mode) => {
     if (localStorage.getItem(customerTokenKey)) { location.href = '/mypage'; return; }
     applyAuthMode(mode);
@@ -124,8 +136,10 @@ if (authDialog) {
   all('[data-auth-close]').forEach((button) => button.addEventListener('click', () => authDialog.close()));
   authForm.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (authSubmit.disabled) return;
+    authSubmit.disabled = true;
     authStatus.textContent = authMode === 'register' ? 'アカウントを作成しています…' : '認証しています…';
-    const values = Object.fromEntries(new FormData(authForm).entries());
+    const { consent, ...values } = Object.fromEntries(new FormData(authForm).entries());
     try {
       const response = await fetch(`/api/auth/${authMode}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(values) });
       const result = await response.json();
@@ -135,6 +149,7 @@ if (authDialog) {
       setTimeout(() => { location.href = '/mypage'; }, 400);
     } catch (caught) {
       authStatus.textContent = authErrors[caught.message] || caught.message;
+      authSubmit.disabled = false;
     }
   });
   const requestedAuthMode = new URLSearchParams(location.search).get('auth');

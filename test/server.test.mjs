@@ -70,6 +70,37 @@ test('homepage pricing and required trust answers stay aligned with formal busin
   assert.match(html, /データはどう扱われますか/);
 });
 
+test('homepage pricing section does not link visitors to the raw pricing API and CTAs resolve to real auth destinations', async () => {
+  const response = await fetch(`${baseUrl}/`);
+  const html = await response.text();
+  assert.doesNotMatch(html, /href="\/api\/public\/pricing"/);
+  assert.match(html, /data-auth-open="register"/);
+  assert.match(html, /data-auth-open="login"/);
+  const jpg = await fetch(`${baseUrl}/assets/photos/og-hero.jpg`);
+  assert.equal(jpg.status, 200);
+  assert.match(jpg.headers.get('content-type'), /image\/jpeg/);
+  assert.match(jpg.headers.get('cache-control'), /public/);
+});
+
+test('homepage hero image has explicit dimensions and eager high-priority loading to avoid layout shift', async () => {
+  const response = await fetch(`${baseUrl}/`);
+  const html = await response.text();
+  assert.match(html, /class="hero-media"[^>]*width="2400"[^>]*height="1350"/);
+  assert.match(html, /class="hero-media"[^>]*fetchpriority="high"/);
+  const avif = await fetch(`${baseUrl}/assets/v2/photos/akinael-hero-desktop-v2.avif`);
+  assert.equal(avif.status, 200);
+  assert.match(avif.headers.get('content-type'), /image\/avif/);
+});
+
+test('registration form requires explicit consent to the terms and privacy policy', async () => {
+  const response = await fetch(`${baseUrl}/`);
+  const html = await response.text();
+  assert.match(html, /<input type="checkbox" name="consent"[^>]*required[^>]*data-auth-consent>/);
+  assert.doesNotMatch(html, /data-auth-consent[^>]* checked/);
+  assert.match(html, /href="\/legal#terms"/);
+  assert.match(html, /href="\/legal#privacy"/);
+});
+
 test('public pricing uses the formal plan and approval policy', async () => {
   const response = await fetch(`${baseUrl}/api/public/pricing`);
   const config = await response.json();

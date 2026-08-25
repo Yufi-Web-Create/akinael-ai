@@ -175,9 +175,10 @@ if (document.body.classList.contains('customer-app') && workspaceMain) {
         const projectStrip = one('[data-project-strip]');
         const customerLayout = one('[data-customer-layout]');
         const progressPanel = one('[data-progress-panel]');
+        const billingPanel = one('[data-billing-panel]');
         if (!Array.isArray(projects) || !projects.length) {
           if (emptyState) emptyState.hidden = false;
-          [projectStrip, customerLayout, progressPanel].forEach((section) => { if (section) section.hidden = true; });
+          [projectStrip, customerLayout, progressPanel, billingPanel].forEach((section) => { if (section) section.hidden = true; });
           return;
         }
         const project = [...projects].sort((left, right) => new Date(right.updatedAt) - new Date(left.updatedAt))[0];
@@ -187,6 +188,17 @@ if (document.body.classList.contains('customer-app') && workspaceMain) {
         one('[data-project-next-text]').textContent = label.next;
         window.akinaelCurrentProjectId = project.id;
         window.akinaelRenderCustomerMessages?.(project.messages);
+        const billingList = one('[data-billing-list]');
+        const billingEscape = (value) => String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character]);
+        if (billingList) fetch(`/api/projects/${project.id}/payments`, { headers: authHeaders })
+          .then((response) => response.json())
+          .then((payments) => {
+            const billingLabels = { PENDING_APPROVAL: '承認待ち', checkout_created: 'お支払いへお進みください' };
+            billingList.innerHTML = Array.isArray(payments) && payments.length
+              ? payments.slice().reverse().map((payment) => `<li><i>▭</i><span><strong>${billingEscape(payment.currency)} ${Number(payment.amount).toLocaleString('ja-JP')}</strong><small>${billingEscape(billingLabels[payment.status] || payment.status)}${payment.url ? ` — <a href="${billingEscape(payment.url)}">お支払いへ進む</a>` : ''}</small></span></li>`).join('')
+              : '<li><span>現在お支払いのご案内はありません。</span></li>';
+          })
+          .catch(() => { billingList.innerHTML = '<li><span>読み込みに失敗しました。</span></li>'; });
       })
       .catch(goToLogin);
   }
@@ -227,12 +239,19 @@ if (appMenu && appSidebar) appMenu.addEventListener('click', () => appSidebar.cl
 {
   const chatEscape = (value) => value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character]);
   const chatAvatar = '/assets/illustrations/ai-assistant-avatar.png';
+  const customerMessageMarkup = (item) => item.authorRole === 'customer'
+    ? `<article class="message customer"><div><p>${chatEscape(item.content)}</p></div></article>`
+    : `<article class="message assistant"><img src="${chatAvatar}" alt="アキナエルAI"><div><p>${chatEscape(item.content)}</p></div></article>`;
   window.akinaelRenderCustomerMessages = (list) => {
     const container = one('[data-messages]');
     if (!container) return;
-    container.innerHTML = (list || []).map((item) => item.authorRole === 'customer'
-      ? `<article class="message customer"><div><p>${chatEscape(item.content)}</p></div></article>`
-      : `<article class="message assistant"><img src="${chatAvatar}" alt="アキナエルAI"><div><p>${chatEscape(item.content)}</p></div></article>`).join('');
+    container.innerHTML = (list || []).map(customerMessageMarkup).join('');
+    container.scrollTop = container.scrollHeight;
+  };
+  window.akinaelAppendCustomerMessage = (item) => {
+    const container = one('[data-messages]');
+    if (!container || !item) return;
+    container.insertAdjacentHTML('beforeend', customerMessageMarkup(item));
     container.scrollTop = container.scrollHeight;
   };
   const chatForm = one('[data-chat-form]');
@@ -269,10 +288,23 @@ const previewDialog = one('[data-preview-dialog]');
 one('[data-preview-open]')?.addEventListener('click', () => previewDialog?.showModal());
 one('[data-preview-close]')?.addEventListener('click', () => previewDialog?.close());
 previewDialog?.addEventListener('click', (event) => { if (event.target === previewDialog) previewDialog.close(); });
-one('[data-approve]')?.addEventListener('click', (event) => {
-  event.currentTarget.disabled = true;
-  event.currentTarget.textContent = '✓ 承認済み';
-  one('[data-approval-message]').hidden = false;
+one('[data-approve]')?.addEventListener('click', async (event) => {
+  const button = event.currentTarget;
+  const token = localStorage.getItem(customerTokenKey);
+  const projectId = window.akinaelCurrentProjectId;
+  if (!token || !projectId) return;
+  button.disabled = true;
+  try {
+    const response = await fetch(`/api/projects/${projectId}/messages`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ content: '試作内容を確認しました。この内容で承認します。' }) });
+    if (!response.ok) throw new Error();
+    const body = await response.json();
+    window.akinaelAppendCustomerMessage?.(body.message);
+    if (body.reply) window.akinaelAppendCustomerMessage?.(body.reply);
+    button.textContent = '✓ 承認済み';
+    one('[data-approval-message]').hidden = false;
+  } catch {
+    button.disabled = false;
+  }
 });
 
 const adminMenu = one('[data-admin-menu]');
@@ -296,7 +328,7 @@ setProjectListOpen(false);
 
 const dashboardPanel = document.createElement('section');
 dashboardPanel.className = 'task-dashboard admin-section'; dashboardPanel.dataset.dashboard = '';
-dashboardPanel.innerHTML = '<header><div><span class="eyebrow">TODAY\'S WORK</span><h3>対応が必要なタスク</h3></div><strong>4件</strong></header><ul><li><span class="task-priority high">高</span><div><strong>トップページ デザイン案の確定</strong><small>Yamada Coffee　承認待ち</small></div><button data-review>確認する</button></li><li><span class="task-priority high">高</span><div><strong>公開前の品質チェック</strong><small>花のアトリエ Hana　期限：今日</small></div><button data-review>確認する</button></li><li><span class="task-priority medium">中</span><div><strong>商品ページの実装方針を確認</strong><small>ベーカリー ル・ソレイユ　レビュー待ち</small></div><button data-review>確認する</button></li><li><span class="task-priority medium">中</span><div><strong>顧客からの修正依頼に返信</strong><small>雑貨店 kokochi　未対応メッセージ</small></div><button data-review>確認する</button></li></ul>';
+dashboardPanel.innerHTML = '<header><div><span class="eyebrow">TODAY\'S WORK</span><h3>対応が必要なタスク</h3></div><strong>0件</strong></header><ul><li><span class="form-note">案件を選択すると、対応が必要なタスクが表示されます。</span></li></ul>';
 one('.admin-center')?.prepend(dashboardPanel);
 const headerDashboard = document.createElement('button');
 headerDashboard.type = 'button'; headerDashboard.className = 'dashboard-link'; headerDashboard.title = 'ダッシュボードへ戻る';
@@ -320,6 +352,7 @@ const syncSettings = (values) => {
 };
 const adminEscape = (value) => value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character]);
 const adminStatusLabels = { intake: '相談受付中', requirements: '内容を整理中', production: '制作中', quality_check: 'AI検査中', revision: '修正対応中', ready_for_review: '試作を確認中', published: '公開済み' };
+const agentLabels = { customer_intake: '顧客ヒアリングAI', project_director: '制作ディレクターAI', research_strategist: '調査・戦略AI', ux_architect: '情報設計・UX AI', content_editor: 'コンテンツ編集AI', visual_designer: 'ビジュアルデザインAI', frontend_engineer: '実装AI', seo_accessibility: 'SEO・アクセシビリティAI', quality_assurance: '品質保証AI' };
 let adminProjects = [];
 let adminAuditLogs = null;
 let selectedAdminProjectId = null;
@@ -361,6 +394,135 @@ const loadAdminAuditLogs = async () => {
   } catch { adminAuditLogs = []; }
 };
 
+const taskStatusLabels = { queued: '待機中', running: '実行中', completed: '完了', failed: '失敗' };
+let adminTasks = null;
+const renderAdminTasks = (project) => {
+  const list = one('[data-admin-task-list]');
+  if (!list) return;
+  if (!project) { list.innerHTML = '<li><span>案件を選択してください。</span></li>'; return; }
+  if (!adminTasks) { list.innerHTML = '<li><span>読み込み中…</span></li>'; return; }
+  list.innerHTML = adminTasks.length
+    ? adminTasks.map((task) => `<li><span>${taskStatusLabels[task.status] || task.status}</span><div><strong>${adminEscape(task.agentLabel || agentLabels[task.agentRole] || task.agentRole)}</strong>${task.deliverable ? `<small>${adminEscape(task.deliverable)}</small>` : ''}${task.output ? `<p>${adminEscape(task.output).slice(0, 160)}</p>` : ''}${task.status === 'queued' ? `<form class="task-execute-form" data-task-execute-form data-task-id="${task.id}"><input name="input" placeholder="このタスクへの指示を入力" autocomplete="off" required><button type="submit">実行</button></form>` : ''}</div></li>`).join('')
+    : '<li><span>まだタスクがありません。ワークフローを開始してください。</span></li>';
+  all('[data-task-execute-form]', list).forEach((form) => form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const headers = adminAuthHeaders();
+    const input = one('input', form).value.trim();
+    if (!headers || !input) return;
+    one('button', form).disabled = true;
+    try {
+      const response = await fetch(`/api/admin/tasks/${form.dataset.taskId}/execute`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ input }) });
+      if (!response.ok) throw new Error();
+      await loadAdminTasks();
+    } catch { one('button', form).disabled = false; }
+  }));
+};
+const loadAdminTasks = async () => {
+  const headers = adminAuthHeaders();
+  if (!headers || !selectedAdminProjectId) return;
+  try {
+    const response = await fetch(`/api/projects/${selectedAdminProjectId}/tasks`, { headers });
+    if (!response.ok) throw new Error();
+    adminTasks = await response.json();
+  } catch { adminTasks = []; }
+  renderAdminTasks(adminProjects.find((item) => item.id === selectedAdminProjectId));
+};
+
+let adminArtifacts = null;
+const renderAdminArtifacts = (project) => {
+  const list = one('[data-admin-artifact-list]');
+  if (!list) return;
+  if (!project) { list.innerHTML = '<li><span>案件を選択してください。</span></li>'; return; }
+  if (!adminArtifacts) { list.innerHTML = '<li><span>読み込み中…</span></li>'; return; }
+  list.innerHTML = adminArtifacts.length
+    ? adminArtifacts.slice().sort((left, right) => right.version - left.version).map((artifact) => `<li><span>v${artifact.version}</span><div><strong>${adminEscape(artifact.name)}</strong><small>${new Date(artifact.createdAt).toLocaleString('ja-JP')}</small></div></li>`).join('')
+    : '<li><span>まだ制作物がありません。</span></li>';
+};
+const loadAdminArtifacts = async () => {
+  const headers = adminAuthHeaders();
+  if (!headers || !selectedAdminProjectId) return;
+  try {
+    const response = await fetch(`/api/projects/${selectedAdminProjectId}/artifacts`, { headers });
+    if (!response.ok) throw new Error();
+    adminArtifacts = await response.json();
+  } catch { adminArtifacts = []; }
+  renderAdminArtifacts(adminProjects.find((item) => item.id === selectedAdminProjectId));
+};
+
+const approvalTypeLabels = { price_confirmation: '価格確認', scope_change: '範囲変更', charge: '課金', refund: '返金', publish: '公開', delivery: '納品', delete_data: 'データ削除' };
+const approvalStatusLabels = { pending: '検討中', approved: '承認済み', rejected: '却下' };
+let adminApprovals = null;
+const renderAdminApprovals = (project) => {
+  const list = one('[data-approvals-list]');
+  const countEl = one('[data-approvals-count]');
+  if (!list) return;
+  if (!project) { list.innerHTML = '<p class="form-note">案件を選択してください。</p>'; if (countEl) countEl.textContent = '0件'; return; }
+  if (!adminApprovals) { list.innerHTML = '<p class="form-note">読み込み中…</p>'; return; }
+  if (countEl) countEl.textContent = `${adminApprovals.filter((item) => item.status === 'pending').length}件`;
+  list.innerHTML = adminApprovals.length
+    ? adminApprovals.slice().reverse().map((approval) => `<article><span class="impact ${approval.status === 'pending' ? 'high' : 'medium'}">${approvalTypeLabels[approval.type] || approval.type}</span><div><strong>${approvalStatusLabels[approval.status]}</strong><small>${new Date(approval.createdAt).toLocaleString('ja-JP')}</small></div>${approval.status === 'pending' ? `<div><button data-approval-decide="approved" data-approval-id="${approval.id}">承認する</button><button data-approval-decide="rejected" data-approval-id="${approval.id}">却下する</button></div>` : '<span></span>'}</article>`).join('')
+    : '<p class="form-note">承認記録はまだありません。</p>';
+  all('[data-approval-decide]', list).forEach((button) => button.addEventListener('click', async () => {
+    const headers = adminAuthHeaders();
+    if (!headers) return;
+    all('button', button.closest('article')).forEach((item) => { item.disabled = true; });
+    try {
+      const response = await fetch(`/api/admin/approvals/${button.dataset.approvalId}/decision`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ status: button.dataset.approvalDecide }) });
+      if (!response.ok) throw new Error();
+      await loadAdminApprovals();
+      await loadAdminProjects();
+    } catch { await loadAdminApprovals(); }
+  }));
+};
+const loadAdminApprovals = async () => {
+  const headers = adminAuthHeaders();
+  if (!headers || !selectedAdminProjectId) return;
+  try {
+    const response = await fetch(`/api/admin/projects/${selectedAdminProjectId}/approvals`, { headers });
+    if (!response.ok) throw new Error();
+    adminApprovals = await response.json();
+  } catch { adminApprovals = []; }
+  renderAdminApprovals(adminProjects.find((item) => item.id === selectedAdminProjectId));
+};
+
+const paymentStatusLabels = { PENDING_APPROVAL: '承認待ち', checkout_created: 'Checkout作成済み' };
+let adminPayments = null;
+const renderAdminPayments = (project) => {
+  const list = one('[data-admin-payment-list]');
+  if (!list) return;
+  if (!project) { list.innerHTML = '<li><span>案件を選択してください。</span></li>'; return; }
+  if (!adminPayments) { list.innerHTML = '<li><span>読み込み中…</span></li>'; return; }
+  list.innerHTML = adminPayments.length
+    ? adminPayments.slice().reverse().map((payment) => `<li><span>${paymentStatusLabels[payment.status] || payment.status}</span><div><strong>${adminEscape(payment.currency)} ${payment.amount.toLocaleString('ja-JP')}</strong>${payment.url ? `<a href="${payment.url}" target="_blank" rel="noopener">Checkoutを開く →</a>` : payment.status === 'PENDING_APPROVAL' ? `<button data-payment-checkout data-payment-id="${payment.id}">Checkoutを作成</button>` : ''}</div></li>`).join('')
+    : '<li><span>まだ請求がありません。</span></li>';
+  all('[data-payment-checkout]', list).forEach((button) => button.addEventListener('click', async () => {
+    const headers = adminAuthHeaders();
+    const note = one('[data-payment-note]');
+    if (!headers) return;
+    button.disabled = true; button.textContent = '作成しています…';
+    try {
+      const response = await fetch(`/api/admin/payments/${button.dataset.paymentId}/checkout`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({}) });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error?.message || 'checkout failed');
+      if (note) note.textContent = body.url ? '' : '決済サービス（Stripe）が未接続のため、承認記録のみを行いました。実際の請求は発生していません。接続後に再度お試しください。';
+      await loadAdminPayments();
+    } catch (caught) {
+      button.disabled = false; button.textContent = 'Checkoutを作成';
+      if (note) note.textContent = caught.message === 'approved charge authorization is required' ? '先に「決済」タブで課金の承認を記録してください。' : 'Checkoutの作成に失敗しました。';
+    }
+  }));
+};
+const loadAdminPayments = async () => {
+  const headers = adminAuthHeaders();
+  if (!headers || !selectedAdminProjectId) return;
+  try {
+    const response = await fetch(`/api/projects/${selectedAdminProjectId}/payments`, { headers });
+    if (!response.ok) throw new Error();
+    adminPayments = await response.json();
+  } catch { adminPayments = []; }
+  renderAdminPayments(adminProjects.find((item) => item.id === selectedAdminProjectId));
+};
+
 const selectAdminProject = (id) => {
   const project = adminProjects.find((item) => item.id === id);
   if (!project) return;
@@ -373,6 +535,10 @@ const selectAdminProject = (id) => {
   renderAdminChat(project);
   if (adminAuditLogs) renderAdminAudit(project);
   else loadAdminAuditLogs().then(() => renderAdminAudit(adminProjects.find((item) => item.id === selectedAdminProjectId)));
+  loadAdminTasks();
+  loadAdminArtifacts();
+  loadAdminApprovals();
+  loadAdminPayments();
   setProjectListOpen(false);
 };
 
@@ -397,7 +563,7 @@ const loadAdminProjects = async () => {
     renderAdminProjectList();
     const stillExists = adminProjects.some((item) => item.id === selectedAdminProjectId);
     if (!stillExists && adminProjects.length) selectAdminProject(adminProjects[0].id);
-    else if (!adminProjects.length) { renderAdminChat(null); renderAdminAudit(null); }
+    else if (!adminProjects.length) { renderAdminChat(null); renderAdminAudit(null); renderAdminTasks(null); renderAdminArtifacts(null); renderAdminApprovals(null); renderAdminPayments(null); }
   } catch { /* keep current view if the load fails */ }
 };
 
@@ -422,6 +588,80 @@ if (adminChatForm) adminChatForm.addEventListener('submit', async (event) => {
     const project = adminProjects.find((item) => item.id === selectedAdminProjectId);
     if (project) { project.messages = [...(project.messages || []), body.message]; renderAdminChat(project); }
   } catch { /* leave the input cleared; the customer message endpoint will still hold the draft server-side on retry */ }
+});
+
+one('[data-workflow-start]')?.addEventListener('click', async (event) => {
+  const headers = adminAuthHeaders();
+  if (!headers || !selectedAdminProjectId) return;
+  event.currentTarget.disabled = true;
+  try {
+    const response = await fetch(`/api/admin/projects/${selectedAdminProjectId}/workflow`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({}) });
+    if (!response.ok) throw new Error();
+    await loadAdminTasks();
+    await loadAdminProjects();
+  } catch { /* the project may not be eligible to start a new workflow run yet */ }
+  event.currentTarget.disabled = false;
+});
+
+const qualityCheckForm = one('[data-quality-check-form]');
+if (qualityCheckForm) qualityCheckForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const headers = adminAuthHeaders();
+  if (!headers || !selectedAdminProjectId) return;
+  const values = Object.fromEntries(new FormData(qualityCheckForm).entries());
+  if (!values.evidence?.trim()) return;
+  try {
+    const response = await fetch(`/api/admin/projects/${selectedAdminProjectId}/quality-checks`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ result: values.result, evidence: values.evidence.trim() }) });
+    if (!response.ok) throw new Error();
+    qualityCheckForm.reset();
+    await loadAdminProjects();
+    await loadAdminTasks();
+  } catch { /* leave the entered values so the admin can retry */ }
+});
+
+const artifactCreateForm = one('[data-artifact-create-form]');
+if (artifactCreateForm) artifactCreateForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const headers = adminAuthHeaders();
+  if (!headers || !selectedAdminProjectId) return;
+  const values = Object.fromEntries(new FormData(artifactCreateForm).entries());
+  if (!values.name?.trim() || !values.content?.trim()) return;
+  try {
+    const response = await fetch(`/api/admin/projects/${selectedAdminProjectId}/artifacts`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ name: values.name.trim(), version: Number(values.version || 1), content: values.content }) });
+    if (!response.ok) throw new Error();
+    artifactCreateForm.reset();
+    await loadAdminArtifacts();
+  } catch { /* leave the entered values so the admin can retry */ }
+});
+
+const paymentCreateForm = one('[data-payment-create-form]');
+if (paymentCreateForm) paymentCreateForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const headers = adminAuthHeaders();
+  if (!headers || !selectedAdminProjectId) return;
+  const values = Object.fromEntries(new FormData(paymentCreateForm).entries());
+  const amount = Number(values.amount);
+  if (!Number.isInteger(amount) || amount <= 0) return;
+  try {
+    const response = await fetch(`/api/admin/projects/${selectedAdminProjectId}/payments`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ amount, currency: (values.currency || 'JPY').trim() }) });
+    if (!response.ok) throw new Error();
+    paymentCreateForm.reset();
+    await loadAdminPayments();
+  } catch { /* leave the entered values so the admin can retry */ }
+});
+
+const approvalCreateForm = one('[data-approval-create-form]');
+if (approvalCreateForm) approvalCreateForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const headers = adminAuthHeaders();
+  if (!headers || !selectedAdminProjectId) return;
+  const type = new FormData(approvalCreateForm).get('type');
+  try {
+    const response = await fetch(`/api/admin/projects/${selectedAdminProjectId}/approvals`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ type }) });
+    if (!response.ok) throw new Error();
+    await loadAdminApprovals();
+    await loadAdminProjects();
+  } catch { /* leave the form as-is so the admin can retry */ }
 });
 
 if (loginDialog && loginForm) {
@@ -511,7 +751,7 @@ tabButtons.forEach((button) => button.addEventListener('click', () => {
 }));
 
 const adminRailButtons = all('.admin-rail nav button');
-const railTabMap = ['overview', 'projects', 'chat', 'tasks', 'artifacts', 'approvals', 'audit'];
+const railTabMap = ['overview', 'projects', 'chat', 'tasks', 'artifacts', 'approvals', 'payments', 'audit'];
 adminRailButtons.forEach((button, index) => button.addEventListener('click', () => {
   const destination = railTabMap[index];
   if (destination === 'overview') {
@@ -528,18 +768,53 @@ adminRailButtons.forEach((button, index) => button.addEventListener('click', () 
 const confirmDialog = one('[data-confirm-dialog]');
 const confirmTitle = one('[data-confirm-title]');
 const confirmCopy = one('[data-confirm-copy]');
-const openConfirm = (title, copy) => {
+const confirmAccept = one('[data-confirm-accept]');
+const confirmDomainField = one('[data-deploy-domain-field]');
+const confirmDomainInput = one('[data-deploy-domain]');
+let confirmOnAccept = null;
+const openConfirm = (title, copy, { showDomain = false, acceptLabel = '承認依頼を作成', onAccept = null } = {}) => {
   if (!confirmDialog) return;
   confirmTitle.textContent = title;
   confirmCopy.textContent = copy;
+  if (confirmDomainField) confirmDomainField.hidden = !showDomain;
+  if (confirmDomainInput) confirmDomainInput.value = '';
+  if (confirmAccept) { confirmAccept.textContent = acceptLabel; confirmAccept.disabled = false; }
+  confirmOnAccept = onAccept;
   confirmDialog.showModal();
 };
 all('[data-review]').forEach((button) => button.addEventListener('click', () => openConfirm('承認依頼を確認', '承認すると、対象の制作物が次の工程へ進みます。操作内容は監査ログへ記録されます。')));
 one('[data-emergency]')?.addEventListener('click', () => openConfirm('緊急停止の確認', '実行中の自動処理を停止し、新しい処理の開始を受け付けない状態にします。'));
+one('[data-publish-open]')?.addEventListener('click', () => {
+  if (!selectedAdminProjectId) return;
+  openConfirm('サイトを公開', '公開承認済みの最新の制作物を、この案件の公開サイトとして配信します。', {
+    showDomain: true,
+    acceptLabel: '公開する',
+    onAccept: async () => {
+      const headers = adminAuthHeaders();
+      if (!headers) throw new Error('管理者ログインが必要です。');
+      const domain = confirmDomainInput?.value.trim();
+      const response = await fetch(`/api/admin/projects/${selectedAdminProjectId}/deploy`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify(domain ? { domain } : {}) });
+      const body = await response.json();
+      if (!response.ok) {
+        const known = { 'approved publish authorization is required': '先に「承認」タブで公開の承認を記録してください。', 'an HTML artifact is required': '先に「制作物」タブでHTMLを保存してください。', 'a valid custom domain is required': '公開先ドメインの形式を確認してください。' };
+        throw new Error(known[body.error?.message] || '公開に失敗しました。');
+      }
+      await loadAdminProjects();
+    }
+  });
+});
 all('[data-confirm-close]').forEach((button) => button.addEventListener('click', () => confirmDialog?.close()));
-one('[data-confirm-accept]')?.addEventListener('click', () => {
-  one('[data-confirm-accept]').textContent = '作成しました';
-  setTimeout(() => confirmDialog?.close(), 700);
+confirmAccept?.addEventListener('click', async () => {
+  if (!confirmOnAccept) { confirmAccept.textContent = '完了しました'; setTimeout(() => confirmDialog?.close(), 700); return; }
+  confirmAccept.disabled = true;
+  try {
+    await confirmOnAccept();
+    confirmAccept.textContent = '完了しました';
+    setTimeout(() => confirmDialog?.close(), 700);
+  } catch (caught) {
+    confirmCopy.textContent = caught.message || '操作に失敗しました。';
+    confirmAccept.disabled = false;
+  }
 });
 
 const commandForm = one('[data-command-form]');

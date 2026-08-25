@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin-login
+Disallow: /mypage
+Disallow: /payment/
+Disallow: /api/
+Disallow: /sites/
+
+Sitemap: https://akinael-ai.com/sitemap.xml

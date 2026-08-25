@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>管理者ログイン | アキナエルAI</title>
+  <link rel="icon" href="/assets/logos/favicon.svg">
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body class="public-page">
+  <main class="section auth-landing">
+    <p class="section-kicker">ADMIN ONLY</p>
+    <h1>管理者ログイン</h1>
+    <p class="lead">管理画面は管理者アカウントのみ利用できます。</p>
+    <form class="settings-dialog auth-form" data-admin-login-form>
+      <label>メールアドレス<input name="email" type="email" autocomplete="username" required></label>
+      <label>パスワード<input name="password" type="password" autocomplete="current-password" required></label>
+      <p class="settings-status" data-admin-login-status role="status"></p>
+      <button class="primary-action" type="submit">ログイン</button>
+    </form>
+    <p><a class="text-link dark" href="/">公式サイトへ戻る</a></p>
+  </main>
+  <script>
+    document.querySelector('[data-admin-login-form]').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const status = document.querySelector('[data-admin-login-status]');
+      status.textContent = '認証しています…';
+      const values = Object.fromEntries(new FormData(form).entries());
+      try {
+        const response = await fetch('/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(values) });
+        const body = await response.json();
+        if (!response.ok || body.user?.role !== 'admin') throw new Error('管理者アカウントでログインしてください');
+        status.textContent = 'ログインしました。';
+        location.href = '/admin';
+      } catch (error) {
+        status.textContent = error.message;
+      }
+    });
+  </script>
+</body>
+</html>

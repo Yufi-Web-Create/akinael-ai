@@ -19,28 +19,69 @@ test('frontend pages and project assets are served with the expected indexing bo
   const publicPage = await fetch(`${baseUrl}/`);
   assert.equal(publicPage.status, 200);
   assert.match(publicPage.headers.get('content-type'), /text\/html/);
+  assert.equal(publicPage.headers.get('x-frame-options'), 'DENY');
+  assert.match(publicPage.headers.get('content-security-policy'), /frame-ancestors 'none'/);
   assert.match(await publicPage.text(), /アキナエルAI/);
 
-  const customerPage = await fetch(`${baseUrl}/mypage`);
-  assert.equal(customerPage.status, 200);
-  assert.equal(customerPage.headers.get('x-robots-tag'), 'noindex, nofollow');
+  const customerPage = await fetch(`${baseUrl}/mypage`, { redirect: 'manual' });
+  assert.equal(customerPage.status, 302);
+  assert.equal(customerPage.headers.get('location'), '/?auth=login');
 
-  const adminPage = await fetch(`${baseUrl}/admin`);
-  assert.equal(adminPage.status, 200);
-  assert.equal(adminPage.headers.get('x-robots-tag'), 'noindex, nofollow');
+  const adminPage = await fetch(`${baseUrl}/admin`, { redirect: 'manual' });
+  assert.equal(adminPage.status, 302);
+  assert.equal(adminPage.headers.get('location'), '/admin-login');
+  const adminLoginPage = await fetch(`${baseUrl}/admin-login`);
+  assert.equal(adminLoginPage.status, 200);
+
+  const legalPage = await fetch(`${baseUrl}/legal`);
+  assert.equal(legalPage.status, 200);
+  assert.match(await legalPage.text(), /運営・法務情報/);
 
   const logo = await fetch(`${baseUrl}/assets/logos/logo-horizontal.svg`);
   assert.equal(logo.status, 200);
   assert.match(logo.headers.get('content-type'), /image\/svg\+xml/);
+
+  const paymentSuccess = await fetch(`${baseUrl}/payment/success`);
+  assert.equal(paymentSuccess.status, 200);
+  assert.equal(paymentSuccess.headers.get('x-robots-tag'), 'noindex, nofollow');
+  const paymentCancel = await fetch(`${baseUrl}/payment/cancel`);
+  assert.equal(paymentCancel.status, 200);
+  assert.equal(paymentCancel.headers.get('x-robots-tag'), 'noindex, nofollow');
+
+  const robots = await fetch(`${baseUrl}/robots.txt`);
+  assert.equal(robots.status, 200);
+  assert.match(await robots.text(), /Disallow: \/admin/);
+
+  const sitemap = await fetch(`${baseUrl}/sitemap.xml`);
+  assert.equal(sitemap.status, 200);
+  assert.match(sitemap.headers.get('content-type'), /application\/xml/);
 });
 
-test('public pricing uses the business plan and exposes the provisional refund policy', async () => {
+test('homepage pricing and required trust answers stay aligned with formal business configuration', async () => {
+  const response = await fetch(`${baseUrl}/`);
+  const html = await response.text();
+  assert.match(html, new RegExp(businessConfig.pricing.trial.amount.toLocaleString('ja-JP')));
+  assert.match(html, new RegExp(businessConfig.pricing.mini.monthlyAmount.toLocaleString('ja-JP')));
+  assert.match(html, new RegExp(businessConfig.pricing.operations.monthlyAmount.toLocaleString('ja-JP')));
+  assert.match(html, new RegExp(businessConfig.pricing.advanced.monthlyAmount.toLocaleString('ja-JP')));
+  assert.match(html, new RegExp(businessConfig.pricing.websiteProduction.startingAmount.toLocaleString('ja-JP')));
+  assert.match(html, /無料でどこまでできますか/);
+  assert.match(html, /勝手に料金が発生しませんか/);
+  assert.match(html, /データはどう扱われますか/);
+});
+
+test('public pricing uses the formal plan and approval policy', async () => {
   const response = await fetch(`${baseUrl}/api/public/pricing`);
   const config = await response.json();
   assert.equal(response.status, 200);
-  assert.equal(config.pricing.trialPack.standardAmount, 29800);
-  assert.equal(config.pricing.trialPack.monitorAmount, 19800);
-  assert.equal(config.pricing.improvementTeam.monthlyAmount, 19800);
+  assert.equal(config.pricing.trial.amount, 0);
+  assert.equal(config.pricing.mini.monthlyAmount, 3980);
+  assert.equal(config.pricing.operations.monthlyAmount, 7980);
+  assert.equal(config.pricing.advanced.monthlyAmount, 17800);
+  assert.equal(config.pricing.instagramAds.minimumMonthlyFee, 5500);
+  assert.equal(config.pricing.websiteProduction.startingAmount, 19800);
+  assert.equal(Object.hasOwn(config.pricing, 'approvalRequiredFor'), false);
+  assert.equal(Object.hasOwn(config.pricing, 'ambiguousApprovalExamples'), false);
   assert.deepEqual(config.refundPolicy, businessConfig.refundPolicy);
 });
 
@@ -50,6 +91,7 @@ test('administrator can log in with the admin ID', async () => {
   const result = await response.json();
   assert.equal(response.status, 200);
   assert.equal(result.user.role, 'admin');
+  assert.match(response.headers.get('set-cookie'), /akinael_session=/);
 });
 
 test('admin settings are protected and persisted through the settings API', async () => {
@@ -88,7 +130,7 @@ test('workflow task execution uses the configured provider boundary', async () =
   seedAdmin('admin@example.com', 'another-secure-password');
   const admin = await (await request('/api/auth/login', { method: 'POST', body: { email: 'admin@example.com', password: 'another-secure-password' } })).json();
   const workflow = await (await request(`/api/admin/projects/${project.id}/workflow`, { method: 'POST', token: admin.token, body: {} })).json();
-  const task = workflow.tasks.find((item) => item.agentRole === 'requirements');
+  const task = workflow.tasks.find((item) => item.agentRole === 'project_director');
   const executed = await request(`/api/admin/tasks/${task.id}/execute`, { method: 'POST', token: admin.token, body: { input: '予約導線の要件を整理してください' } });
   const result = await executed.json();
   assert.equal(executed.status, 200);
@@ -190,8 +232,12 @@ test('workflow creates separated agent tasks and quality evidence changes projec
   const workflow = await (await request(`/api/admin/projects/${project.id}/workflow`, { method: 'POST', token: adminToken, body: { model: 'test-adapter' } })).json();
   assert.equal(workflow.status, 'running');
   const tasks = await (await request(`/api/projects/${project.id}/tasks`, { token: adminToken })).json();
-  assert.deepEqual(tasks.map((task) => task.agentRole), ['customer_intake', 'requirements', 'production', 'quality_check']);
+  assert.deepEqual(tasks.map((task) => task.agentRole), ['customer_intake', 'project_director', 'research_strategist', 'ux_architect', 'content_editor', 'visual_designer', 'frontend_engineer', 'seo_accessibility', 'quality_assurance']);
   assert.equal(tasks.every((task) => task.workflowRunId === workflow.id), true);
+  assert.equal(project.workspace.id, workflow.workspaceId);
+  assert.equal(new Set(tasks.map((task) => task.workspaceId)).size, 1);
+  const blocked = await request(`/api/admin/tasks/${tasks.find((task) => task.agentRole === 'frontend_engineer').id}/execute`, { method: 'POST', token: adminToken, body: { input: '実装してください' } });
+  assert.equal(blocked.status, 409);
   const check = await request(`/api/admin/projects/${project.id}/quality-checks`, { method: 'POST', token: adminToken, body: { result: 'failed', evidence: '予約ボタンのリンクが未設定', category: 'functional' } });
   assert.equal(check.status, 201);
   const current = await (await request(`/api/projects/${project.id}`, { token: adminToken })).json();
@@ -199,6 +245,40 @@ test('workflow creates separated agent tasks and quality evidence changes projec
   assert.deepEqual(current.attentionReasons, ['quality_check_failed']);
   const notifications = await (await request('/api/admin/notifications', { token: adminToken })).json();
   assert.equal(notifications.some((item) => item.type === 'quality_check_failed'), true);
+});
+
+test('admin can list a project\'s approval requests and their decisions', async () => {
+  const registered = await request('/api/auth/register', { method: 'POST', body: { email: 'owner@example.com', password: 'a-secure-password' } });
+  const { token: customerToken } = await registered.json();
+  const project = await (await request('/api/projects', { method: 'POST', token: customerToken, body: { name: '承認一覧テスト' } })).json();
+  seedAdmin('admin@example.com', 'another-secure-password');
+  const { token: adminToken } = await (await request('/api/auth/login', { method: 'POST', body: { email: 'admin@example.com', password: 'another-secure-password' } })).json();
+  await request(`/api/admin/projects/${project.id}/approvals`, { method: 'POST', token: adminToken, body: { type: 'charge' } });
+  const forbidden = await request(`/api/admin/projects/${project.id}/approvals`, { token: customerToken });
+  assert.equal(forbidden.status, 403);
+  const listed = await request(`/api/admin/projects/${project.id}/approvals`, { token: adminToken });
+  assert.equal(listed.status, 200);
+  const approvals = await listed.json();
+  assert.equal(approvals.length, 1);
+  assert.equal(approvals[0].type, 'charge');
+  assert.equal(approvals[0].status, 'pending');
+});
+
+test('payment records are visible to the owning customer and to admins, not to other customers', async () => {
+  const registered = await request('/api/auth/register', { method: 'POST', body: { email: 'owner@example.com', password: 'a-secure-password' } });
+  const { token: customerToken } = await registered.json();
+  const project = await (await request('/api/projects', { method: 'POST', token: customerToken, body: { name: '決済一覧テスト' } })).json();
+  seedAdmin('admin@example.com', 'another-secure-password');
+  const { token: adminToken } = await (await request('/api/auth/login', { method: 'POST', body: { email: 'admin@example.com', password: 'another-secure-password' } })).json();
+  await request(`/api/admin/projects/${project.id}/payments`, { method: 'POST', token: adminToken, body: { amount: 29800, currency: 'jpy' } });
+  const ownerView = await (await request(`/api/projects/${project.id}/payments`, { token: customerToken })).json();
+  assert.equal(ownerView.length, 1);
+  assert.equal(ownerView[0].status, 'PENDING_APPROVAL');
+  const adminView = await (await request(`/api/projects/${project.id}/payments`, { token: adminToken })).json();
+  assert.equal(adminView.length, 1);
+  const otherCustomer = await (await request('/api/auth/register', { method: 'POST', body: { email: 'other@example.com', password: 'a-secure-password' } })).json();
+  const denied = await request(`/api/projects/${project.id}/payments`, { token: otherCustomer.token });
+  assert.equal(denied.status, 404);
 });
 
 test('customer file upload stores content privately and returns metadata only', async () => {

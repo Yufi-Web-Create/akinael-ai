@@ -32,9 +32,21 @@ const optionalText = (value, maxLength = 200) => {
   return normalized || null;
 };
 
+const enumValue = (value, allowed, fallback, field) => {
+  const normalized = String(value || fallback).trim();
+  if (!allowed.has(normalized)) {
+    throw new PlatformStoreError(`unsupported ${field}`, { status: 400, code: 'validation_error' });
+  }
+  return normalized;
+};
+
 const first = (value) => Array.isArray(value) ? value[0] || null : value || null;
 const uuidList = (values) => values.map((value) => String(value)).filter(Boolean);
 const projectSelect = 'id,tenant_id,customer_id,name,status,needs_attention,attention_reasons,metadata,created_at,updated_at';
+const requestSelect = 'id,tenant_id,customer_id,project_id,created_by,type,title,body,status,priority,metadata,created_at,updated_at';
+const messageSelect = 'id,tenant_id,project_id,request_id,author_user_id,author_type,content,metadata,created_at';
+const requestTypes = new Set(['general', 'web_new', 'web_change', 'copy', 'social', 'image', 'research', 'automation', 'seo', 'other']);
+const priorities = new Set(['low', 'normal', 'high', 'urgent']);
 
 export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {}) => {
   const admin = createSupabaseAdmin({ env, fetchImpl });
@@ -122,125 +134,232 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
     return uuidList((await membershipsFor(identity)).map((item) => item.customer_id));
   };
 
-  return {
-    config: admin.config,
-
-    async getMe(accessToken) {
-      const identity = await identityFor(accessToken, { profileRequired: false });
-      if (identity.onboardingRequired) {
-        const tenant = await resolveTenant();
-        return {
-          user: { id: identity.id, email: identity.email },
-          profile: null,
-          customer: null,
-          tenant: { id: tenant.id, name: tenant.name },
-          onboardingRequired: true
-        };
-      }
-
-      let customer = null;
-      if (identity.role === 'customer') {
-        const memberships = await membershipsFor(identity);
-        customer = first(await customersByIds(identity.tenantId, memberships.map((item) => item.customer_id)));
-      }
-      return {
-        user: { id: identity.id, email: identity.email },
-        profile: {
-          role: identity.role,
-          displayName: identity.displayName,
-          tenantId: identity.tenantId
-        },
-        customer,
-        onboardingRequired: false
-      };
-    },
-
-    async provisionCustomer(accessToken, input = {}) {
-      const user = await authUser(accessToken);
-      const existing = await profileFor(user.id);
-      if (existing) {
-        if (existing.role !== 'customer') {
-          throw new PlatformStoreError('account is not a customer account', { status: 409, code: 'account_role_conflict' });
-        }
-        return this.getMe(accessToken);
-      }
-
-      const tenant = await resolveTenant();
-      const displayName = optionalText(input.displayName);
-      const businessName = optionalText(input.businessName);
-      await admin.request('/rest/v1/rpc/provision_customer_account', {
-        method: 'POST',
-        body: {
-          p_tenant_id: tenant.id,
-          p_user_id: user.id,
-          p_email: user.email || '',
-          p_display_name: displayName,
-          p_business_name: businessName
-        }
-      });
-      return this.getMe(accessToken);
-    },
-
-    async listProjects(accessToken) {
-      const identity = await identityFor(accessToken);
-      const customerIds = await visibleCustomerIds(identity);
-      let query = `tenant_id=eq.${encodeURIComponent(identity.tenantId)}&select=${projectSelect}&order=updated_at.desc`;
-      if (customerIds !== null) {
-        if (!customerIds.length) return [];
-        query += `&customer_id=in.(${customerIds.map(encodeURIComponent).join(',')})`;
-      }
-      const rows = await admin.request('/rest/v1/projects', { query });
-      return Array.isArray(rows) ? rows : [];
-    },
-
-    async getProject(accessToken, projectId) {
-      const id = requiredText(projectId, 'project id', 64);
-      const identity = await identityFor(accessToken);
-      const customerIds = await visibleCustomerIds(identity);
-      let query = `id=eq.${encodeURIComponent(id)}&tenant_id=eq.${encodeURIComponent(identity.tenantId)}&select=${projectSelect}&limit=1`;
-      if (customerIds !== null) {
-        if (!customerIds.length) {
-          throw new PlatformStoreError('project not found', { status: 404, code: 'project_not_found' });
-        }
-        query += `&customer_id=in.(${customerIds.map(encodeURIComponent).join(',')})`;
-      }
-      const project = first(await admin.request('/rest/v1/projects', { query }));
-      if (!project) {
+  const getProjectForIdentity = async (identity, projectId) => {
+    const id = requiredText(projectId, 'project id', 64);
+    const customerIds = await visibleCustomerIds(identity);
+    let query = `id=eq.${encodeURIComponent(id)}&tenant_id=eq.${encodeURIComponent(identity.tenantId)}&select=${projectSelect}&limit=1`;
+    if (customerIds !== null) {
+      if (!customerIds.length) {
         throw new PlatformStoreError('project not found', { status: 404, code: 'project_not_found' });
       }
-      return project;
-    },
-
-    async createProject(accessToken, input = {}) {
-      const identity = await identityFor(accessToken);
-      if (identity.role !== 'customer') {
-        throw new PlatformStoreError('customers only', { status: 403, code: 'customers_only' });
-      }
-      const name = requiredText(input.name, 'project name');
-      const memberships = await membershipsFor(identity);
-      const customerId = first(memberships)?.customer_id;
-      if (!customerId) {
-        throw new PlatformStoreError('onboarding required', { status: 409, code: 'onboarding_required' });
-      }
-      const rows = await admin.request('/rest/v1/projects', {
-        method: 'POST',
-        query: `select=${projectSelect}`,
-        headers: { Prefer: 'return=representation' },
-        body: {
-          tenant_id: identity.tenantId,
-          customer_id: customerId,
-          name,
-          status: 'intake',
-          needs_attention: false,
-          attention_reasons: [],
-          metadata: {}
-        }
-      });
-      const project = first(rows);
-      if (!project) {
-        throw new PlatformStoreError('project could not be created', { status: 502, code: 'project_create_failed' });
-      }
-      return project;
+      query += `&customer_id=in.(${customerIds.map(encodeURIComponent).join(',')})`;
     }
+    const project = first(await admin.request('/rest/v1/projects', { query }));
+    if (!project) {
+      throw new PlatformStoreError('project not found', { status: 404, code: 'project_not_found' });
+    }
+    return project;
+  };
+
+  const getMe = async (accessToken) => {
+    const identity = await identityFor(accessToken, { profileRequired: false });
+    if (identity.onboardingRequired) {
+      const tenant = await resolveTenant();
+      return {
+        user: { id: identity.id, email: identity.email },
+        profile: null,
+        customer: null,
+        tenant: { id: tenant.id, name: tenant.name },
+        onboardingRequired: true
+      };
+    }
+
+    let customer = null;
+    if (identity.role === 'customer') {
+      const memberships = await membershipsFor(identity);
+      customer = first(await customersByIds(identity.tenantId, memberships.map((item) => item.customer_id)));
+    }
+    return {
+      user: { id: identity.id, email: identity.email },
+      profile: {
+        role: identity.role,
+        displayName: identity.displayName,
+        tenantId: identity.tenantId
+      },
+      customer,
+      onboardingRequired: false
+    };
+  };
+
+  const provisionCustomer = async (accessToken, input = {}) => {
+    const user = await authUser(accessToken);
+    const existing = await profileFor(user.id);
+    if (existing) {
+      if (existing.role !== 'customer') {
+        throw new PlatformStoreError('account is not a customer account', { status: 409, code: 'account_role_conflict' });
+      }
+      return getMe(accessToken);
+    }
+
+    const tenant = await resolveTenant();
+    const displayName = optionalText(input.displayName);
+    const businessName = optionalText(input.businessName);
+    await admin.request('/rest/v1/rpc/provision_customer_account', {
+      method: 'POST',
+      body: {
+        p_tenant_id: tenant.id,
+        p_user_id: user.id,
+        p_email: user.email || '',
+        p_display_name: displayName,
+        p_business_name: businessName
+      }
+    });
+    return getMe(accessToken);
+  };
+
+  const listProjects = async (accessToken) => {
+    const identity = await identityFor(accessToken);
+    const customerIds = await visibleCustomerIds(identity);
+    let query = `tenant_id=eq.${encodeURIComponent(identity.tenantId)}&select=${projectSelect}&order=updated_at.desc`;
+    if (customerIds !== null) {
+      if (!customerIds.length) return [];
+      query += `&customer_id=in.(${customerIds.map(encodeURIComponent).join(',')})`;
+    }
+    const rows = await admin.request('/rest/v1/projects', { query });
+    return Array.isArray(rows) ? rows : [];
+  };
+
+  const getProject = async (accessToken, projectId) => {
+    const identity = await identityFor(accessToken);
+    return getProjectForIdentity(identity, projectId);
+  };
+
+  const createProject = async (accessToken, input = {}) => {
+    const identity = await identityFor(accessToken);
+    if (identity.role !== 'customer') {
+      throw new PlatformStoreError('customers only', { status: 403, code: 'customers_only' });
+    }
+    const name = requiredText(input.name, 'project name');
+    const memberships = await membershipsFor(identity);
+    const customerId = first(memberships)?.customer_id;
+    if (!customerId) {
+      throw new PlatformStoreError('onboarding required', { status: 409, code: 'onboarding_required' });
+    }
+    const rows = await admin.request('/rest/v1/projects', {
+      method: 'POST',
+      query: `select=${projectSelect}`,
+      headers: { Prefer: 'return=representation' },
+      body: {
+        tenant_id: identity.tenantId,
+        customer_id: customerId,
+        name,
+        status: 'intake',
+        needs_attention: false,
+        attention_reasons: [],
+        metadata: {}
+      }
+    });
+    const project = first(rows);
+    if (!project) {
+      throw new PlatformStoreError('project could not be created', { status: 502, code: 'project_create_failed' });
+    }
+    return project;
+  };
+
+  const listRequests = async (accessToken, projectId) => {
+    const identity = await identityFor(accessToken);
+    const project = await getProjectForIdentity(identity, projectId);
+    const rows = await admin.request('/rest/v1/requests', {
+      query: `tenant_id=eq.${encodeURIComponent(identity.tenantId)}&project_id=eq.${encodeURIComponent(project.id)}&select=${requestSelect}&order=created_at.desc`
+    });
+    return Array.isArray(rows) ? rows : [];
+  };
+
+  const createRequest = async (accessToken, projectId, input = {}) => {
+    const identity = await identityFor(accessToken);
+    if (identity.role !== 'customer') {
+      throw new PlatformStoreError('customers only', { status: 403, code: 'customers_only' });
+    }
+    const project = await getProjectForIdentity(identity, projectId);
+    const title = requiredText(input.title, 'request title', 200);
+    const body = requiredText(input.body, 'request body', 10000);
+    const type = enumValue(input.type, requestTypes, 'general', 'request type');
+    const priority = enumValue(input.priority, priorities, 'normal', 'priority');
+
+    const created = first(await admin.request('/rest/v1/rpc/create_customer_request', {
+      method: 'POST',
+      body: {
+        p_tenant_id: identity.tenantId,
+        p_customer_id: project.customer_id,
+        p_project_id: project.id,
+        p_user_id: identity.id,
+        p_type: type,
+        p_title: title,
+        p_body: body,
+        p_priority: priority
+      }
+    }));
+    if (!created?.request_id || !created?.message_id) {
+      throw new PlatformStoreError('request could not be created', { status: 502, code: 'request_create_failed' });
+    }
+
+    const requestItem = first(await admin.request('/rest/v1/requests', {
+      query: `id=eq.${encodeURIComponent(created.request_id)}&tenant_id=eq.${encodeURIComponent(identity.tenantId)}&select=${requestSelect}&limit=1`
+    }));
+    const initialMessage = first(await admin.request('/rest/v1/messages', {
+      query: `id=eq.${encodeURIComponent(created.message_id)}&tenant_id=eq.${encodeURIComponent(identity.tenantId)}&select=${messageSelect}&limit=1`
+    }));
+    return { request: requestItem, initialMessage };
+  };
+
+  const listMessages = async (accessToken, projectId, { requestId = null } = {}) => {
+    const identity = await identityFor(accessToken);
+    const project = await getProjectForIdentity(identity, projectId);
+    let query = `tenant_id=eq.${encodeURIComponent(identity.tenantId)}&project_id=eq.${encodeURIComponent(project.id)}&select=${messageSelect}&order=created_at.asc`;
+    if (requestId) query += `&request_id=eq.${encodeURIComponent(requiredText(requestId, 'request id', 64))}`;
+    const rows = await admin.request('/rest/v1/messages', { query });
+    return Array.isArray(rows) ? rows : [];
+  };
+
+  const addMessage = async (accessToken, projectId, input = {}) => {
+    const identity = await identityFor(accessToken);
+    if (!['customer', 'admin'].includes(identity.role)) {
+      throw new PlatformStoreError('insufficient permissions', { status: 403, code: 'insufficient_permissions' });
+    }
+    const project = await getProjectForIdentity(identity, projectId);
+    const content = requiredText(input.content, 'message content', 10000);
+    const requestId = optionalText(input.requestId, 64);
+
+    if (requestId) {
+      const requestItem = first(await admin.request('/rest/v1/requests', {
+        query: `id=eq.${encodeURIComponent(requestId)}&tenant_id=eq.${encodeURIComponent(identity.tenantId)}&project_id=eq.${encodeURIComponent(project.id)}&select=id&limit=1`
+      }));
+      if (!requestItem) {
+        throw new PlatformStoreError('request not found', { status: 404, code: 'request_not_found' });
+      }
+    }
+
+    const rows = await admin.request('/rest/v1/messages', {
+      method: 'POST',
+      query: `select=${messageSelect}`,
+      headers: { Prefer: 'return=representation' },
+      body: {
+        tenant_id: identity.tenantId,
+        project_id: project.id,
+        request_id: requestId,
+        author_user_id: identity.id,
+        author_type: identity.role === 'admin' ? 'admin' : 'customer',
+        content,
+        metadata: {}
+      }
+    });
+    const message = first(rows);
+    if (!message) {
+      throw new PlatformStoreError('message could not be created', { status: 502, code: 'message_create_failed' });
+    }
+    return message;
+  };
+
+  return {
+    config: admin.config,
+    getMe,
+    provisionCustomer,
+    listProjects,
+    getProject,
+    createProject,
+    listRequests,
+    createRequest,
+    listMessages,
+    addMessage
   };
 };

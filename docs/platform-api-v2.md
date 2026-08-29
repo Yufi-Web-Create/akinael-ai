@@ -26,8 +26,6 @@ Core APIはpublishable key + access tokenでSupabase Authへ問い合わせ、us
 
 初回顧客アカウントを作成する。
 
-Request example:
-
 ```json
 {
   "displayName": "山田太郎",
@@ -65,6 +63,63 @@ transaction functionは`service_role`だけが実行可能で、`anon` / `authen
 
 ログインユーザーに閲覧権限がある案件のみ返す。
 権限外の案件は404として扱う。
+
+### `GET /api/v2/projects/:projectId/requests`
+
+案件に紐づく依頼を新しい順で返す。
+
+### `POST /api/v2/projects/:projectId/requests`
+
+顧客の新しい依頼を作成する。
+Requestと最初のcustomer messageはDB transaction内で同時作成する。
+
+```json
+{
+  "type": "web_change",
+  "title": "営業時間変更",
+  "body": "営業時間を19時までに変更したい",
+  "priority": "normal"
+}
+```
+
+`type`:
+
+- `general`
+- `web_new`
+- `web_change`
+- `copy`
+- `social`
+- `image`
+- `research`
+- `automation`
+- `seo`
+- `other`
+
+このtypeを後続のProduction Routerの一次振り分けに利用する。
+AI分類を追加する場合も、顧客入力をそのまま実行命令として扱わず、Core側で正規化する。
+
+### `GET /api/v2/projects/:projectId/messages`
+
+案件のメッセージを時系列で返す。
+`?requestId=<uuid>` で依頼単位に絞り込み可能。
+
+### `POST /api/v2/projects/:projectId/messages`
+
+案件に追加メッセージを保存する。
+
+```json
+{
+  "requestId": "optional-request-id",
+  "content": "写真も差し替えたいです"
+}
+```
+
+`author_user_id` / `author_type` / `tenant_id` / `project_id` はCore APIが検証済みidentityから決定し、クライアント指定を信用しない。
+
+## Production Router boundary
+
+現時点ではRequestを安全に受け取り永続化するところまでをv2 Coreの責務とする。
+次工程で `status = new` のRequestをProduction Routerが分類し、workflow run / taskへ接続する。
 
 ## Migration rule
 

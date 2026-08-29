@@ -174,10 +174,13 @@ if (document.body.classList.contains('customer-app') && workspaceMain) {
     const statusLabels = {
       intake: { status: '相談受付中', next: 'まずは気になることを教えてください' },
       requirements: { status: '内容を整理中', next: 'AIが要件を整理しています' },
+      research: { status: '調査中', next: '必要な情報を調べています' },
+      direction: { status: '制作方針を整理中', next: '構成と方針を整えています' },
       production: { status: '制作中', next: '試作の作成を進めています' },
       quality_check: { status: 'AI検査中', next: '品質チェックを行っています' },
       revision: { status: '修正対応中', next: '修正内容を反映しています' },
       ready_for_review: { status: '試作を確認中', next: '試作内容をご確認ください' },
+      deploy_ready: { status: '公開準備完了', next: '公開前の最終確認をお願いします' },
       published: { status: '公開済み', next: '公開後の改善もご相談いただけます' }
     };
     fetch('/api/v2/auth/me', { headers: authHeaders })
@@ -209,10 +212,43 @@ if (document.body.classList.contains('customer-app') && workspaceMain) {
         window.akinaelCurrentProjectId = project.id;
         return Promise.all([
           fetch(`/api/v2/projects/${project.id}/requests`, { headers: authHeaders }).then((response) => response.ok ? response.json() : []),
-          fetch(`/api/v2/projects/${project.id}/messages`, { headers: authHeaders }).then((response) => response.ok ? response.json() : [])
-        ]).then(([requests, messages]) => {
+          fetch(`/api/v2/projects/${project.id}/messages`, { headers: authHeaders }).then((response) => response.ok ? response.json() : []),
+          fetch(`/api/v2/projects/${project.id}/production`, { headers: authHeaders }).then((response) => response.ok ? response.json() : null)
+        ]).then(([requests, messages, production]) => {
           window.akinaelCurrentRequestId = Array.isArray(requests) ? requests[0]?.id || null : null;
           window.akinaelRenderCustomerMessages?.(messages);
+          const workflow = production?.workflows?.[0] || null;
+          const tasks = Array.isArray(production?.tasks) ? production.tasks : [];
+          const artifacts = Array.isArray(production?.artifacts) ? production.artifacts : [];
+          const checks = Array.isArray(production?.qualityChecks) ? production.qualityChecks : [];
+          const summary = one('[data-production-summary]');
+          if (summary) summary.textContent = workflow ? `${tasks.filter((task) => task.status === 'completed').length} / ${tasks.length}工程 完了` : '相談内容を受け付けています';
+
+          const phaseOrder = ['understand', 'direction', 'build', 'qa', 'review'];
+          const currentIndex = Math.max(0, phaseOrder.indexOf(workflow?.current_phase));
+          all('li', one('[data-progress-steps]')).forEach((item, index) => {
+            const done = workflow?.status === 'completed' || workflow?.status === 'deploy_ready' || index < currentIndex;
+            const current = !done && index === currentIndex;
+            item.classList.toggle('done', done);
+            item.classList.toggle('current', current);
+            const marker = one('i', item);
+            const state = one('span', item);
+            if (marker) marker.textContent = done ? '✓' : String(index + 1);
+            if (state) state.textContent = done ? '完了' : current ? '進行中' : '待機中';
+          });
+          const progressNote = one('[data-progress-note]');
+          if (progressNote) progressNote.textContent = workflow ? '各工程の実行状況を表示しています' : 'ご相談後に制作工程が始まります';
+
+          const deliverables = one('[data-deliverables-list]');
+          const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character]);
+          if (deliverables) deliverables.innerHTML = artifacts.length
+            ? artifacts.map((artifact) => `<li><i>◇</i><span><strong>${escapeHtml(artifact.title)}</strong><small>${escapeHtml(artifact.kind)} ・ ${new Date(artifact.created_at).toLocaleDateString('ja-JP')}</small></span></li>`).join('')
+            : '<li><span>制作物はまだありません。</span></li>';
+          const qualitySummary = one('[data-quality-summary]');
+          if (qualitySummary) {
+            const failed = checks.filter((check) => check.status === 'fail').length;
+            qualitySummary.textContent = checks.length ? `品質検査 ${checks.length}件・要修正 ${failed}件` : '品質検査前です';
+          }
         });
       })
       .catch(goToLogin);

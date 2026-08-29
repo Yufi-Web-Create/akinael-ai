@@ -61,6 +61,8 @@ permissions:
 
 env:
   NODE_VERSION: '24'
+  AKINAEL_GITHUB_APP_ID: '4762113'
+  AKINAEL_BOT_USER: 'akinael-ai-runtime-yufi[bot]'
 
 jobs:
   codex:
@@ -95,7 +97,7 @@ jobs:
         id: target-token
         uses: actions/create-github-app-token@v2
         with:
-          app-id: ${{ secrets.AKINAEL_GITHUB_APP_ID }}
+          app-id: ${{ env.AKINAEL_GITHUB_APP_ID }}
           private-key: ${{ secrets.AKINAEL_GITHUB_APP_PRIVATE_KEY }}
           owner: ${{ inputs.target_owner }}
           repositories: ${{ inputs.target_repo }}
@@ -123,8 +125,8 @@ jobs:
           else
             git switch -c "$BRANCH_NAME"
           fi
-          git config user.name 'akinael-ai[bot]'
-          git config user.email 'akinael-ai[bot]@users.noreply.github.com'
+          git config user.name "$AKINAEL_BOT_USER"
+          git config user.email 'akinael-ai-runtime-yufi[bot]@users.noreply.github.com'
 
       - uses: actions/setup-node@v4
         with:
@@ -150,7 +152,7 @@ jobs:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           permission-profile: ${{ inputs.permission_profile }}
           safety-strategy: drop-sudo
-          allow-bot-users: ${{ vars.AKINAEL_BOT_USER }}
+          allow-bot-users: ${{ env.AKINAEL_BOT_USER }}
           effort: high
           prompt: ${{ inputs.prompt }}
 

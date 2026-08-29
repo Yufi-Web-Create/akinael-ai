@@ -10,6 +10,8 @@
 - Playwright等の実ブラウザQA
 - GitHub Actions secret `OPENAI_API_KEY`
 
+GitHub AppからCoreがdispatchする場合は、repository variable `AKINAEL_BOT_USER` にそのAppのbot username（例: `akinael-ai[bot]`）を設定する。Codex Actionはこのbotだけを追加許可する。人間ユーザーは通常どおりrepository write permissionで判定される。
+
 Coreはworkflowを直接編集せず、この共通runnerへ `workflow_dispatch` する。
 案件ごとの仕様・Research・Direction・Review基準はCoreがprompt/contextとして渡す。
 

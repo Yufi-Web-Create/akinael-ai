@@ -1,4 +1,5 @@
 import { createResponsesExecutor } from '../src/openai-responses.mjs';
+import { createGitHubRuntime } from '../src/github-runtime.mjs';
 
 const status = [];
 const add = (name, state, detail = '') => status.push({ name, state, detail });
@@ -15,6 +16,7 @@ for (const [name, value] of Object.entries(required)) {
   add(name, present(value) ? 'configured' : 'missing');
 }
 
+let openaiPass = false;
 if (present(required.OPENAI_API_KEY)) {
   try {
     const executor = createResponsesExecutor({
@@ -29,7 +31,8 @@ if (present(required.OPENAI_API_KEY)) {
       research: false,
       reasoningEffort: 'none'
     });
-    add('OpenAI Responses API', String(result.output || '').trim().includes('OK') ? 'pass' : 'fail', `model: ${result.model || 'unknown'}`);
+    openaiPass = String(result.output || '').trim().includes('OK');
+    add('OpenAI Responses API', openaiPass ? 'pass' : 'fail', `model: ${result.model || 'unknown'}`);
   } catch (error) {
     add('OpenAI Responses API', 'fail', String(error?.message || error).slice(0, 300));
   }
@@ -37,10 +40,56 @@ if (present(required.OPENAI_API_KEY)) {
   add('OpenAI Responses API', 'blocked', 'OPENAI_API_KEY missing');
 }
 
-const runnerReady = Object.values(required).every(present);
+let executorGitHubPass = false;
+let customerOrgPass = false;
+if (present(required.AKINAEL_GITHUB_APP_ID) && present(required.AKINAEL_GITHUB_APP_PRIVATE_KEY)) {
+  const executorRepository = process.env.GITHUB_EXECUTOR_REPO || 'Yufi-Web-Create/akinael-ai';
+  const customerOwner = process.env.GITHUB_REPO_OWNER || 'akinael-ai-clients';
+  try {
+    const github = createGitHubRuntime({
+      env: {
+        ...process.env,
+        GITHUB_APP_ID: required.AKINAEL_GITHUB_APP_ID,
+        GITHUB_APP_PRIVATE_KEY: required.AKINAEL_GITHUB_APP_PRIVATE_KEY,
+        GITHUB_EXECUTOR_REPO: executorRepository,
+        GITHUB_REPO_OWNER: customerOwner,
+        GITHUB_REPO_OWNER_TYPE: 'org'
+      }
+    });
+    const sha = await github.getBranchHead({ repositoryFullName: executorRepository, branchName: 'main' });
+    executorGitHubPass = Boolean(sha);
+    add('Core GitHub App access', executorGitHubPass ? 'pass' : 'fail', executorGitHubPass ? `executor main reachable: ${String(sha).slice(0, 8)}` : 'executor branch SHA missing');
+  } catch (error) {
+    add('Core GitHub App access', 'fail', String(error?.message || error).slice(0, 300));
+  }
+
+  try {
+    const github = createGitHubRuntime({
+      env: {
+        ...process.env,
+        GITHUB_APP_ID: required.AKINAEL_GITHUB_APP_ID,
+        GITHUB_APP_PRIVATE_KEY: required.AKINAEL_GITHUB_APP_PRIVATE_KEY,
+        GITHUB_EXECUTOR_REPO: executorRepository,
+        GITHUB_REPO_OWNER: customerOwner,
+        GITHUB_REPO_OWNER_TYPE: 'org'
+      }
+    });
+    const token = await github.getInstallationTokenForOwner({ owner: customerOwner, ownerType: 'org' });
+    customerOrgPass = Boolean(token);
+    add('Customer Organization App access', customerOrgPass ? 'pass' : 'fail', customerOrgPass ? `installation reachable: ${customerOwner}` : 'installation token missing');
+  } catch (error) {
+    add('Customer Organization App access', 'fail', String(error?.message || error).slice(0, 300));
+  }
+} else {
+  add('Core GitHub App access', 'blocked', 'GitHub App private key missing');
+  add('Customer Organization App access', 'blocked', 'GitHub App private key missing');
+}
+
+const configured = Object.values(required).every(present);
+const runnerReady = configured && openaiPass && executorGitHubPass && customerOrgPass;
 add('Central Codex Runner', runnerReady ? 'ready' : 'blocked', runnerReady
-  ? 'required Core Actions secrets/variable are configured'
-  : 'configure missing Core Actions values before dispatching customer work');
+  ? 'OpenAI and both GitHub App installations are reachable'
+  : 'runtime dependency check has not fully passed');
 
 const lines = [
   '# Akinael Central Runner Smoke',
@@ -61,5 +110,4 @@ if (process.env.GITHUB_STEP_SUMMARY) {
   await appendFile(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\n')}\n`);
 }
 
-const hardFailures = status.filter((item) => item.state === 'fail');
-if (hardFailures.length) process.exitCode = 1;
+if (!runnerReady) process.exitCode = 1;

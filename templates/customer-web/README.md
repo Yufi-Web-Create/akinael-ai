@@ -1,20 +1,35 @@
-# Customer Web Runtime Template
+# Customer Web Repository Standard
 
-顧客サイトrepositoryへ組み込むアキナエルAI実行境界。
+顧客サイトrepositoryには、制作物と品質基準だけを保持する。
+Codex実行workflowとOpenAI/GitHub secretsは顧客repositoryへコピーしない。
 
-必須:
+## Repository側に必要なもの
 
-- `.github/workflows/akinael-agent.yml`
 - root `AGENTS.md`
-- `package.json` の `qa` script（推奨）
+- `package.json` の `qa` script
 - Playwright等の実ブラウザQA
-- GitHub Actions secret `OPENAI_API_KEY`
+- サイト本体のsource code
 
-GitHub AppからCoreがdispatchする場合は、repository variable `AKINAEL_BOT_USER` にそのAppのbot username（例: `akinael-ai[bot]`）を設定する。Codex Actionはこのbotだけを追加許可する。人間ユーザーは通常どおりrepository write permissionで判定される。
+新規Web案件では、Coreが最初のBuild直前にprivate repositoryを自動作成する。
+`GITHUB_TEMPLATE_REPO` が設定されていればGitHub templateから作成し、未設定ならCore同梱のNext.js starterを投入する。
 
-Coreはworkflowを直接編集せず、この共通runnerへ `workflow_dispatch` する。
-案件ごとの仕様・Research・Direction・Review基準はCoreがprompt/contextとして渡す。
+## Execution
 
-`main` へ直接実装しない。作業は `akinael/run-*` branch上で行い、Release Gate後もproduction merge/deployはHuman Gateとする。
+Codex実行はCore repositoryの `.github/workflows/akinael-agent.yml` に集約する。
+Core Actions側だけに以下を設定する。
 
-このディレクトリは配布用テンプレートであり、Core repository自身のActions workflowとしては実行しない。
+- `OPENAI_API_KEY`
+- `AKINAEL_GITHUB_APP_ID`
+- `AKINAEL_GITHUB_APP_PRIVATE_KEY`
+- repository variable `AKINAEL_BOT_USER`
+
+中央runnerがGitHub Appのrepository-scoped tokenを一時発行し、対象顧客repositoryをcheckoutする。
+`persist-credentials: false` とし、CodexにはGitHub credentialを永続配置しない。
+
+## Branch / Release boundary
+
+`main` へ直接実装しない。
+作業は `akinael/run-*` branch上で行う。
+Release Gateを通過しても、production merge / deploy / DNS変更はHuman Gateとして残す。
+
+このディレクトリはrepository標準の説明用であり、実行workflowは含めない。

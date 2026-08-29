@@ -29,6 +29,8 @@ GitHub Actions用SecretとRender Worker用Secretは役割が異なる。
 - `GITHUB_EXECUTOR_REPO=Yufi-Web-Create/akinael-ai`
 - `GITHUB_EXECUTOR_REF=main`
 - `GITHUB_AGENT_WORKFLOW=akinael-agent.yml`
+- `GITHUB_APP_ID=4762113`
+- `AKINAEL_BOT_USER=akinael-ai-runtime-yufi[bot]`
 - `GITHUB_REPO_OWNER=akinael-ai-clients`
 - `GITHUB_REPO_OWNER_TYPE=org`
 - `GITHUB_CUSTOMER_REPO_PREFIX=client`
@@ -44,17 +46,12 @@ Repository: `Yufi-Web-Create/akinael-ai`
 
 Settings → Secrets and variables → Actions → Secrets
 
+必要なのは2つだけ。
+
 - `OPENAI_API_KEY`
-- `AKINAEL_GITHUB_APP_ID`
 - `AKINAEL_GITHUB_APP_PRIVATE_KEY`
 
-### Actions variable
-
-Settings → Secrets and variables → Actions → Variables
-
-- `AKINAEL_BOT_USER`
-  - value: GitHub App bot username, e.g. `akinael-ai-runtime-yufi[bot]`
-
+GitHub App ID `4762113` とbot user `akinael-ai-runtime-yufi[bot]` は非Secretのためworkflowへ固定済み。
 `AKINAEL_GITHUB_APP_PRIVATE_KEY` はGitHub Appから発行したPEM全文を登録する。
 
 設定後、feature branchの `Runtime Smoke` を再実行する。
@@ -94,12 +91,12 @@ Repository permissions:
 Webhookは使用しない。
 
 Runtime Node側で使用:
-- `GITHUB_APP_ID`
+- `GITHUB_APP_ID=4762113`（非Secret、blueprint固定済み）
 - `GITHUB_APP_PRIVATE_KEY`
-- `GITHUB_APP_INSTALLATION_ID` は任意。未設定なら `GITHUB_EXECUTOR_REPO` から自動検出する。
+- `GITHUB_APP_INSTALLATION_ID` は不要。`GITHUB_EXECUTOR_REPO` から自動検出する。
 
 Core Actions側で使用:
-- `AKINAEL_GITHUB_APP_ID`
+- App IDはworkflow固定済み
 - `AKINAEL_GITHUB_APP_PRIVATE_KEY`
 
 中央Actions workflowでは対象customer repositoryだけにscopeした短命installation tokenを発行する。
@@ -127,18 +124,14 @@ web_new request
 
 Service: `akinael-ai-worker`
 
-Secretとして設定:
+Secretとして設定する値:
 
 - `SUPABASE_SECRET_KEY`
 - `OPENAI_API_KEY`
-- `GITHUB_APP_ID`
 - `GITHUB_APP_PRIVATE_KEY`
 
-任意:
-
-- `GITHUB_APP_INSTALLATION_ID` — 通常不要。Core repository installationを自動検出する。
-
-非Secret値は `render.yaml` に定義済み。
+`GITHUB_APP_ID=4762113`、Supabase URL、customer Organization名などの非Secret値は `render.yaml` に定義済み。
+Installation IDは自動検出するため不要。
 
 Workerを実際に有効化する前に、同じ環境変数を使用できるShell/preview環境で以下を実行する。
 
@@ -149,9 +142,9 @@ npm run readiness:worker
 期待値:
 
 ```text
-Supabase service access          pass
-OpenAI Responses API             pass
-GitHub App service access        pass
+Supabase service access           pass
+OpenAI Responses API              pass
+GitHub App service access         pass
 Customer Organization App access pass
 RUNTIME_READY=true
 ```

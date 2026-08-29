@@ -1,40 +1,29 @@
-import { createSupabaseAdmin } from '../src/supabase-admin.mjs';
 import { createResponsesExecutor } from '../src/openai-responses.mjs';
-import { createGitHubRuntime } from '../src/github-runtime.mjs';
 
 const status = [];
 const add = (name, state, detail = '') => status.push({ name, state, detail });
 const present = (value) => Boolean(String(value || '').trim());
 
 const required = {
-  SUPABASE_URL: process.env.SUPABASE_URL,
-  SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
-  GITHUB_APP_ID: process.env.GITHUB_APP_ID,
-  GITHUB_APP_INSTALLATION_ID: process.env.GITHUB_APP_INSTALLATION_ID,
-  GITHUB_APP_PRIVATE_KEY: process.env.GITHUB_APP_PRIVATE_KEY,
-  GITHUB_BOOTSTRAP_TOKEN: process.env.GITHUB_BOOTSTRAP_TOKEN,
+  AKINAEL_GITHUB_APP_ID: process.env.AKINAEL_GITHUB_APP_ID,
+  AKINAEL_GITHUB_APP_PRIVATE_KEY: process.env.AKINAEL_GITHUB_APP_PRIVATE_KEY,
+  AKINAEL_BOT_USER: process.env.AKINAEL_BOT_USER,
 };
 
 for (const [name, value] of Object.entries(required)) {
   add(name, present(value) ? 'configured' : 'missing');
 }
 
-if (present(required.SUPABASE_URL) && present(required.SUPABASE_SECRET_KEY)) {
-  try {
-    const admin = createSupabaseAdmin({ env: process.env });
-    const rows = await admin.request('/rest/v1/tenants', { query: 'select=id,name&limit=1' });
-    add('Supabase API', 'pass', `tenant rows reachable: ${Array.isArray(rows) ? rows.length : 0}`);
-  } catch (error) {
-    add('Supabase API', 'fail', String(error?.message || error).slice(0, 300));
-  }
-} else {
-  add('Supabase API', 'blocked', 'credentials missing');
-}
-
 if (present(required.OPENAI_API_KEY)) {
   try {
-    const executor = createResponsesExecutor({ env: process.env });
+    const executor = createResponsesExecutor({
+      env: {
+        ...process.env,
+        OPENAI_API_KEY: required.OPENAI_API_KEY,
+        GENERAL_AGENT_MODEL: process.env.GENERAL_AGENT_MODEL || 'gpt-5.6-terra'
+      }
+    });
     const result = await executor.run({
       prompt: 'Runtime connectivity smoke test. Reply with exactly: OK',
       research: false,
@@ -48,29 +37,21 @@ if (present(required.OPENAI_API_KEY)) {
   add('OpenAI Responses API', 'blocked', 'OPENAI_API_KEY missing');
 }
 
-const githubAppReady = present(required.GITHUB_APP_ID)
-  && present(required.GITHUB_APP_INSTALLATION_ID)
-  && present(required.GITHUB_APP_PRIVATE_KEY);
-
-if (githubAppReady) {
-  try {
-    const runtime = createGitHubRuntime({ env: process.env });
-    const repo = process.env.GITHUB_EXECUTOR_REPO || process.env.GITHUB_REPOSITORY;
-    const sha = await runtime.getBranchHead({ repositoryFullName: repo, branchName: process.env.GITHUB_REF_NAME || 'feat/workflow-execution-engine' });
-    add('GitHub App API', sha ? 'pass' : 'fail', sha ? `branch reachable: ${String(sha).slice(0, 8)}` : 'no branch SHA returned');
-  } catch (error) {
-    add('GitHub App API', 'fail', String(error?.message || error).slice(0, 300));
-  }
-} else {
-  add('GitHub App API', 'blocked', 'GitHub App credentials incomplete');
-}
+const runnerReady = Object.values(required).every(present);
+add('Central Codex Runner', runnerReady ? 'ready' : 'blocked', runnerReady
+  ? 'required Core Actions secrets/variable are configured'
+  : 'configure missing Core Actions values before dispatching customer work');
 
 const lines = [
-  '# Akinael Runtime Smoke',
+  '# Akinael Central Runner Smoke',
+  '',
+  '> This check covers the central GitHub/Codex runner only. Supabase and Worker credentials belong to Render.',
   '',
   '| Check | State | Detail |',
   '|---|---|---|',
   ...status.map(({ name, state, detail }) => `| ${name} | ${state} | ${String(detail).replace(/\|/g, '\\|')} |`),
+  '',
+  `**RUNTIME_READY=${runnerReady ? 'true' : 'false'}**`,
   ''
 ];
 

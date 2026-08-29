@@ -103,6 +103,29 @@ export const createExecutionStore = ({ env = process.env, fetchImpl = fetch } = 
     return first(rows);
   };
 
+  const upsertExecutorJob = async ({ taskId, status, externalReference = null, externalUrl = null, payload = {}, nextCheckAt = null }) => admin.request('/rest/v1/rpc/upsert_executor_job', {
+    method: 'POST',
+    body: {
+      p_task_id: taskId,
+      p_executor: 'github_codex',
+      p_external_reference: externalReference,
+      p_external_url: externalUrl,
+      p_status: status,
+      p_payload: payload,
+      p_next_check_at: nextCheckAt
+    }
+  });
+
+  const patchExecutorJob = async (taskId, patch) => {
+    const rows = await admin.request('/rest/v1/executor_jobs', {
+      method: 'PATCH',
+      query: `task_id=eq.${encodeURIComponent(taskId)}&select=*`,
+      headers: { Prefer: 'return=representation' },
+      body: patch
+    });
+    return first(rows);
+  };
+
   const listRunningExternalTasks = async (limit = 25) => {
     const rows = await admin.request('/rest/v1/tasks', {
       query: `status=eq.running&select=id,workflow_run_id,task_key,title,mode,metadata,attempts,max_attempts,updated_at&order=updated_at.asc&limit=${Math.max(1, Math.min(Number(limit) || 25, 100))}`
@@ -122,6 +145,8 @@ export const createExecutionStore = ({ env = process.env, fetchImpl = fetch } = 
     finishTask,
     appendWorkflowTasks,
     patchTaskMetadata,
+    upsertExecutorJob,
+    patchExecutorJob,
     listRunningExternalTasks,
     getRepository
   };

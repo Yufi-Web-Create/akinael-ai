@@ -130,14 +130,17 @@ RUNTIME_READY=true
 
 Service: `akinael-ai-worker`
 
-Secretとして設定する値:
+Workerが新しく必要とするSecretは1つだけ。
 
-- `SUPABASE_SECRET_KEY`
-- `OPENAI_API_KEY`
 - `GITHUB_APP_PRIVATE_KEY`
+
+`SUPABASE_SECRET_KEY` は既存Webサービス `akinael-ai` の同名環境変数を `fromService` で参照する。
+`OPENAI_API_KEY` は既存Webサービスの `LLM_API_KEY` を `fromService` で参照する。
+このため、Supabase/OpenAIのSecretをRenderへ重複登録しない。
 
 `GITHUB_APP_ID=4762113`、Supabase URL、customer Organization名などの非Secret値は `render.yaml` に定義済み。
 Installation IDは自動検出するため不要。
+`GITHUB_TEMPLATE_REPO` はProductionでは未設定とし、Core内蔵starterを使用する。
 
 Worker上で以下を実行すると、Supabase / OpenAI / Core GitHub App / Customer Organization Appの実疎通を確認する。
 

@@ -10,6 +10,8 @@ test('customer web runner keeps the Codex and security contract', async () => {
   assert.match(workflow, /persist-credentials:\s*false/);
   assert.match(workflow, /permission-profile:\s*\$\{\{ inputs\.permission_profile \}\}/);
   assert.match(workflow, /safety-strategy:\s*drop-sudo/);
+  assert.match(workflow, /allow-bot-users:\s*\$\{\{ vars\.AKINAEL_BOT_USER \}\}/);
+  assert.doesNotMatch(workflow, /allow-bots:\s*true/);
   assert.match(workflow, /npm run qa/);
   assert.match(workflow, /Protected path changed/);
   assert.match(workflow, /\.akinael\/results/);

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeReview, isExternalTask, branchFor, resultPathFor } from '../src/workflow-execution-engine.mjs';
+import { normalizeReview, isExternalTask, branchFor, resultPathFor, qaFailureReview } from '../src/workflow-execution-engine.mjs';
 import { planDynamicExpansion } from '../src/dynamic-expansion.mjs';
 import { buildTaskPrompt } from '../src/execution-prompts.mjs';
 
@@ -12,6 +12,13 @@ test('normalizeReview parses structured PASS and FAIL outputs', () => {
   assert.equal(failed.status, 'FAIL');
   assert.equal(failed.findings.length, 1);
   assert.equal(normalizeReview('looks good'), null);
+});
+
+test('repository QA failures are represented as mandatory major review findings', () => {
+  const review = qaFailureReview('npm run qa failed');
+  assert.equal(review.status, 'FAIL');
+  assert.equal(review.findings[0].severity, 'major');
+  assert.match(review.findings[0].expected, /must pass/i);
 });
 
 test('external task routing keeps implementation and browser review on GitHub executor', () => {

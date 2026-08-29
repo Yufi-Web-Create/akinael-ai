@@ -1,0 +1,85 @@
+import { createPlatformStore, PlatformStoreError } from './platform-store.mjs';
+
+const MAX_BODY_BYTES = 64 * 1024;
+
+const writeJson = (response, status, payload, extraHeaders = {}) => {
+  response.writeHead(status, {
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'no-store',
+    'x-content-type-options': 'nosniff',
+    ...extraHeaders
+  });
+  response.end(JSON.stringify(payload));
+};
+
+const readJsonBody = (request) => new Promise((resolve, reject) => {
+  let body = '';
+  request.on('data', (chunk) => {
+    body += chunk;
+    if (Buffer.byteLength(body) > MAX_BODY_BYTES) {
+      reject(new PlatformStoreError('request body is too large', { status: 413, code: 'request_too_large' }));
+      request.destroy();
+    }
+  });
+  request.on('end', () => {
+    if (!body) return resolve({});
+    try {
+      resolve(JSON.parse(body));
+    } catch {
+      reject(new PlatformStoreError('request body must be valid JSON', { status: 400, code: 'invalid_json' }));
+    }
+  });
+  request.on('error', reject);
+});
+
+export const extractAccessToken = (request) => {
+  const header = request.headers.authorization || '';
+  const match = /^Bearer\s+(.+)$/i.exec(header);
+  return match?.[1]?.trim() || null;
+};
+
+export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {}) => {
+  const store = createPlatformStore({ env, fetchImpl });
+
+  const handle = async (request, response) => {
+    const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+    if (!url.pathname.startsWith('/api/v2/')) return false;
+
+    const method = request.method || 'GET';
+    const token = extractAccessToken(request);
+    const parts = url.pathname.split('/').filter(Boolean);
+
+    try {
+      if (method === 'GET' && url.pathname === '/api/v2/auth/me') {
+        return writeJson(response, 200, await store.getMe(token)), true;
+      }
+
+      if (method === 'POST' && url.pathname === '/api/v2/onboarding') {
+        const body = await readJsonBody(request);
+        return writeJson(response, 200, await store.provisionCustomer(token, body)), true;
+      }
+
+      if (method === 'GET' && url.pathname === '/api/v2/projects') {
+        return writeJson(response, 200, await store.listProjects(token)), true;
+      }
+
+      if (method === 'POST' && url.pathname === '/api/v2/projects') {
+        const body = await readJsonBody(request);
+        return writeJson(response, 201, await store.createProject(token, body)), true;
+      }
+
+      if (method === 'GET' && parts.length === 4 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects') {
+        return writeJson(response, 200, await store.getProject(token, parts[3])), true;
+      }
+
+      return writeJson(response, 404, { error: { code: 'not_found', message: 'not found' } }), true;
+    } catch (caught) {
+      if (caught instanceof PlatformStoreError) {
+        return writeJson(response, caught.status, { error: { code: caught.code, message: caught.message } }), true;
+      }
+      return writeJson(response, 500, { error: { code: 'internal_error', message: 'internal server error' } }), true;
+    }
+  };
+
+  return { handle, store };
+};

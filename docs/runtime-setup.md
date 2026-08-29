@@ -54,19 +54,6 @@ Settings → Secrets and variables → Actions → Secrets
 GitHub App ID `4762113` とbot user `akinael-ai-runtime-yufi[bot]` は非Secretのためworkflowへ固定済み。
 `AKINAEL_GITHUB_APP_PRIVATE_KEY` はGitHub Appから発行したPEM全文を登録する。
 
-設定後、feature branchの `Runtime Smoke` を再実行する。
-期待値:
-
-```text
-OPENAI_API_KEY                  configured
-AKINAEL_GITHUB_APP_ID           configured
-AKINAEL_GITHUB_APP_PRIVATE_KEY  configured
-AKINAEL_BOT_USER                configured
-OpenAI Responses API            pass
-Central Codex Runner            ready
-RUNTIME_READY=true
-```
-
 ## 4. GitHub App installations and permissions
 
 同一GitHub Appを2か所へインストールする。
@@ -120,7 +107,26 @@ web_new request
 
 `GITHUB_BOOTSTRAP_TOKEN` はpersonal-account運用へ戻す場合だけのlegacy fallbackとして残す。
 
-## 6. Render Worker environment
+## 6. Central Runtime Smoke
+
+2026-08-30、feature branchの実資格情報を使用してlive smokeを実行し、以下をすべて確認済み。
+Secretやinstallation tokenの値はログへ出力しない。
+
+```text
+OPENAI_API_KEY                    configured
+AKINAEL_GITHUB_APP_ID             configured
+AKINAEL_GITHUB_APP_PRIVATE_KEY    configured
+AKINAEL_BOT_USER                  configured
+OpenAI Responses API              pass (gpt-5.6-terra)
+Core GitHub App access            pass
+Customer Organization App access  pass
+Central Codex Runner              ready
+RUNTIME_READY=true
+```
+
+同一headのCore QualityもPASS済み。
+
+## 7. Render Worker environment
 
 Service: `akinael-ai-worker`
 
@@ -133,7 +139,7 @@ Secretとして設定する値:
 `GITHUB_APP_ID=4762113`、Supabase URL、customer Organization名などの非Secret値は `render.yaml` に定義済み。
 Installation IDは自動検出するため不要。
 
-Workerを実際に有効化する前に、同じ環境変数を使用できるShell/preview環境で以下を実行する。
+Worker上で以下を実行すると、Supabase / OpenAI / Core GitHub App / Customer Organization Appの実疎通を確認する。
 
 ```bash
 npm run readiness:worker
@@ -149,7 +155,7 @@ Customer Organization App access pass
 RUNTIME_READY=true
 ```
 
-## 7. First E2E
+## 8. First E2E
 
 Runtime readinessが両方PASSした後、架空顧客・テストprojectで1件だけ実行する。
 
@@ -169,7 +175,7 @@ Request
 E2Eではproduction domainへdeployしない。
 `akinael/run-*` branchとSupabaseのworkflow/task/artifact/executor_job記録だけを検証する。
 
-## 8. Human Gates
+## 9. Human Gates
 
 明示承認なしに実行しない:
 

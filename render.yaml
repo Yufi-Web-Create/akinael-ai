@@ -71,14 +71,22 @@ services:
         value: production
       - key: SUPABASE_URL
         value: https://rxxmbnlqomtfjekdrblo.supabase.co
+      # Reuse the already-configured service secret instead of duplicating it in Render.
       - key: SUPABASE_SECRET_KEY
-        sync: false
+        fromService:
+          type: web
+          name: akinael-ai
+          envVarKey: SUPABASE_SECRET_KEY
       - key: AKINAEL_TENANT_NAME
         value: akinael
       - key: WORKER_INTERVAL_MS
         value: 5000
+      # The existing web service stores the same OpenAI credential as LLM_API_KEY.
       - key: OPENAI_API_KEY
-        sync: false
+        fromService:
+          type: web
+          name: akinael-ai
+          envVarKey: LLM_API_KEY
       - key: OPENAI_RESPONSES_URL
         value: https://api.openai.com/v1/responses
       - key: RESEARCH_MODEL
@@ -95,6 +103,7 @@ services:
         value: akinael-agent.yml
       - key: GITHUB_APP_ID
         value: '4762113'
+      # This is the only new secret the worker needs in Render.
       - key: GITHUB_APP_PRIVATE_KEY
         sync: false
       - key: GITHUB_REPO_OWNER
@@ -103,6 +112,3 @@ services:
         value: org
       - key: GITHUB_CUSTOMER_REPO_PREFIX
         value: client
-      # Optional. If omitted, Core seeds its bundled Next.js starter directly.
-      - key: GITHUB_TEMPLATE_REPO
-        sync: false

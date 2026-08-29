@@ -68,6 +68,26 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
         return writeJson(response, 201, await store.createProject(token, body)), true;
       }
 
+      if (parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects' && parts[4] === 'requests') {
+        if (method === 'GET') {
+          return writeJson(response, 200, await store.listRequests(token, parts[3])), true;
+        }
+        if (method === 'POST') {
+          const body = await readJsonBody(request);
+          return writeJson(response, 201, await store.createRequest(token, parts[3], body)), true;
+        }
+      }
+
+      if (parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects' && parts[4] === 'messages') {
+        if (method === 'GET') {
+          return writeJson(response, 200, await store.listMessages(token, parts[3], { requestId: url.searchParams.get('requestId') })), true;
+        }
+        if (method === 'POST') {
+          const body = await readJsonBody(request);
+          return writeJson(response, 201, await store.addMessage(token, parts[3], body)), true;
+        }
+      }
+
       if (method === 'GET' && parts.length === 4 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects') {
         return writeJson(response, 200, await store.getProject(token, parts[3])), true;
       }

@@ -116,7 +116,7 @@ jobs:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           permission-profile: ${{ inputs.permission_profile }}
           safety-strategy: drop-sudo
-          allow-bots: true
+          allow-bot-users: ${{ vars.AKINAEL_BOT_USER }}
           effort: high
           prompt: ${{ inputs.prompt }}
 

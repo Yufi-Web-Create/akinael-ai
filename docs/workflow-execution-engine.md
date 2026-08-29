@@ -17,7 +17,8 @@ Request
    ├─ Responses Executor
    │   ├─ intake / direction / copy / analysis
    │   └─ research + Web Search
-   └─ GitHub Codex Executor
+   └─ Central GitHub Codex Executor
+       ├─ repository bootstrap when needed
        ├─ implementation
        ├─ browser / technical QA
        └─ correction loop
@@ -42,9 +43,7 @@ Workerは1回のtickで以下を行う。
 
 DB claimは `FOR UPDATE SKIP LOCKED` を使用するため、Workerを複数起動しても同一taskを二重claimしない。
 
-## Executors
-
-### Responses Executor
+## Responses Executor
 
 対象:
 - intake
@@ -57,20 +56,22 @@ DB claimは `FOR UPDATE SKIP LOCKED` を使用するため、Workerを複数起�
 Research taskのみResponses APIのWeb Search toolを有効化する。
 Research結果ではURL citation/sourceもartifact metadataへ保存する。
 
-### GitHub Codex Executor
+## Central GitHub Codex Executor
 
-対象:
-- frontend/build
-- SEO/A11yで実repository確認が必要な工程
-- visual/browser review
-- technical review
-- review FAIL後のBuilder correction
+Codex runnerは顧客repositoryごとに複製せず、Core repositoryの `.github/workflows/akinael-agent.yml` に1つだけ置く。
+顧客repositoryにはOpenAI API keyや実行workflowを保存しない。
 
-顧客repositoryには `.github/workflows/akinael-agent.yml` を配置する。
-Coreは `workflow_dispatch` でtaskを送信し、Codexはworkflow専用branch `akinael/run-<workflow-id>` 上だけで作業する。
+Core Workerが中央workflowへ以下を送る。
 
-CodexにはGitHub credentialを渡さない。
-`actions/checkout` は `persist-credentials: false` とし、branch fetch/pushだけをCodex実行の前後の限定stepで行う。
+- target repository
+- `akinael/run-*` branch
+- task / workflow id
+- execution stage
+- permission profile
+- Coreが組み立てたprompt
+
+中央workflowはGitHub Appから対象repository限定の短命tokenを発行し、そのrepositoryをcheckoutする。
+`persist-credentials: false` を使用し、Codex workspaceへGitHub credentialを永続配置しない。
 
 Codex permission profile:
 - implementation / correction: `:workspace`
@@ -80,13 +81,62 @@ protected paths:
 - `.github/`
 - `.git/`
 - `.codex/`
-- `.akinael/`（Coreが作るresult fileを除く）
+- `.akinael/`（result fileを除く）
 - `AGENTS.md`
+
+Core Actionsのsecret/variableは1回だけ設定する。
+
+- `OPENAI_API_KEY`
+- `AKINAEL_GITHUB_APP_ID`
+- `AKINAEL_GITHUB_APP_PRIVATE_KEY`
+- repository variable `AKINAEL_BOT_USER`
+
+## Repository Bootstrap
+
+新規Web案件ではResearch/Direction中にrepositoryを作らず、最初のBuild taskをclaimした時点で初めて作成する。
+
+```text
+web_new Build
+→ repositoryがある?
+   ├─ Yes → そのまま実装
+   └─ No
+      → private repository作成
+      → starter/template投入
+      → GitHub App access確認
+      → Supabase repositoriesへ登録
+      → Codex Build dispatch
+```
+
+`web_change` ではrepositoryが未登録でも新規repositoryを勝手に作らない。対象repository不足として失敗し、誤った別サイトを作ることを防ぐ。
+
+Bootstrap方法:
+
+1. `GITHUB_TEMPLATE_REPO` が設定されていればGitHub templateからprivate repositoryを生成する。
+2. 未設定ならCore同梱のNext.js starterを直接seedする。
+
+同梱starterには以下を含む。
+
+- Next.js / TypeScript
+- ESLint
+- Playwright
+- mobile / desktop smoke QA
+- `npm run qa`
+- root `AGENTS.md`
+
+### GitHub ownerについて
+
+現在のような個人GitHubアカウント配下へrepositoryを作成する場合、repository作成専用の `GITHUB_BOOTSTRAP_TOKEN` をWorkerに設定する。
+GitHub Appは作成後のrepositoryアクセス・Actions実行に使用する。
+
+将来customer repositoriesをGitHub Organization配下へ移す場合は、GitHub AppにAdministration/Contentsの適切な権限を与えることで、repository作成もApp中心へ寄せられる。
+
+新規repositoryをSupabaseへ登録する前にGitHub Appから実アクセス確認を行う。Appが新repositoryへアクセスできない設定の場合は制作開始前に失敗させる。
 
 ## QA and correction loop
 
 GitHub executorはCodexの文章だけでPASS判定しない。
 Codex終了後にrepository固有の `npm run qa`（なければ `npm test`）を実行する。
+QA command自体が無いrepositoryはPASS扱いにせずFAILとする。
 
 ```text
 Builder
@@ -145,6 +195,7 @@ AIが任意のexecutor commandや任意task graphを直接生成して実行す�
 - `workflow_runs`: pipeline state
 - `artifacts`: AI成果物・review結果・citation
 - `executor_jobs`: GitHub external job state / URL / result / error
+- `repositories`: projectとGitHub repositoryの対応
 - `requests`: customer request state
 - `projects`: project state
 
@@ -158,12 +209,23 @@ Core / Worker:
 - `OPENAI_API_KEY`
 - `RESEARCH_MODEL`
 - `GENERAL_AGENT_MODEL`
-- GitHub App credentials（production推奨）
+- `GITHUB_EXECUTOR_REPO`
+- GitHub App credentials
+- `GITHUB_REPO_OWNER`
+- 個人ownerの場合 `GITHUB_BOOTSTRAP_TOKEN`
 
-Target repositories:
-- `.github/workflows/akinael-agent.yml`
-- GitHub Actions secret `OPENAI_API_KEY`
-- repository固有のQA command
+Core GitHub Actions:
+- `OPENAI_API_KEY`
+- `AKINAEL_GITHUB_APP_ID`
+- `AKINAEL_GITHUB_APP_PRIVATE_KEY`
+- `AKINAEL_BOT_USER`
+
+Customer repositories:
+- source code
+- root `AGENTS.md`
+- repository固有のQA command / browser tests
+- OpenAI/GitHub secretは不要
+- Codex workflowも不要
 
 Render Workerを実際に作成・有効化することは有料インフラ操作なのでHuman Gate。
 コードと設定はdeploy-readyにしても、明示承認なしに有料Workerを起動しない。

@@ -94,10 +94,7 @@ services:
       - key: GITHUB_AGENT_WORKFLOW
         value: akinael-agent.yml
       - key: GITHUB_APP_ID
-        sync: false
-      # Optional override. If omitted, Core auto-discovers the installation for GITHUB_EXECUTOR_REPO.
-      - key: GITHUB_APP_INSTALLATION_ID
-        sync: false
+        value: '4762113'
       - key: GITHUB_APP_PRIVATE_KEY
         sync: false
       - key: GITHUB_REPO_OWNER
@@ -106,9 +103,6 @@ services:
         value: org
       - key: GITHUB_CUSTOMER_REPO_PREFIX
         value: client
-      # Optional legacy/personal-account fallback only. Organization bootstrap uses the GitHub App.
-      - key: GITHUB_BOOTSTRAP_TOKEN
-        sync: false
       # Optional. If omitted, Core seeds its bundled Next.js starter directly.
       - key: GITHUB_TEMPLATE_REPO
         sync: false

@@ -10,7 +10,7 @@ Render Worker
 ├─ Supabase service access
 ├─ OpenAI Responses API
 ├─ GitHub App API / workflow dispatch
-└─ new-web repository bootstrap
+└─ new-web repository bootstrap → akinael-ai-clients
 
 Core GitHub Actions / Akinael Agent
 ├─ OpenAI Codex Action
@@ -29,8 +29,8 @@ GitHub Actions用SecretとRender Worker用Secretは役割が異なる。
 - `GITHUB_EXECUTOR_REPO=Yufi-Web-Create/akinael-ai`
 - `GITHUB_EXECUTOR_REF=main`
 - `GITHUB_AGENT_WORKFLOW=akinael-agent.yml`
-- `GITHUB_REPO_OWNER=Yufi-Web-Create`
-- `GITHUB_REPO_OWNER_TYPE=user`
+- `GITHUB_REPO_OWNER=akinael-ai-clients`
+- `GITHUB_REPO_OWNER_TYPE=org`
 - `GITHUB_CUSTOMER_REPO_PREFIX=client`
 - `OPENAI_RESPONSES_URL=https://api.openai.com/v1/responses`
 - `RESEARCH_MODEL=gpt-5.6-terra`
@@ -53,7 +53,7 @@ Settings → Secrets and variables → Actions → Secrets
 Settings → Secrets and variables → Actions → Variables
 
 - `AKINAEL_BOT_USER`
-  - value: GitHub App bot username, e.g. `akinael-ai[bot]`
+  - value: GitHub App bot username, e.g. `akinael-ai-runtime-yufi[bot]`
 
 `AKINAEL_GITHUB_APP_PRIVATE_KEY` はGitHub Appから発行したPEM全文を登録する。
 
@@ -70,47 +70,58 @@ Central Codex Runner            ready
 RUNTIME_READY=true
 ```
 
-## 4. GitHub App requirements
+## 4. GitHub App installations and permissions
 
-GitHub Appは `Yufi-Web-Create` にインストールする。
-新規customer repositoryの自動作成後も利用できるよう、初期運用では **All repositories** へのinstallationを推奨する。
+同一GitHub Appを2か所へインストールする。
+
+### `Yufi-Web-Create`
+
+- repository access: `akinael-ai` のみ
+- 中央workflow dispatchとCore repository参照に使用
+
+### `akinael-ai-clients`
+
+- repository access: All repositories
+- customer private repositoryの自動作成・初期投入・通常アクセスに使用
 
 Repository permissions:
 
 - **Actions: Read and write** — Render WorkerからCoreの `akinael-agent.yml` を `workflow_dispatch` するために必要
-- **Contents: Read and write** — customer repositoryのcheckout、branch作成、commit/pushに必要
-- **Metadata: Read** — repository識別・存在確認に使用
+- **Administration: Read and write** — `akinael-ai-clients` 配下へprivate repositoryを自動作成するために必要
+- **Contents: Read and write** — customer repositoryのstarter投入、checkout、branch作成、commit/pushに必要
+- **Metadata: Read** — GitHubにより暗黙に付与され、repository識別・存在確認に使用
 
-WebhookはExecution Engineの初期構成では必須ではない。
+Webhookは使用しない。
 
 Runtime Node側で使用:
 - `GITHUB_APP_ID`
-- `GITHUB_APP_INSTALLATION_ID`
 - `GITHUB_APP_PRIVATE_KEY`
+- `GITHUB_APP_INSTALLATION_ID` は任意。未設定なら `GITHUB_EXECUTOR_REPO` から自動検出する。
 
 Core Actions側で使用:
 - `AKINAEL_GITHUB_APP_ID`
 - `AKINAEL_GITHUB_APP_PRIVATE_KEY`
 
-同一GitHub Appを使用する。
 中央Actions workflowでは対象customer repositoryだけにscopeした短命installation tokenを発行する。
+Repository bootstrap時はcustomer OrganizationのinstallationをAPIで自動検出する。
 
-Repository bootstrap後、CoreはAppから新規repositoryへ実アクセスできることを確認してからSupabaseへ登録する。
+## 5. Repository bootstrap
 
-## 5. Repository bootstrap token
+Productionではcustomer repositoryを `akinael-ai-clients` 配下へ作成する。
+GitHub App installation tokenで作成するため、`GITHUB_BOOTSTRAP_TOKEN` / personal access tokenは不要。
 
-現在はcustomer repositoryを個人アカウント `Yufi-Web-Create` 配下へ作成するため、Render Workerに `GITHUB_BOOTSTRAP_TOKEN` が必要。
+```text
+web_new request
+→ first Build
+→ resolve akinael-ai-clients App installation
+→ create private repository
+→ seed bundled Next.js starter
+→ verify App access
+→ register repository in Supabase
+→ dispatch central Codex runner
+```
 
-Fine-grained personal access tokenを使用する。
-必要権限:
-
-- **Administration: Read and write** — `POST /user/repos` でprivate repositoryを作成
-- **Contents: Read and write** — bundled starterを初期投入
-
-用途は新規private repository作成と初期starter投入に限定する。
-GitHub App installation tokenは作成後の通常アクセス・Actions dispatchに使用する。
-
-将来GitHub Organizationへ移行した場合は、このbootstrap境界をGitHub App中心へ変更できる。
+`GITHUB_BOOTSTRAP_TOKEN` はpersonal-account運用へ戻す場合だけのlegacy fallbackとして残す。
 
 ## 6. Render Worker environment
 
@@ -121,9 +132,11 @@ Secretとして設定:
 - `SUPABASE_SECRET_KEY`
 - `OPENAI_API_KEY`
 - `GITHUB_APP_ID`
-- `GITHUB_APP_INSTALLATION_ID`
 - `GITHUB_APP_PRIVATE_KEY`
-- `GITHUB_BOOTSTRAP_TOKEN`
+
+任意:
+
+- `GITHUB_APP_INSTALLATION_ID` — 通常不要。Core repository installationを自動検出する。
 
 非Secret値は `render.yaml` に定義済み。
 
@@ -136,9 +149,10 @@ npm run readiness:worker
 期待値:
 
 ```text
-Supabase service access   pass
-OpenAI Responses API      pass
-GitHub App service access pass
+Supabase service access          pass
+OpenAI Responses API             pass
+GitHub App service access        pass
+Customer Organization App access pass
 RUNTIME_READY=true
 ```
 
@@ -151,7 +165,7 @@ Request
 → Production Router
 → Research
 → Direction
-→ private repository bootstrap
+→ private repository bootstrap in akinael-ai-clients
 → Codex Build
 → repository QA
 → independent reviews

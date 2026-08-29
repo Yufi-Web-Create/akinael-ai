@@ -87,6 +87,10 @@ services:
         value: gpt-5.6-terra
       - key: GITHUB_API_URL
         value: https://api.github.com
+      - key: GITHUB_EXECUTOR_REPO
+        value: Yufi-Web-Create/akinael-ai
+      - key: GITHUB_EXECUTOR_REF
+        value: main
       - key: GITHUB_AGENT_WORKFLOW
         value: akinael-agent.yml
       - key: GITHUB_APP_ID
@@ -99,3 +103,5 @@ services:
         sync: false
       - key: GITHUB_REPO_OWNER
         sync: false
+      - key: GITHUB_CUSTOMER_REPO_PREFIX
+        value: client

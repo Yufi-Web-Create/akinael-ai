@@ -58,3 +58,44 @@ services:
       name: akinael-data
       mountPath: /var/data
       sizeGB: 1
+
+  # This service executes queued AI workflow tasks. Creating/enabling the paid Render service is a Human Gate.
+  - type: worker
+    name: akinael-ai-worker
+    runtime: node
+    plan: starter
+    buildCommand: npm ci --omit=dev
+    startCommand: npm run worker
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: AKINAEL_TENANT_NAME
+        value: akinael
+      - key: WORKER_INTERVAL_MS
+        value: 5000
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_RESPONSES_URL
+        value: https://api.openai.com/v1/responses
+      - key: RESEARCH_MODEL
+        value: gpt-5.6-terra
+      - key: GENERAL_AGENT_MODEL
+        value: gpt-5.6-terra
+      - key: GITHUB_API_URL
+        value: https://api.github.com
+      - key: GITHUB_AGENT_WORKFLOW
+        value: akinael-agent.yml
+      - key: GITHUB_APP_ID
+        sync: false
+      - key: GITHUB_APP_INSTALLATION_ID
+        sync: false
+      - key: GITHUB_APP_PRIVATE_KEY
+        sync: false
+      - key: GITHUB_TEMPLATE_REPO
+        sync: false
+      - key: GITHUB_REPO_OWNER
+        sync: false

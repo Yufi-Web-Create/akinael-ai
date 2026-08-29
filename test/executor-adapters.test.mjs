@@ -56,7 +56,7 @@ test('GitHub runtime dispatches the standard Akinael workflow with constrained i
     env: { GITHUB_WORKER_TOKEN: 'gh-test', GITHUB_AGENT_WORKFLOW: 'akinael-agent.yml' },
     fetchImpl: async (url, options = {}) => {
       calls.push({ url: String(url), options });
-      return new Response('', { status: 204 });
+      return new Response(null, { status: 204 });
     }
   });
   const dispatched = await runtime.dispatchAgent({

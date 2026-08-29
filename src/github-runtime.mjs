@@ -116,6 +116,13 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
     return request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${encodeURIComponent(runId)}`);
   };
 
+  const getBranchHead = async ({ repositoryFullName, branchName }) => {
+    const { owner, repo } = splitRepo(repositoryFullName);
+    const refPath = ['heads', ...String(branchName || '').split('/').filter(Boolean)].map(encodeURIComponent).join('/');
+    const payload = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/ref/${refPath}`);
+    return payload?.object?.sha || null;
+  };
+
   const getFileText = async ({ repositoryFullName, path, ref }) => {
     const { owner, repo } = splitRepo(repositoryFullName);
     try {
@@ -144,6 +151,7 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
     dispatchAgent,
     findDispatchedRun,
     getRun,
+    getBranchHead,
     getFileText,
     createFromTemplate
   };

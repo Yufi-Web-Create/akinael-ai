@@ -1,5 +1,6 @@
 import { createPlatformStore, PlatformStoreError } from './platform-store.mjs';
 import { createProductionRouter } from './production-router.mjs';
+import { createSupabaseAuth, SupabaseAuthError } from './supabase-admin.mjs';
 
 const MAX_BODY_BYTES = 64 * 1024;
 
@@ -42,6 +43,7 @@ export const extractAccessToken = (request) => {
 export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {}) => {
   const store = createPlatformStore({ env, fetchImpl });
   const productionRouter = createProductionRouter({ env, fetchImpl });
+  const auth = createSupabaseAuth({ env, fetchImpl });
 
   const handle = async (request, response) => {
     const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
@@ -52,6 +54,42 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
     const parts = url.pathname.split('/').filter(Boolean);
 
     try {
+      if (method === 'POST' && url.pathname === '/api/v2/auth/register') {
+        const body = await readJsonBody(request);
+        const email = String(body.email || '').trim().toLowerCase();
+        const password = String(body.password || '');
+        if (!/^\S+@\S+\.\S+$/.test(email) || password.length < 12) {
+          throw new PlatformStoreError('valid email and password of at least 12 characters are required', { status: 400, code: 'validation_error' });
+        }
+        const result = await auth.signUp(email, password);
+        const accessToken = result?.access_token || result?.session?.access_token || null;
+        if (!accessToken) {
+          return writeJson(response, 202, { confirmationRequired: true }), true;
+        }
+        await store.provisionCustomer(accessToken, { displayName: email.split('@')[0] });
+        return writeJson(response, 201, { token: accessToken }), true;
+      }
+
+      if (method === 'POST' && url.pathname === '/api/v2/auth/login') {
+        const body = await readJsonBody(request);
+        const email = String(body.email || '').trim().toLowerCase();
+        const password = String(body.password || '');
+        if (!email || !password) {
+          throw new PlatformStoreError('email and password are required', { status: 400, code: 'validation_error' });
+        }
+        const result = await auth.signIn(email, password);
+        const accessToken = result?.access_token || null;
+        if (!accessToken) throw new SupabaseAuthError('invalid credentials', { status: 401, code: 'invalid_credentials' });
+        const me = await store.getMe(accessToken);
+        if (me.onboardingRequired) await store.provisionCustomer(accessToken, { displayName: email.split('@')[0] });
+        return writeJson(response, 200, { token: accessToken }), true;
+      }
+
+      if (method === 'POST' && url.pathname === '/api/v2/auth/logout') {
+        if (token) await auth.signOut(token);
+        return writeJson(response, 200, { ok: true }), true;
+      }
+
       if (method === 'GET' && url.pathname === '/api/v2/auth/me') {
         return writeJson(response, 200, await store.getMe(token)), true;
       }
@@ -104,6 +142,9 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
 
       return writeJson(response, 404, { error: { code: 'not_found', message: 'not found' } }), true;
     } catch (caught) {
+      if (caught instanceof SupabaseAuthError) {
+        return writeJson(response, caught.status, { error: { code: caught.code, message: caught.message } }), true;
+      }
       if (caught instanceof PlatformStoreError) {
         return writeJson(response, caught.status, { error: { code: caught.code, message: caught.message } }), true;
       }

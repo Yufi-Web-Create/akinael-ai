@@ -19,6 +19,47 @@ const parseResponse = async (response) => {
   try { return JSON.parse(text); } catch { return text; }
 };
 
+export class SupabaseAuthError extends Error {
+  constructor(message, { status = 502, code = 'supabase_auth_error' } = {}) {
+    super(message);
+    this.name = 'SupabaseAuthError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
+export const createSupabaseAuth = ({ env = process.env, fetchImpl = fetch } = {}) => {
+  const config = getSupabaseServerConfig(env);
+
+  const request = async (path, { method = 'POST', body, accessToken } = {}) => {
+    if (!config.authConfigured) {
+      throw new SupabaseAuthError('Supabase auth connection is not configured', { status: 503, code: 'auth_not_configured' });
+    }
+    const response = await fetchImpl(`${config.url}${path}`, {
+      method,
+      headers: {
+        apikey: config.publishableKey,
+        'content-type': 'application/json',
+        ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {})
+      },
+      body: body === undefined ? undefined : JSON.stringify(body)
+    });
+    const payload = await parseResponse(response);
+    if (!response.ok) {
+      const message = payload?.msg || payload?.message || payload?.error_description || payload?.error || `Supabase auth request failed with ${response.status}`;
+      const code = payload?.code || (response.status === 400 ? 'invalid_credentials' : 'supabase_auth_error');
+      throw new SupabaseAuthError(message, { status: response.status, code });
+    }
+    return payload;
+  };
+
+  return {
+    signUp: (email, password) => request('/auth/v1/signup', { body: { email, password } }),
+    signIn: (email, password) => request('/auth/v1/token?grant_type=password', { body: { email, password } }),
+    signOut: (accessToken) => request('/auth/v1/logout', { accessToken })
+  };
+};
+
 export const createSupabaseAdmin = ({ env = process.env, fetchImpl = fetch } = {}) => {
   const config = getSupabaseServerConfig(env);
 

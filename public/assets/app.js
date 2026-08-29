@@ -141,9 +141,14 @@ if (authDialog) {
     authStatus.textContent = authMode === 'register' ? 'アカウントを作成しています…' : '認証しています…';
     const { consent, ...values } = Object.fromEntries(new FormData(authForm).entries());
     try {
-      const response = await fetch(`/api/auth/${authMode}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(values) });
+      const response = await fetch(`/api/v2/auth/${authMode}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(values) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error?.message || '処理に失敗しました');
+      if (result.confirmationRequired) {
+        authStatus.textContent = '確認メールを送信しました。メール内のリンクから登録を完了してください。';
+        authSubmit.disabled = false;
+        return;
+      }
       localStorage.setItem(customerTokenKey, result.token);
       authStatus.textContent = 'ログインしました。マイページへ移動します…';
       setTimeout(() => { location.href = '/mypage'; }, 400);
@@ -175,15 +180,15 @@ if (document.body.classList.contains('customer-app') && workspaceMain) {
       ready_for_review: { status: '試作を確認中', next: '試作内容をご確認ください' },
       published: { status: '公開済み', next: '公開後の改善もご相談いただけます' }
     };
-    fetch('/api/auth/me', { headers: authHeaders })
+    fetch('/api/v2/auth/me', { headers: authHeaders })
       .then((response) => { if (!response.ok) throw new Error('unauthenticated'); return response.json(); })
-      .then(({ user }) => {
-        if (user.role !== 'customer') throw new Error('not a customer account');
-        const displayName = user.email.split('@')[0];
+      .then(({ user, profile }) => {
+        if (profile?.role !== 'customer') throw new Error('not a customer account');
+        const displayName = profile.displayName || user.email.split('@')[0];
         one('[data-user-name]').textContent = displayName;
         one('[data-user-avatar]').textContent = displayName.slice(0, 1).toUpperCase();
         one('[data-user-email]').textContent = user.email;
-        return fetch('/api/projects', { headers: authHeaders }).then((response) => response.json());
+        return fetch('/api/v2/projects', { headers: authHeaders }).then((response) => response.json());
       })
       .then((projects) => {
         const emptyState = one('[data-empty-state]');
@@ -196,24 +201,19 @@ if (document.body.classList.contains('customer-app') && workspaceMain) {
           [projectStrip, customerLayout, progressPanel, billingPanel].forEach((section) => { if (section) section.hidden = true; });
           return;
         }
-        const project = [...projects].sort((left, right) => new Date(right.updatedAt) - new Date(left.updatedAt))[0];
+        const project = [...projects].sort((left, right) => new Date(right.updated_at) - new Date(left.updated_at))[0];
         const label = statusLabels[project.status] || { status: project.status, next: 'ご相談内容を確認しています' };
         one('[data-project-title]').textContent = project.name;
         one('[data-project-status-text]').textContent = label.status;
         one('[data-project-next-text]').textContent = label.next;
         window.akinaelCurrentProjectId = project.id;
-        window.akinaelRenderCustomerMessages?.(project.messages);
-        const billingList = one('[data-billing-list]');
-        const billingEscape = (value) => String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character]);
-        if (billingList) fetch(`/api/projects/${project.id}/payments`, { headers: authHeaders })
-          .then((response) => response.json())
-          .then((payments) => {
-            const billingLabels = { PENDING_APPROVAL: '承認待ち', checkout_created: 'お支払いへお進みください' };
-            billingList.innerHTML = Array.isArray(payments) && payments.length
-              ? payments.slice().reverse().map((payment) => `<li><i>▭</i><span><strong>${billingEscape(payment.currency)} ${Number(payment.amount).toLocaleString('ja-JP')}</strong><small>${billingEscape(billingLabels[payment.status] || payment.status)}${payment.url ? ` — <a href="${billingEscape(payment.url)}">お支払いへ進む</a>` : ''}</small></span></li>`).join('')
-              : '<li><span>現在お支払いのご案内はありません。</span></li>';
-          })
-          .catch(() => { billingList.innerHTML = '<li><span>読み込みに失敗しました。</span></li>'; });
+        return Promise.all([
+          fetch(`/api/v2/projects/${project.id}/requests`, { headers: authHeaders }).then((response) => response.ok ? response.json() : []),
+          fetch(`/api/v2/projects/${project.id}/messages`, { headers: authHeaders }).then((response) => response.ok ? response.json() : [])
+        ]).then(([requests, messages]) => {
+          window.akinaelCurrentRequestId = Array.isArray(requests) ? requests[0]?.id || null : null;
+          window.akinaelRenderCustomerMessages?.(messages);
+        });
       })
       .catch(goToLogin);
   }
@@ -222,7 +222,7 @@ if (document.body.classList.contains('customer-app') && workspaceMain) {
 one('[data-logout]')?.addEventListener('click', async () => {
   const token = localStorage.getItem(customerTokenKey);
   if (token) {
-    try { await fetch('/api/auth/logout', { method: 'POST', headers: { authorization: `Bearer ${token}` } }); } catch { /* proceed to local logout regardless */ }
+    try { await fetch('/api/v2/auth/logout', { method: 'POST', headers: { authorization: `Bearer ${token}` } }); } catch { /* proceed to local logout regardless */ }
   }
   localStorage.removeItem(customerTokenKey);
   location.href = '/';
@@ -238,7 +238,7 @@ one('[data-start-project]')?.addEventListener('click', async (event) => {
   try {
     const email = one('[data-user-email]')?.textContent || '';
     const name = `${email.split('@')[0] || 'お客様'}様のご相談`;
-    const response = await fetch('/api/projects', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ name }) });
+    const response = await fetch('/api/v2/projects', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ name }) });
     if (!response.ok) throw new Error();
     location.reload();
   } catch {
@@ -254,7 +254,7 @@ if (appMenu && appSidebar) appMenu.addEventListener('click', () => appSidebar.cl
 {
   const chatEscape = (value) => value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character]);
   const chatAvatar = '/assets/illustrations/ai-assistant-avatar.png';
-  const customerMessageMarkup = (item) => item.authorRole === 'customer'
+  const customerMessageMarkup = (item) => (item.author_type || item.authorRole) === 'customer'
     ? `<article class="message customer"><div><p>${chatEscape(item.content)}</p></div></article>`
     : `<article class="message assistant"><img src="${chatAvatar}" alt="アキナエルAI"><div><p>${chatEscape(item.content)}</p></div></article>`;
   window.akinaelRenderCustomerMessages = (list) => {
@@ -284,10 +284,14 @@ if (appMenu && appSidebar) appMenu.addEventListener('click', () => appSidebar.cl
       container.insertAdjacentHTML('beforeend', `<article class="message assistant typing" data-typing><img src="${chatAvatar}" alt=""><div><i></i><i></i><i></i></div></article>`);
       container.scrollTop = container.scrollHeight;
       try {
-        const response = await fetch(`/api/projects/${projectId}/messages`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ content }) });
+        const requestId = window.akinaelCurrentRequestId;
+        const response = requestId
+          ? await fetch(`/api/v2/projects/${projectId}/messages`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ content, requestId }) })
+          : await fetch(`/api/v2/projects/${projectId}/requests`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ title: content.slice(0, 80), body: content, type: 'general', priority: 'normal' }) });
         if (!response.ok) throw new Error();
         const body = await response.json();
-        const replyText = body.reply ? body.reply.content : '確認しました。担当者が内容を見て、追ってご連絡します。';
+        if (body.request?.id) window.akinaelCurrentRequestId = body.request.id;
+        const replyText = 'ご相談を受け付けました。内容を整理し、進行状況はこちらでお知らせします。';
         one('[data-typing]')?.remove();
         container.insertAdjacentHTML('beforeend', `<article class="message assistant"><img src="${chatAvatar}" alt="アキナエルAI"><div><p>${chatEscape(replyText)}</p></div></article>`);
       } catch {
@@ -310,11 +314,10 @@ one('[data-approve]')?.addEventListener('click', async (event) => {
   if (!token || !projectId) return;
   button.disabled = true;
   try {
-    const response = await fetch(`/api/projects/${projectId}/messages`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ content: '試作内容を確認しました。この内容で承認します。' }) });
+    const response = await fetch(`/api/v2/projects/${projectId}/messages`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ content: '試作内容を確認しました。この内容で承認します。', requestId: window.akinaelCurrentRequestId || undefined }) });
     if (!response.ok) throw new Error();
     const body = await response.json();
-    window.akinaelAppendCustomerMessage?.(body.message);
-    if (body.reply) window.akinaelAppendCustomerMessage?.(body.reply);
+    window.akinaelAppendCustomerMessage?.(body);
     button.textContent = '✓ 承認済み';
     one('[data-approval-message]').hidden = false;
   } catch {

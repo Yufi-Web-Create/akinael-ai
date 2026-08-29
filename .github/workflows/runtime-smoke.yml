@@ -1,0 +1,41 @@
+name: Runtime Smoke
+
+on:
+  push:
+    branches:
+      - feat/workflow-execution-engine
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  GENERAL_AGENT_MODEL: ${{ vars.GENERAL_AGENT_MODEL || 'gpt-5.6-terra' }}
+  GITHUB_API_URL: https://api.github.com
+  GITHUB_EXECUTOR_REPO: Yufi-Web-Create/akinael-ai
+  GITHUB_APP_ID: ${{ secrets.AKINAEL_GITHUB_APP_ID }}
+  GITHUB_APP_INSTALLATION_ID: ${{ secrets.AKINAEL_GITHUB_APP_INSTALLATION_ID }}
+  GITHUB_APP_PRIVATE_KEY: ${{ secrets.AKINAEL_GITHUB_APP_PRIVATE_KEY }}
+  GITHUB_BOOTSTRAP_TOKEN: ${{ secrets.GITHUB_BOOTSTRAP_TOKEN }}
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check runtime connectivity without exposing secret values
+        run: node scripts/runtime-smoke.mjs

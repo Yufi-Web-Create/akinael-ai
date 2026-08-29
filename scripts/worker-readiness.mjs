@@ -13,12 +13,20 @@ const required = {
   GITHUB_APP_ID: process.env.GITHUB_APP_ID,
   GITHUB_APP_INSTALLATION_ID: process.env.GITHUB_APP_INSTALLATION_ID,
   GITHUB_APP_PRIVATE_KEY: process.env.GITHUB_APP_PRIVATE_KEY,
-  GITHUB_BOOTSTRAP_TOKEN: process.env.GITHUB_BOOTSTRAP_TOKEN,
   GITHUB_REPO_OWNER: process.env.GITHUB_REPO_OWNER,
   GITHUB_EXECUTOR_REPO: process.env.GITHUB_EXECUTOR_REPO,
 };
 
 for (const [name, value] of Object.entries(required)) add(name, present(value) ? 'configured' : 'missing');
+
+const ownerType = String(process.env.GITHUB_REPO_OWNER_TYPE || 'user').trim().toLowerCase();
+const bootstrapTokenRequired = ownerType !== 'org';
+const bootstrapTokenPresent = present(process.env.GITHUB_BOOTSTRAP_TOKEN);
+add(
+  'GITHUB_BOOTSTRAP_TOKEN',
+  bootstrapTokenRequired ? (bootstrapTokenPresent ? 'configured' : 'missing') : 'not_required',
+  bootstrapTokenRequired ? 'required for personal-account repository creation' : 'customer Organization uses its GitHub App installation token'
+);
 
 if (present(required.SUPABASE_URL) && present(required.SUPABASE_SECRET_KEY)) {
   try {
@@ -47,15 +55,24 @@ if (githubReady && present(required.GITHUB_EXECUTOR_REPO)) {
     const branch = process.env.GITHUB_EXECUTOR_REF || 'main';
     const sha = await github.getBranchHead({ repositoryFullName: required.GITHUB_EXECUTOR_REPO, branchName: branch });
     add('GitHub App service access', sha ? 'pass' : 'fail', sha ? `executor branch reachable: ${String(sha).slice(0, 8)}` : 'no branch SHA returned');
+
+    if (ownerType === 'org' && present(required.GITHUB_REPO_OWNER)) {
+      await github.getInstallationTokenForOwner({ owner: required.GITHUB_REPO_OWNER, ownerType: 'org' });
+      add('Customer Organization App access', 'pass', `installation reachable: ${required.GITHUB_REPO_OWNER}`);
+    }
   } catch (error) {
     add('GitHub App service access', 'fail', String(error?.message || error).slice(0, 300));
   }
 } else add('GitHub App service access', 'blocked', 'GitHub App Worker credentials missing');
 
 const requiredMissing = Object.entries(required).filter(([, value]) => !present(value)).map(([name]) => name);
+if (bootstrapTokenRequired && !bootstrapTokenPresent) requiredMissing.push('GITHUB_BOOTSTRAP_TOKEN');
 const hardFailures = checks.filter((item) => item.state === 'fail');
+const requiredPassNames = ['Supabase service access', 'OpenAI Responses API', 'GitHub App service access'];
+if (ownerType === 'org') requiredPassNames.push('Customer Organization App access');
 const ready = requiredMissing.length === 0 && hardFailures.length === 0
-  && checks.filter((item) => ['Supabase service access', 'OpenAI Responses API', 'GitHub App service access'].includes(item.name)).every((item) => item.state === 'pass');
+  && checks.filter((item) => requiredPassNames.includes(item.name)).every((item) => item.state === 'pass')
+  && requiredPassNames.every((name) => checks.some((item) => item.name === name && item.state === 'pass'));
 
 console.log('# Akinael Render Worker Readiness\n');
 console.log('| Check | State | Detail |');

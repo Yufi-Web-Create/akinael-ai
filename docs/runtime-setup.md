@@ -61,18 +61,27 @@ Settings → Secrets and variables → Actions → Variables
 期待値:
 
 ```text
-OPENAI_API_KEY              configured
-AKINAEL_GITHUB_APP_ID       configured
-AKINAEL_GITHUB_APP_PRIVATE_KEY configured
-AKINAEL_BOT_USER            configured
-OpenAI Responses API        pass
-Central Codex Runner        ready
+OPENAI_API_KEY                  configured
+AKINAEL_GITHUB_APP_ID           configured
+AKINAEL_GITHUB_APP_PRIVATE_KEY  configured
+AKINAEL_BOT_USER                configured
+OpenAI Responses API            pass
+Central Codex Runner            ready
 RUNTIME_READY=true
 ```
 
 ## 4. GitHub App requirements
 
-GitHub Appは少なくとも、Execution Engineが対象repositoryへアクセスし、中央Actions workflowが短命tokenを発行できる状態にする。
+GitHub Appは `Yufi-Web-Create` にインストールする。
+新規customer repositoryの自動作成後も利用できるよう、初期運用では **All repositories** へのinstallationを推奨する。
+
+Repository permissions:
+
+- **Actions: Read and write** — Render WorkerからCoreの `akinael-agent.yml` を `workflow_dispatch` するために必要
+- **Contents: Read and write** — customer repositoryのcheckout、branch作成、commit/pushに必要
+- **Metadata: Read** — repository識別・存在確認に使用
+
+WebhookはExecution Engineの初期構成では必須ではない。
 
 Runtime Node側で使用:
 - `GITHUB_APP_ID`
@@ -83,23 +92,25 @@ Core Actions側で使用:
 - `AKINAEL_GITHUB_APP_ID`
 - `AKINAEL_GITHUB_APP_PRIVATE_KEY`
 
-同一GitHub Appを使用してよい。
-
-Customer repositoryで必要な主な権限:
-- Contents: Read and write
-- Metadata: Read
+同一GitHub Appを使用する。
+中央Actions workflowでは対象customer repositoryだけにscopeした短命installation tokenを発行する。
 
 Repository bootstrap後、CoreはAppから新規repositoryへ実アクセスできることを確認してからSupabaseへ登録する。
 
 ## 5. Repository bootstrap token
 
-現在はcustomer repositoryを個人アカウント `Yufi-Web-Create` 配下へ作成する。
-そのためRender Workerに `GITHUB_BOOTSTRAP_TOKEN` が必要。
+現在はcustomer repositoryを個人アカウント `Yufi-Web-Create` 配下へ作成するため、Render Workerに `GITHUB_BOOTSTRAP_TOKEN` が必要。
+
+Fine-grained personal access tokenを使用する。
+必要権限:
+
+- **Administration: Read and write** — `POST /user/repos` でprivate repositoryを作成
+- **Contents: Read and write** — bundled starterを初期投入
 
 用途は新規private repository作成と初期starter投入に限定する。
-可能な限りfine-grained tokenを使用し、必要最小限のrepository administration / contents write権限にする。
+GitHub App installation tokenは作成後の通常アクセス・Actions dispatchに使用する。
 
-将来GitHub Organizationへ移行した場合は、この境界をGitHub App中心へ変更できる。
+将来GitHub Organizationへ移行した場合は、このbootstrap境界をGitHub App中心へ変更できる。
 
 ## 6. Render Worker environment
 
@@ -125,8 +136,8 @@ npm run readiness:worker
 期待値:
 
 ```text
-Supabase service access  pass
-OpenAI Responses API     pass
+Supabase service access   pass
+OpenAI Responses API      pass
 GitHub App service access pass
 RUNTIME_READY=true
 ```

@@ -36,6 +36,8 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
   const appId = secret(env.GITHUB_APP_ID);
   const installationId = secret(env.GITHUB_APP_INSTALLATION_ID);
   const privateKey = secret(env.GITHUB_APP_PRIVATE_KEY).replace(/\\n/g, '\n');
+  const executorRepository = configured(env.GITHUB_EXECUTOR_REPO, 'Yufi-Web-Create/akinael-ai');
+  const executorRef = configured(env.GITHUB_EXECUTOR_REF, 'main');
   let installationToken = null;
   let installationTokenExpiresAt = 0;
 
@@ -82,16 +84,21 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
   };
 
   const dispatchAgent = async ({ repositoryFullName, ref = 'main', taskId, workflowRunId, prompt, branchName, permissionProfile = ':workspace', stage = 'execute', cycle = 0 }) => {
-    const { owner, repo } = splitRepo(repositoryFullName);
+    const target = splitRepo(repositoryFullName);
+    const executor = splitRepo(executorRepository);
     const workflowFile = configured(env.GITHUB_AGENT_WORKFLOW, 'akinael-agent.yml');
     const runName = `Akinael ${taskId} ${stage} ${cycle}`;
-    await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/workflows/${encodeURIComponent(workflowFile)}/dispatches`, {
+    await request(`/repos/${encodeURIComponent(executor.owner)}/${encodeURIComponent(executor.repo)}/actions/workflows/${encodeURIComponent(workflowFile)}/dispatches`, {
       method: 'POST',
       body: {
-        ref,
+        ref: executorRef,
         inputs: {
           task_id: String(taskId),
           workflow_run_id: String(workflowRunId),
+          target_repository: String(repositoryFullName),
+          target_owner: target.owner,
+          target_repo: target.repo,
+          target_default_branch: String(ref || 'main'),
           branch_name: String(branchName),
           permission_profile: String(permissionProfile),
           stage: String(stage),
@@ -101,17 +108,17 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
         }
       }
     });
-    return { workflowFile, runName };
+    return { workflowFile, runName, executorRepository, executorRef };
   };
 
-  const findDispatchedRun = async ({ repositoryFullName, workflowFile = 'akinael-agent.yml', runName }) => {
-    const { owner, repo } = splitRepo(repositoryFullName);
-    const payload = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/workflows/${encodeURIComponent(workflowFile)}/runs?event=workflow_dispatch&per_page=50`);
+  const findDispatchedRun = async ({ workflowFile = 'akinael-agent.yml', runName, executorRepository: overrideRepository = null }) => {
+    const executor = splitRepo(overrideRepository || executorRepository);
+    const payload = await request(`/repos/${encodeURIComponent(executor.owner)}/${encodeURIComponent(executor.repo)}/actions/workflows/${encodeURIComponent(workflowFile)}/runs?event=workflow_dispatch&per_page=50`);
     const run = (payload?.workflow_runs || []).find((item) => item.display_title === runName);
     return run || null;
   };
 
-  const getRun = async ({ repositoryFullName, runId }) => {
+  const getRun = async ({ repositoryFullName = executorRepository, runId }) => {
     const { owner, repo } = splitRepo(repositoryFullName);
     return request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${encodeURIComponent(runId)}`);
   };
@@ -146,6 +153,8 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
 
   return {
     mode: staticToken || (appId && installationId && privateKey) ? 'connected' : 'not_configured',
+    executorRepository,
+    executorRef,
     getToken,
     request,
     dispatchAgent,

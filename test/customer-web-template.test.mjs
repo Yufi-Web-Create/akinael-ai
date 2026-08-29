@@ -14,7 +14,10 @@ test('central Akinael runner keeps the customer-repository security contract', a
   assert.match(workflow, /openai\/codex-action@v1/);
   assert.match(workflow, /permission-profile:\s*\$\{\{ inputs\.permission_profile \}\}/);
   assert.match(workflow, /safety-strategy:\s*drop-sudo/);
-  assert.match(workflow, /allow-bot-users:\s*\$\{\{ vars\.AKINAEL_BOT_USER \}\}/);
+  assert.match(workflow, /AKINAEL_GITHUB_APP_ID:\s*['"]4762113['"]/);
+  assert.match(workflow, /app-id:\s*\$\{\{ env\.AKINAEL_GITHUB_APP_ID \}\}/);
+  assert.match(workflow, /AKINAEL_BOT_USER:\s*['"]akinael-ai-runtime-yufi\[bot\]['"]/);
+  assert.match(workflow, /allow-bot-users:\s*\$\{\{ env\.AKINAEL_BOT_USER \}\}/);
   assert.doesNotMatch(workflow, /allow-bots:\s*true/);
   assert.match(workflow, /npm run qa/);
   assert.match(workflow, /code=1/);

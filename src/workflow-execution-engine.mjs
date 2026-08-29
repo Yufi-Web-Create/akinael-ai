@@ -4,6 +4,7 @@ import { createResponsesExecutor, extractLooseJson } from './openai-responses.mj
 import { createGitHubRuntime } from './github-runtime.mjs';
 import { buildTaskPrompt, buildCorrectionPrompt } from './execution-prompts.mjs';
 import { planDynamicExpansion } from './dynamic-expansion.mjs';
+import { bootstrapProjectRepository } from './repository-bootstrap.mjs';
 
 const REVIEW_MODES = new Set(['review', 'visual_review', 'copy_review', 'technical_review', 'release_gate']);
 const EXTERNAL_MODES = new Set(['build', 'visual_review', 'technical_review']);
@@ -119,6 +120,8 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
     const externalExecutor = {
       state: 'dispatched',
       repository: repositoryFullName,
+      executor_repository: dispatched.executorRepository,
+      executor_ref: dispatched.executorRef,
       branch: branchName,
       workflow_file: dispatched.workflowFile,
       run_name: dispatched.runName,
@@ -199,6 +202,9 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
     const context = await store.getTaskContext(claim.task_id);
     try {
       if (isExternalTask(context)) {
+        if (!context.repository?.repository_full_name) {
+          context.repository = await bootstrapProjectRepository({ context, github, store, env });
+        }
         const prompt = buildTaskPrompt(context, { external: true });
         return dispatchExternal(context, { prompt, stage: isReviewTask(context.task) ? 'review' : 'execute', cycle: 0 });
       }
@@ -216,11 +222,12 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
   const pollExternalTask = async (task) => {
     const external = task.metadata?.external_executor;
     if (!external?.repository || !external?.run_name) return null;
+    const executorRepository = external.executor_repository || github.executorRepository;
 
     let runId = external.run_id;
     if (!runId) {
       const run = await github.findDispatchedRun({
-        repositoryFullName: external.repository,
+        executorRepository,
         workflowFile: external.workflow_file,
         runName: external.run_name
       });
@@ -239,7 +246,7 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
       if (run.status !== 'completed') return { taskId: task.id, state: run.status };
     }
 
-    const run = await github.getRun({ repositoryFullName: external.repository, runId });
+    const run = await github.getRun({ repositoryFullName: executorRepository, runId });
     if (run.status !== 'completed') {
       await store.upsertExecutorJob({
         taskId: task.id,

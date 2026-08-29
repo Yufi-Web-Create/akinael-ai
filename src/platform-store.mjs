@@ -45,6 +45,10 @@ const uuidList = (values) => values.map((value) => String(value)).filter(Boolean
 const projectSelect = 'id,tenant_id,customer_id,name,status,needs_attention,attention_reasons,metadata,created_at,updated_at';
 const requestSelect = 'id,tenant_id,customer_id,project_id,created_by,type,title,body,status,priority,metadata,created_at,updated_at';
 const messageSelect = 'id,tenant_id,project_id,request_id,author_user_id,author_type,content,metadata,created_at';
+const customerWorkflowSelect = 'id,project_id,request_id,pipeline,status,current_phase,started_at,completed_at,created_at,updated_at';
+const customerTaskSelect = 'id,project_id,workflow_run_id,task_key,agent_role,title,status,phase,sequence,mode,started_at,completed_at,created_at,updated_at';
+const customerArtifactSelect = 'id,project_id,workflow_run_id,kind,title,metadata,created_at';
+const customerQualityCheckSelect = 'id,project_id,workflow_run_id,reviewer,status,severity,location,problem,expected,created_at';
 const requestTypes = new Set(['general', 'web_new', 'web_change', 'copy', 'social', 'image', 'research', 'automation', 'seo', 'other']);
 const priorities = new Set(['low', 'normal', 'high', 'urgent']);
 
@@ -350,6 +354,35 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
     return message;
   };
 
+  const getProductionStatus = async (accessToken, projectId) => {
+    const identity = await identityFor(accessToken);
+    const project = await getProjectForIdentity(identity, projectId);
+    const scope = `tenant_id=eq.${encodeURIComponent(identity.tenantId)}&project_id=eq.${encodeURIComponent(project.id)}`;
+
+    const [workflows, tasks, artifacts, qualityChecks] = await Promise.all([
+      admin.request('/rest/v1/workflow_runs', {
+        query: `${scope}&select=${customerWorkflowSelect}&order=created_at.desc`
+      }),
+      admin.request('/rest/v1/tasks', {
+        query: `${scope}&select=${customerTaskSelect}&order=sequence.asc`
+      }),
+      admin.request('/rest/v1/artifacts', {
+        query: `${scope}&select=${customerArtifactSelect}&order=created_at.desc`
+      }),
+      admin.request('/rest/v1/quality_checks', {
+        query: `${scope}&select=${customerQualityCheckSelect}&order=created_at.desc`
+      })
+    ]);
+
+    return {
+      project,
+      workflows: Array.isArray(workflows) ? workflows : [],
+      tasks: Array.isArray(tasks) ? tasks : [],
+      artifacts: Array.isArray(artifacts) ? artifacts : [],
+      qualityChecks: Array.isArray(qualityChecks) ? qualityChecks : []
+    };
+  };
+
   return {
     config: admin.config,
     getMe,
@@ -360,6 +393,7 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
     listRequests,
     createRequest,
     listMessages,
-    addMessage
+    addMessage,
+    getProductionStatus
   };
 };

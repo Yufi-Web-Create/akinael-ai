@@ -136,6 +136,10 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
         }
       }
 
+      if (method === 'GET' && parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects' && parts[4] === 'production') {
+        return writeJson(response, 200, await store.getProductionStatus(token, parts[3])), true;
+      }
+
       if (method === 'GET' && parts.length === 4 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects') {
         return writeJson(response, 200, await store.getProject(token, parts[3])), true;
       }

@@ -116,10 +116,20 @@ AI分類を追加する場合も、顧客入力をそのまま実行命令とし
 
 `author_user_id` / `author_type` / `tenant_id` / `project_id` はCore APIが検証済みidentityから決定し、クライアント指定を信用しない。
 
+### `GET /api/v2/projects/:projectId/production`
+
+案件の制作進捗を顧客マイページ向けにまとめて返す。
+
+- workflow runs
+- tasks
+- artifacts（一覧メタデータのみ）
+- quality checks
+
+案件の所属確認後、同じ`tenant_id` / `project_id`に限定して取得する。内部モデル名、実行エラー、タスク結果、成果物の保存キーは顧客レスポンスに含めない。
+
 ## Production Router boundary
 
-現時点ではRequestを安全に受け取り永続化するところまでをv2 Coreの責務とする。
-次工程で `status = new` のRequestをProduction Routerが分類し、workflow run / taskへ接続する。
+Request作成後、Production Routerが分類し、workflow run / taskへ接続する。顧客マイページはproduction endpointから進捗を参照できる。
 
 ## Migration rule
 

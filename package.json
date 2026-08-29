@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node --env-file-if-exists=.env src/server.mjs",
+    "start": "node --env-file-if-exists=.env src/platform-server.mjs",
     "test": "node --test"
   },
   "dependencies": {

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createResponsesExecutor, extractLooseJson } from '../src/openai-responses.mjs';
-import { createGitHubRuntime } from '../src/github-runtime.mjs';
+import { createGitHubRuntime, GitHubRuntimeError } from '../src/github-runtime.mjs';
 
 const jsonResponse = (payload, status = 200) => new Response(JSON.stringify(payload), {
   status,
@@ -50,10 +50,15 @@ test('extractLooseJson accepts fenced and trailing structured results', () => {
   assert.deepEqual(extractLooseJson('説明\n{"route":"copy","impact":"content"}'), { route: 'copy', impact: 'content' });
 });
 
-test('GitHub runtime dispatches the standard Akinael workflow with constrained inputs', async () => {
+test('GitHub runtime dispatches customer work through the central Core workflow', async () => {
   const calls = [];
   const runtime = createGitHubRuntime({
-    env: { GITHUB_WORKER_TOKEN: 'gh-test', GITHUB_AGENT_WORKFLOW: 'akinael-agent.yml' },
+    env: {
+      GITHUB_WORKER_TOKEN: 'gh-test',
+      GITHUB_EXECUTOR_REPO: 'core/akinael-ai',
+      GITHUB_EXECUTOR_REF: 'runner-main',
+      GITHUB_AGENT_WORKFLOW: 'akinael-agent.yml'
+    },
     fetchImpl: async (url, options = {}) => {
       calls.push({ url: String(url), options });
       return new Response(null, { status: 204 });
@@ -71,14 +76,58 @@ test('GitHub runtime dispatches the standard Akinael workflow with constrained i
     cycle: 1
   });
   assert.equal(dispatched.runName, 'Akinael task-1 review 1');
+  assert.equal(dispatched.executorRepository, 'core/akinael-ai');
+  assert.match(calls[0].url, /repos\/core\/akinael-ai\/actions\/workflows\/akinael-agent\.yml\/dispatches$/);
   const body = JSON.parse(calls[0].options.body);
-  assert.equal(body.ref, 'main');
+  assert.equal(body.ref, 'runner-main');
+  assert.equal(body.inputs.target_repository, 'owner/site');
+  assert.equal(body.inputs.target_owner, 'owner');
+  assert.equal(body.inputs.target_repo, 'site');
+  assert.equal(body.inputs.target_default_branch, 'main');
   assert.equal(body.inputs.permission_profile, ':read-only');
   assert.equal(body.inputs.branch_name, 'akinael/run-1');
-  assert.equal(body.inputs.run_name, 'Akinael task-1 review 1');
 });
 
-test('GitHub runtime decodes result files from a task branch', async () => {
+test('personal-account repository bootstrap refuses to create repos without a user bootstrap token', async () => {
+  const runtime = createGitHubRuntime({ env: { GITHUB_APP_ID: '1', GITHUB_APP_INSTALLATION_ID: '2', GITHUB_APP_PRIVATE_KEY: 'fake' }, fetchImpl: async () => { throw new Error('not called'); } });
+  await assert.rejects(
+    runtime.createPrivateRepository({ owner: 'person', ownerType: 'user', name: 'client-test' }),
+    (error) => error instanceof GitHubRuntimeError && /GITHUB_BOOTSTRAP_TOKEN/.test(error.message)
+  );
+});
+
+test('personal-account repository bootstrap uses the scoped bootstrap token', async () => {
+  const calls = [];
+  const runtime = createGitHubRuntime({
+    env: { GITHUB_WORKER_TOKEN: 'worker', GITHUB_BOOTSTRAP_TOKEN: 'bootstrap' },
+    fetchImpl: async (url, options = {}) => {
+      calls.push({ url: String(url), options });
+      return jsonResponse({ full_name: 'person/client-test', default_branch: 'main' }, 201);
+    }
+  });
+  const repo = await runtime.createPrivateRepository({ owner: 'person', ownerType: 'user', name: 'client-test' });
+  assert.equal(repo.full_name, 'person/client-test');
+  assert.match(calls[0].url, /\/user\/repos$/);
+  assert.equal(calls[0].options.headers.authorization, 'Bearer bootstrap');
+  const body = JSON.parse(calls[0].options.body);
+  assert.equal(body.private, true);
+  assert.equal(body.auto_init, true);
+});
+
+test('organization repository bootstrap targets the organization endpoint', async () => {
+  const calls = [];
+  const runtime = createGitHubRuntime({
+    env: { GITHUB_WORKER_TOKEN: 'installation-like-token' },
+    fetchImpl: async (url, options = {}) => {
+      calls.push({ url: String(url), options });
+      return jsonResponse({ full_name: 'acme/client-test', default_branch: 'main' }, 201);
+    }
+  });
+  await runtime.createPrivateRepository({ owner: 'acme', ownerType: 'org', name: 'client-test' });
+  assert.match(calls[0].url, /\/orgs\/acme\/repos$/);
+});
+
+test('GitHub runtime decodes result files from a customer work branch', async () => {
   const runtime = createGitHubRuntime({
     env: { GITHUB_WORKER_TOKEN: 'gh-test' },
     fetchImpl: async () => jsonResponse({ content: Buffer.from('{"final_message":"PASS"}').toString('base64'), encoding: 'base64' })

@@ -137,6 +137,22 @@ export const createExecutionStore = ({ env = process.env, fetchImpl = fetch } = 
     query: `project_id=eq.${encodeURIComponent(projectId)}&select=*&limit=1`
   }));
 
+  const registerRepository = async ({ tenantId, projectId, repositoryFullName, defaultBranch = 'main' }) => {
+    const rows = await admin.request('/rest/v1/repositories', {
+      method: 'POST',
+      query: 'select=*',
+      headers: { Prefer: 'return=representation' },
+      body: {
+        tenant_id: tenantId,
+        project_id: projectId,
+        provider: 'github',
+        repository_full_name: clampText(repositoryFullName, 255),
+        default_branch: clampText(defaultBranch || 'main', 120)
+      }
+    });
+    return first(rows);
+  };
+
   return {
     config: admin.config,
     claimNextTask,
@@ -148,6 +164,7 @@ export const createExecutionStore = ({ env = process.env, fetchImpl = fetch } = 
     upsertExecutorJob,
     patchExecutorJob,
     listRunningExternalTasks,
-    getRepository
+    getRepository,
+    registerRepository
   };
 };

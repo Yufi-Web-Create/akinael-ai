@@ -39,29 +39,82 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
   const privateKey = secret(env.GITHUB_APP_PRIVATE_KEY).replace(/\\n/g, '\n');
   const executorRepository = configured(env.GITHUB_EXECUTOR_REPO, 'Yufi-Web-Create/akinael-ai');
   const executorRef = configured(env.GITHUB_EXECUTOR_REF, 'main');
+  const customerOwner = secret(env.GITHUB_REPO_OWNER);
+  const customerOwnerType = configured(env.GITHUB_REPO_OWNER_TYPE, 'user').toLowerCase();
   let installationToken = null;
   let installationTokenExpiresAt = 0;
+  const ownerTokenCache = new Map();
+
+  const ensureAppIdentity = () => {
+    if (!appId || !privateKey) {
+      throw new GitHubRuntimeError('GitHub App credentials are not configured', { status: 503 });
+    }
+  };
+
+  const appRequest = async (path, { method = 'GET', body } = {}) => {
+    ensureAppIdentity();
+    const jwt = createAppJwt({ appId, privateKey });
+    const response = await fetchImpl(`${apiBase}${path}`, {
+      method,
+      headers: {
+        authorization: `Bearer ${jwt}`,
+        accept: 'application/vnd.github+json',
+        'x-github-api-version': '2022-11-28',
+        ...(body === undefined ? {} : { 'content-type': 'application/json' })
+      },
+      body: body === undefined ? undefined : JSON.stringify(body)
+    });
+    if (response.status === 204) return null;
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new GitHubRuntimeError(payload?.message || `GitHub App API failed: ${response.status}`, { status: response.status, body: payload });
+    return payload;
+  };
+
+  const mintInstallationToken = async (targetInstallationId) => {
+    ensureAppIdentity();
+    const payload = await appRequest(`/app/installations/${encodeURIComponent(targetInstallationId)}/access_tokens`, { method: 'POST' });
+    if (!payload?.token) throw new GitHubRuntimeError('Could not create GitHub App installation token', { status: 503, body: payload });
+    return {
+      token: payload.token,
+      expiresAt: Date.parse(payload.expires_at || '') || Date.now() + 50 * 60 * 1000
+    };
+  };
 
   const getToken = async () => {
     if (staticToken) return staticToken;
     if (!appId || !installationId || !privateKey) return null;
     if (installationToken && Date.now() < installationTokenExpiresAt - 120_000) return installationToken;
-    const jwt = createAppJwt({ appId, privateKey });
-    const response = await fetchImpl(`${apiBase}/app/installations/${encodeURIComponent(installationId)}/access_tokens`, {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${jwt}`,
-        accept: 'application/vnd.github+json',
-        'x-github-api-version': '2022-11-28'
-      }
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok || !payload.token) {
-      throw new GitHubRuntimeError(payload?.message || 'Could not create GitHub App installation token', { status: response.status, body: payload });
-    }
-    installationToken = payload.token;
-    installationTokenExpiresAt = Date.parse(payload.expires_at || '') || Date.now() + 50 * 60 * 1000;
+    const minted = await mintInstallationToken(installationId);
+    installationToken = minted.token;
+    installationTokenExpiresAt = minted.expiresAt;
     return installationToken;
+  };
+
+  const getInstallationTokenForOwner = async ({ owner, ownerType = 'org' }) => {
+    if (staticToken) return staticToken;
+    ensureAppIdentity();
+    const normalizedType = String(ownerType || 'org').toLowerCase();
+    if (!['user', 'org'].includes(normalizedType)) throw new GitHubRuntimeError('ownerType must be user or org', { status: 500 });
+    const cacheKey = `${normalizedType}:${owner}`;
+    const cached = ownerTokenCache.get(cacheKey);
+    if (cached?.token && Date.now() < cached.expiresAt - 120_000) return cached.token;
+
+    const installation = await appRequest(
+      normalizedType === 'org'
+        ? `/orgs/${encodeURIComponent(owner)}/installation`
+        : `/users/${encodeURIComponent(owner)}/installation`
+    );
+    if (!installation?.id) throw new GitHubRuntimeError(`GitHub App is not installed on ${owner}`, { status: 503, body: installation });
+    const minted = await mintInstallationToken(installation.id);
+    ownerTokenCache.set(cacheKey, minted);
+    return minted.token;
+  };
+
+  const tokenForRepositoryOwner = async (owner) => {
+    if (customerOwner && owner === customerOwner && customerOwnerType === 'org' && !bootstrapToken) {
+      return getInstallationTokenForOwner({ owner, ownerType: 'org' });
+    }
+    return null;
   };
 
   const request = async (path, { method = 'GET', body, headers = {}, tokenOverride = null } = {}) => {
@@ -127,14 +180,16 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
   const getBranchHead = async ({ repositoryFullName, branchName }) => {
     const { owner, repo } = splitRepo(repositoryFullName);
     const refPath = ['heads', ...String(branchName || '').split('/').filter(Boolean)].map(encodeURIComponent).join('/');
-    const payload = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/ref/${refPath}`);
+    const ownerToken = await tokenForRepositoryOwner(owner);
+    const payload = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/ref/${refPath}`, { tokenOverride: ownerToken });
     return payload?.object?.sha || null;
   };
 
   const getFileText = async ({ repositoryFullName, path, ref }) => {
     const { owner, repo } = splitRepo(repositoryFullName);
     try {
-      const payload = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(ref)}`);
+      const ownerToken = await tokenForRepositoryOwner(owner);
+      const payload = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(ref)}`, { tokenOverride: ownerToken });
       if (!payload?.content) return null;
       return Buffer.from(String(payload.content).replace(/\n/g, ''), payload.encoding === 'base64' ? 'base64' : 'utf8').toString('utf8');
     } catch (error) {
@@ -164,6 +219,7 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
       path = '/user/repos';
     } else {
       path = `/orgs/${encodeURIComponent(owner)}/repos`;
+      if (!tokenOverride) tokenOverride = await getInstallationTokenForOwner({ owner, ownerType: 'org' });
     }
     return request(path, {
       method: 'POST',
@@ -182,7 +238,8 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
 
   const putRepositoryFile = async ({ repositoryFullName, path, content, branch = 'main', message = 'Initialize Akinael project' }) => {
     const { owner, repo } = splitRepo(repositoryFullName);
-    const tokenOverride = bootstrapToken || null;
+    const ownerToken = await tokenForRepositoryOwner(owner);
+    const tokenOverride = bootstrapToken || ownerToken || null;
     return request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${String(path).split('/').map(encodeURIComponent).join('/')}`, {
       method: 'PUT',
       tokenOverride,
@@ -203,7 +260,8 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
 
   const verifyAppRepositoryAccess = async (repositoryFullName) => {
     const { owner, repo } = splitRepo(repositoryFullName);
-    const appToken = staticToken ? null : await getToken();
+    const ownerToken = await tokenForRepositoryOwner(owner);
+    const appToken = ownerToken || (staticToken ? null : await getToken());
     await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`, { tokenOverride: appToken });
     return true;
   };
@@ -213,6 +271,7 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
     executorRepository,
     executorRef,
     getToken,
+    getInstallationTokenForOwner,
     request,
     dispatchAgent,
     findDispatchedRun,

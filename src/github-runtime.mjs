@@ -35,12 +35,13 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
   const staticToken = secret(env.GITHUB_WORKER_TOKEN);
   const bootstrapToken = secret(env.GITHUB_BOOTSTRAP_TOKEN || env.GITHUB_WORKER_TOKEN);
   const appId = secret(env.GITHUB_APP_ID);
-  const installationId = secret(env.GITHUB_APP_INSTALLATION_ID);
+  const configuredInstallationId = secret(env.GITHUB_APP_INSTALLATION_ID);
   const privateKey = secret(env.GITHUB_APP_PRIVATE_KEY).replace(/\\n/g, '\n');
   const executorRepository = configured(env.GITHUB_EXECUTOR_REPO, 'Yufi-Web-Create/akinael-ai');
   const executorRef = configured(env.GITHUB_EXECUTOR_REF, 'main');
   const customerOwner = secret(env.GITHUB_REPO_OWNER);
   const customerOwnerType = configured(env.GITHUB_REPO_OWNER_TYPE, 'user').toLowerCase();
+  let executorInstallationId = configuredInstallationId || null;
   let installationToken = null;
   let installationTokenExpiresAt = 0;
   const ownerTokenCache = new Map();
@@ -80,11 +81,24 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
     };
   };
 
+  const resolveExecutorInstallationId = async () => {
+    if (executorInstallationId) return executorInstallationId;
+    ensureAppIdentity();
+    const { owner, repo } = splitRepo(executorRepository);
+    const installation = await appRequest(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/installation`);
+    if (!installation?.id) {
+      throw new GitHubRuntimeError(`GitHub App is not installed for executor repository ${executorRepository}`, { status: 503, body: installation });
+    }
+    executorInstallationId = String(installation.id);
+    return executorInstallationId;
+  };
+
   const getToken = async () => {
     if (staticToken) return staticToken;
-    if (!appId || !installationId || !privateKey) return null;
+    if (!appId || !privateKey) return null;
     if (installationToken && Date.now() < installationTokenExpiresAt - 120_000) return installationToken;
-    const minted = await mintInstallationToken(installationId);
+    const targetInstallationId = await resolveExecutorInstallationId();
+    const minted = await mintInstallationToken(targetInstallationId);
     installationToken = minted.token;
     installationTokenExpiresAt = minted.expiresAt;
     return installationToken;
@@ -201,8 +215,12 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
   const createFromTemplate = async ({ templateRepository, owner, name, description = '' }) => {
     const [templateOwner, templateRepo] = String(templateRepository || '').split('/');
     if (!templateOwner || !templateRepo) throw new GitHubRuntimeError('template repository is invalid', { status: 503 });
+    const ownerToken = customerOwnerType === 'org' && owner === customerOwner && !bootstrapToken
+      ? await getInstallationTokenForOwner({ owner, ownerType: 'org' })
+      : null;
     return request(`/repos/${encodeURIComponent(templateOwner)}/${encodeURIComponent(templateRepo)}/generate`, {
       method: 'POST',
+      tokenOverride: ownerToken,
       body: { owner, name, description, include_all_branches: false, private: true }
     });
   };
@@ -267,10 +285,11 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
   };
 
   return {
-    mode: staticToken || (appId && installationId && privateKey) ? 'connected' : 'not_configured',
+    mode: staticToken || (appId && privateKey) ? 'connected' : 'not_configured',
     executorRepository,
     executorRef,
     getToken,
+    resolveExecutorInstallationId,
     getInstallationTokenForOwner,
     request,
     dispatchAgent,

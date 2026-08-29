@@ -577,10 +577,6 @@ export const createApp = () => http.createServer(async (request, response) => {
         return error(response, 502, 'payment provider request failed');
       }
     }
-    if (method === 'GET' && url.pathname === '/mypage' && (!user || user.role !== 'customer')) {
-      response.writeHead(302, { location: '/?auth=login', 'cache-control': 'no-store' });
-      return response.end();
-    }
     if (method === 'GET' && url.pathname === '/admin' && (!user || user.role !== 'admin')) {
       response.writeHead(302, { location: '/admin-login', 'cache-control': 'no-store' });
       return response.end();

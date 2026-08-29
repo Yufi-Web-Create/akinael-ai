@@ -59,7 +59,7 @@ services:
       mountPath: /var/data
       sizeGB: 1
 
-  # This service executes queued AI workflow tasks. Creating/enabling the paid Render service is a Human Gate.
+  # Executes queued AI tasks. Creating/enabling this paid Render worker remains a Human Gate.
   - type: worker
     name: akinael-ai-worker
     runtime: node
@@ -99,9 +99,15 @@ services:
         sync: false
       - key: GITHUB_APP_PRIVATE_KEY
         sync: false
-      - key: GITHUB_TEMPLATE_REPO
+      # Personal-account repository creation requires a user/fine-grained bootstrap token.
+      - key: GITHUB_BOOTSTRAP_TOKEN
         sync: false
       - key: GITHUB_REPO_OWNER
-        sync: false
+        value: Yufi-Web-Create
+      - key: GITHUB_REPO_OWNER_TYPE
+        value: user
       - key: GITHUB_CUSTOMER_REPO_PREFIX
         value: client
+      # Optional. If omitted, Core seeds its bundled Next.js starter directly.
+      - key: GITHUB_TEMPLATE_REPO
+        sync: false

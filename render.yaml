@@ -95,19 +95,20 @@ services:
         value: akinael-agent.yml
       - key: GITHUB_APP_ID
         sync: false
+      # Optional override. If omitted, Core auto-discovers the installation for GITHUB_EXECUTOR_REPO.
       - key: GITHUB_APP_INSTALLATION_ID
         sync: false
       - key: GITHUB_APP_PRIVATE_KEY
         sync: false
-      # Personal-account repository creation requires a user/fine-grained bootstrap token.
-      - key: GITHUB_BOOTSTRAP_TOKEN
-        sync: false
       - key: GITHUB_REPO_OWNER
-        value: Yufi-Web-Create
+        value: akinael-ai-clients
       - key: GITHUB_REPO_OWNER_TYPE
-        value: user
+        value: org
       - key: GITHUB_CUSTOMER_REPO_PREFIX
         value: client
+      # Optional legacy/personal-account fallback only. Organization bootstrap uses the GitHub App.
+      - key: GITHUB_BOOTSTRAP_TOKEN
+        sync: false
       # Optional. If omitted, Core seeds its bundled Next.js starter directly.
       - key: GITHUB_TEMPLATE_REPO
         sync: false

@@ -19,17 +19,14 @@ const outputInstruction = (task) => {
   if (task.mode === 'triage') {
     return `最終出力の末尾に、必ず次のJSONをコードフェンスなしで1つ出力してください。\n{"route":"web_new|web_change|copy|social|image|research|automation|seo|answer_only","impact":"content|visual|technical|strategic|none","reason":"短い理由"}`;
   }
-  if (task.mode === 'release_gate') {
-    return 'PASS/FAILを明示し、FAILなら阻害要因を列挙する。人間承認が必要なのは本番公開・DNS・新規課金・正式情報不足などHuman Gateだけ。';
-  }
-  if (String(task.mode).includes('review')) {
-    return 'PASS/FAILを明示し、FAILの場合は location / problem / expected / severity を具体的に返す。';
+  if (task.mode === 'release_gate' || String(task.mode).includes('review')) {
+    return `検査結果を説明した後、最終行に必ず次のJSONをコードフェンスなしで1つ出力してください。\n{"status":"PASS|FAIL","findings":[{"severity":"critical|major|minor","location":"場所","problem":"問題","expected":"期待状態"}],"summary":"短い要約"}\nPASS時はfindingsを空配列にしてください。FAILを隠さず、修正可能な問題は具体化してください。`;
   }
   return '成果物としてそのまま次工程へ渡せる完成形を返す。判断理由と未解決事項を分ける。';
 };
 
 export const buildTaskPrompt = (context, { external = false } = {}) => {
-  const { task, workflow, request, project, priorTasks, artifacts, messages, repository } = context;
+  const { task, request, project, priorTasks, artifacts, messages, repository } = context;
   const prior = (priorTasks || []).filter((item) => item.status === 'completed').map((item) => ({
     task_key: item.task_key,
     role: item.agent_role,
@@ -86,9 +83,23 @@ export const buildTaskPrompt = (context, { external = false } = {}) => {
       'あなたはチェックアウト済みworkspace内で作業します。ネットワークアクセスは前提にしません。依存パッケージは事前に準備されています。',
       '`.github/`, `.git/`, `.codex/`, `.akinael/`, `AGENTS.md` は変更しないでください。',
       '実装タスクでは必要なファイルを編集し、既存テストとQAを実行して失敗を修正してください。',
-      'レビューモードでは原則コードを変更せず、実装済み状態を検査してください。'
+      'レビューモードではコードを変更せず、実装済み状態を検査してください。'
     );
   }
 
   return sections.join('\n').slice(0, 54000);
+};
+
+export const buildCorrectionPrompt = (context, reviewResult) => {
+  const base = buildTaskPrompt({
+    ...context,
+    task: {
+      ...context.task,
+      agent_role: 'frontend_engineer',
+      title: `レビュー指摘を修正する: ${context.task.title}`,
+      mode: 'build',
+      phase: 'revision'
+    }
+  }, { external: true });
+  return `${base}\n\n# Independent review findings\n${truncate(reviewResult, 14000)}\n\n上記指摘を原因から修正し、関連テストを実行してください。レビュー基準やテストを弱めて通してはいけません。`;
 };

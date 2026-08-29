@@ -14,6 +14,7 @@ const safeError = (error) => String(error?.message || error || 'task execution f
 const artifactKind = (task) => `${task.phase || 'work'}_${task.mode || 'execute'}`.replace(/[^a-z0-9_-]+/gi, '_');
 const branchFor = (workflowId) => `akinael/run-${String(workflowId).replace(/[^a-zA-Z0-9-]/g, '').slice(0, 36)}`;
 const resultPathFor = (taskId, stage, cycle) => `.akinael/results/${taskId}-${stage}-${cycle}.json`;
+const nextCheckAt = () => new Date(Date.now() + 5_000).toISOString();
 
 const isExternalTask = (context) => EXTERNAL_MODES.has(context.task.mode)
   || context.task.agent_role === 'frontend_engineer'
@@ -27,6 +28,27 @@ const normalizeReview = (output) => {
     status: String(parsed.status).toUpperCase(),
     findings: Array.isArray(parsed.findings) ? parsed.findings : [],
     summary: parsed.summary || null
+  };
+};
+
+const qaFailureReview = (summary = 'Repository QA failed') => ({
+  status: 'FAIL',
+  findings: [{
+    severity: 'major',
+    location: 'repository QA',
+    problem: summary,
+    expected: 'Repository quality command must pass before the task can complete.'
+  }],
+  summary
+});
+
+const mergeReviewFailure = (review, extra) => {
+  if (!review) return extra;
+  if (review.status !== 'FAIL') return extra;
+  return {
+    status: 'FAIL',
+    findings: [...(review.findings || []), ...(extra.findings || [])],
+    summary: [review.summary, extra.summary].filter(Boolean).join(' / ')
   };
 };
 
@@ -46,6 +68,24 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
     success: false,
     error: safeError(error),
     result
+  });
+
+  const markExecutorFailed = async (taskId, error, result = null) => store.patchExecutorJob(taskId, {
+    status: 'failed',
+    result,
+    last_error: safeError(error),
+    next_check_at: null,
+    completed_at: nowIso(),
+    updated_at: nowIso()
+  });
+
+  const markExecutorSucceeded = async (taskId, result) => store.patchExecutorJob(taskId, {
+    status: 'succeeded',
+    result,
+    last_error: null,
+    next_check_at: null,
+    completed_at: nowIso(),
+    updated_at: nowIso()
   });
 
   const saveTextArtifact = async (context, output, metadata = {}) => store.saveArtifact({
@@ -76,23 +116,27 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
       cycle
     });
 
-    const metadata = {
-      ...(context.task.metadata || {}),
-      external_executor: {
-        state: 'dispatched',
-        repository: repositoryFullName,
-        branch: branchName,
-        workflow_file: dispatched.workflowFile,
-        run_name: dispatched.runName,
-        run_id: null,
-        stage,
-        cycle,
-        result_path: resultPath,
-        dispatched_at: nowIso(),
-        review_result: reviewResult || null
-      }
+    const externalExecutor = {
+      state: 'dispatched',
+      repository: repositoryFullName,
+      branch: branchName,
+      workflow_file: dispatched.workflowFile,
+      run_name: dispatched.runName,
+      run_id: null,
+      stage,
+      cycle,
+      result_path: resultPath,
+      dispatched_at: nowIso(),
+      review_result: reviewResult || null
     };
+    const metadata = { ...(context.task.metadata || {}), external_executor: externalExecutor };
     await store.patchTaskMetadata(context.task.id, metadata);
+    await store.upsertExecutorJob({
+      taskId: context.task.id,
+      status: 'dispatched',
+      payload: externalExecutor,
+      nextCheckAt: nextCheckAt()
+    });
     return { dispatched: true, metadata };
   };
 
@@ -164,6 +208,11 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
     }
   };
 
+  const failExternal = async (task, error, result = null) => {
+    await markExecutorFailed(task.id, error, result).catch(() => null);
+    return finishFailure(task.id, error, result);
+  };
+
   const pollExternalTask = async (task) => {
     const external = task.metadata?.external_executor;
     if (!external?.repository || !external?.run_name) return null;
@@ -177,71 +226,107 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
       });
       if (!run) return null;
       runId = run.id;
-      await store.patchTaskMetadata(task.id, {
-        ...task.metadata,
-        external_executor: { ...external, state: 'running', run_id: runId, run_url: run.html_url || null }
+      const updatedExternal = { ...external, state: 'running', run_id: runId, run_url: run.html_url || null };
+      await store.patchTaskMetadata(task.id, { ...task.metadata, external_executor: updatedExternal });
+      await store.upsertExecutorJob({
+        taskId: task.id,
+        status: 'running',
+        externalReference: String(runId),
+        externalUrl: run.html_url || null,
+        payload: updatedExternal,
+        nextCheckAt: nextCheckAt()
       });
       if (run.status !== 'completed') return { taskId: task.id, state: run.status };
     }
 
     const run = await github.getRun({ repositoryFullName: external.repository, runId });
-    if (run.status !== 'completed') return { taskId: task.id, state: run.status };
+    if (run.status !== 'completed') {
+      await store.upsertExecutorJob({
+        taskId: task.id,
+        status: 'running',
+        externalReference: String(runId),
+        externalUrl: run.html_url || null,
+        payload: { stage: external.stage, cycle: external.cycle },
+        nextCheckAt: nextCheckAt()
+      });
+      return { taskId: task.id, state: run.status };
+    }
 
     const resultText = await github.getFileText({
       repositoryFullName: external.repository,
       path: external.result_path,
       ref: external.branch
     });
-    const resultFile = parseResultFile(resultText) || {};
+    const resultFile = parseResultFile(resultText);
+    if (!resultFile) {
+      return failExternal(task, 'GitHub executor completed without a machine-readable result file', { run_id: run.id, run_url: run.html_url || null });
+    }
     const finalMessage = String(resultFile.final_message || resultFile.message || '').trim();
+    const qaFailed = String(resultFile.qa_conclusion || '').toLowerCase() === 'failure';
 
     if (run.conclusion !== 'success') {
-      return finishFailure(task.id, `GitHub executor failed: ${run.conclusion || 'unknown'}`, {
+      return failExternal(task, `GitHub executor failed: ${run.conclusion || 'unknown'}`, {
         executor: 'github_codex', run_id: run.id, run_url: run.html_url || null, result: resultFile
       });
     }
 
     const context = await store.getTaskContext(task.id);
     if (external.stage === 'review') {
-      const review = normalizeReview(finalMessage);
+      let review = normalizeReview(finalMessage);
+      if (qaFailed) review = mergeReviewFailure(review, qaFailureReview('Repository QA failed during independent review'));
       if (!review) {
-        return finishFailure(task.id, 'review executor returned no structured PASS/FAIL result', { run_id: run.id, result: resultFile });
+        return failExternal(task, 'review executor returned no structured PASS/FAIL result', { run_id: run.id, result: resultFile });
       }
       if (review.status === 'FAIL') {
         const cycle = Number(external.cycle || 0);
         if (cycle >= MAX_REVIEW_CORRECTIONS) {
           await saveTextArtifact(context, finalMessage, { executor: 'github_codex', review, run_id: run.id });
-          return finishFailure(task.id, review.summary || 'review failed after correction loop', { review, run_id: run.id });
+          return failExternal(task, review.summary || 'review failed after correction loop', { review, run_id: run.id, result: resultFile });
         }
         const correctionPrompt = buildCorrectionPrompt(context, review);
         return dispatchExternal(context, { prompt: correctionPrompt, stage: 'correction', cycle, reviewResult: review });
       }
 
-      const artifact = await saveTextArtifact(context, finalMessage, { executor: 'github_codex', review, run_id: run.id, branch: external.branch });
-      return store.finishTask({
-        taskId: task.id,
-        success: true,
-        result: { executor: 'github_codex', artifact_id: artifact?.id || null, review, run_id: run.id, branch: external.branch }
+      const branchCommit = await github.getBranchHead({ repositoryFullName: external.repository, branchName: external.branch });
+      const artifact = await saveTextArtifact(context, finalMessage, {
+        executor: 'github_codex', review, run_id: run.id, branch: external.branch, commit_sha: branchCommit
       });
+      const taskResult = { executor: 'github_codex', artifact_id: artifact?.id || null, review, run_id: run.id, branch: external.branch, commit_sha: branchCommit };
+      await markExecutorSucceeded(task.id, { ...taskResult, qa_conclusion: resultFile.qa_conclusion || null });
+      return store.finishTask({ taskId: task.id, success: true, result: taskResult });
     }
 
     if (external.stage === 'correction') {
-      const nextCycle = Number(external.cycle || 0) + 1;
+      const currentCycle = Number(external.cycle || 0);
+      if (qaFailed) {
+        const review = mergeReviewFailure(external.review_result, qaFailureReview('Repository QA still fails after Builder correction'));
+        if (currentCycle >= MAX_REVIEW_CORRECTIONS - 1) {
+          return failExternal(task, review.summary, { review, run_id: run.id, result: resultFile });
+        }
+        const correctionPrompt = buildCorrectionPrompt(context, review);
+        return dispatchExternal(context, { prompt: correctionPrompt, stage: 'correction', cycle: currentCycle + 1, reviewResult: review });
+      }
+      const nextCycle = currentCycle + 1;
       const reviewPrompt = buildTaskPrompt(context, { external: true });
       return dispatchExternal(context, { prompt: reviewPrompt, stage: 'review', cycle: nextCycle });
     }
 
+    if (qaFailed) {
+      return failExternal(task, 'Repository QA failed after implementation', {
+        executor: 'github_codex', run_id: run.id, run_url: run.html_url || null, result: resultFile
+      });
+    }
+
+    const branchCommit = await github.getBranchHead({ repositoryFullName: external.repository, branchName: external.branch });
     const artifact = await saveTextArtifact(context, finalMessage || `GitHub executor completed ${run.id}`, {
-      executor: 'github_codex', run_id: run.id, branch: external.branch, commit_sha: run.head_sha || null
+      executor: 'github_codex', run_id: run.id, branch: external.branch, commit_sha: branchCommit
     });
-    return store.finishTask({
-      taskId: task.id,
-      success: true,
-      result: {
-        executor: 'github_codex', artifact_id: artifact?.id || null, run_id: run.id, run_url: run.html_url || null,
-        branch: external.branch, commit_sha: run.head_sha || null
-      }
-    });
+    const taskResult = {
+      executor: 'github_codex', artifact_id: artifact?.id || null, run_id: run.id, run_url: run.html_url || null,
+      branch: external.branch, commit_sha: branchCommit, qa_conclusion: resultFile.qa_conclusion || null
+    };
+    await markExecutorSucceeded(task.id, taskResult);
+    return store.finishTask({ taskId: task.id, success: true, result: taskResult });
   };
 
   const pollExternalTasks = async () => {
@@ -276,4 +361,4 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
   };
 };
 
-export { normalizeReview, isExternalTask, branchFor, resultPathFor };
+export { normalizeReview, isExternalTask, branchFor, resultPathFor, qaFailureReview };

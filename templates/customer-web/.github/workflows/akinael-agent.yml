@@ -97,6 +97,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies before sandboxed execution
         shell: bash
@@ -104,6 +105,8 @@ jobs:
           set -euo pipefail
           if [ -f package-lock.json ]; then
             npm ci
+          elif [ -f package.json ]; then
+            npm install --no-audit --no-fund
           fi
           if [ -f package.json ] && node -e "const p=require('./package.json');process.exit((p.dependencies?.['@playwright/test']||p.devDependencies?.['@playwright/test'])?0:1)"; then
             npx --no-install playwright install --with-deps chromium

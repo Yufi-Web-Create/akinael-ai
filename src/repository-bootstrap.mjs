@@ -1,3 +1,5 @@
+import { customerWebStarterFiles } from './customer-web-starter.mjs';
+
 const clean = (value) => String(value || '').trim();
 
 const slugify = (value) => clean(value)
@@ -25,15 +27,35 @@ export const bootstrapProjectRepository = async ({ context, github, store, env =
   if (!canBootstrapRepository(context)) throw new Error('project repository is not configured');
   if (github.mode !== 'connected') throw new Error('GitHub repository bootstrap credentials are not configured');
 
-  const templateRepository = clean(env.GITHUB_TEMPLATE_REPO);
   const owner = clean(env.GITHUB_REPO_OWNER);
-  if (!templateRepository) throw new Error('GITHUB_TEMPLATE_REPO is not configured');
   if (!owner) throw new Error('GITHUB_REPO_OWNER is not configured');
 
   const name = repositoryNameForProject(context.project, { prefix: env.GITHUB_CUSTOMER_REPO_PREFIX || 'client' });
   const description = `Akinael AI customer project: ${clean(context.project?.name) || context.project?.id}`.slice(0, 300);
-  const created = await github.createFromTemplate({ templateRepository, owner, name, description });
+  const templateRepository = clean(env.GITHUB_TEMPLATE_REPO);
+  let created;
+
+  if (templateRepository) {
+    created = await github.createFromTemplate({ templateRepository, owner, name, description });
+  } else {
+    created = await github.createPrivateRepository({
+      owner,
+      ownerType: clean(env.GITHUB_REPO_OWNER_TYPE || 'user'),
+      name,
+      description
+    });
+    if (!created?.full_name) throw new Error('GitHub repository creation returned no repository name');
+    await github.seedRepository({
+      repositoryFullName: created.full_name,
+      branch: created.default_branch || 'main',
+      files: customerWebStarterFiles()
+    });
+  }
+
   if (!created?.full_name) throw new Error('GitHub repository bootstrap returned no repository name');
+
+  // The central executor uses the GitHub App. Verify access before the repository is registered in business state.
+  await github.verifyAppRepositoryAccess(created.full_name);
 
   const repository = await store.registerRepository({
     tenantId: context.workflow.tenant_id,

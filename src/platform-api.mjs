@@ -1,4 +1,5 @@
 import { createPlatformStore, PlatformStoreError } from './platform-store.mjs';
+import { createProductionRouter } from './production-router.mjs';
 
 const MAX_BODY_BYTES = 64 * 1024;
 
@@ -40,6 +41,7 @@ export const extractAccessToken = (request) => {
 
 export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {}) => {
   const store = createPlatformStore({ env, fetchImpl });
+  const productionRouter = createProductionRouter({ env, fetchImpl });
 
   const handle = async (request, response) => {
     const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
@@ -74,7 +76,15 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
         }
         if (method === 'POST') {
           const body = await readJsonBody(request);
-          return writeJson(response, 201, await store.createRequest(token, parts[3], body)), true;
+          const created = await store.createRequest(token, parts[3], body);
+          try {
+            const routing = await productionRouter.route(created.request);
+            return writeJson(response, 201, { ...created, routing: { status: 'routed', ...routing } }), true;
+          } catch {
+            // The Request is already safely persisted. Keep it as `new` so a worker or
+            // explicit retry can route it without asking the customer to submit again.
+            return writeJson(response, 201, { ...created, routing: { status: 'pending_retry' } }), true;
+          }
         }
       }
 
@@ -101,5 +111,5 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
     }
   };
 
-  return { handle, store };
+  return { handle, store, productionRouter };
 };

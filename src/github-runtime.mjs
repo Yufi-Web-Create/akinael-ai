@@ -33,6 +33,7 @@ const splitRepo = (repositoryFullName) => {
 export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {}) => {
   const apiBase = configured(env.GITHUB_API_URL, 'https://api.github.com').replace(/\/+$/, '');
   const staticToken = secret(env.GITHUB_WORKER_TOKEN);
+  const bootstrapToken = secret(env.GITHUB_BOOTSTRAP_TOKEN || env.GITHUB_WORKER_TOKEN);
   const appId = secret(env.GITHUB_APP_ID);
   const installationId = secret(env.GITHUB_APP_INSTALLATION_ID);
   const privateKey = secret(env.GITHUB_APP_PRIVATE_KEY).replace(/\\n/g, '\n');
@@ -144,11 +145,67 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
 
   const createFromTemplate = async ({ templateRepository, owner, name, description = '' }) => {
     const [templateOwner, templateRepo] = String(templateRepository || '').split('/');
-    if (!templateOwner || !templateRepo) throw new GitHubRuntimeError('GITHUB_TEMPLATE_REPO is not configured', { status: 503 });
+    if (!templateOwner || !templateRepo) throw new GitHubRuntimeError('template repository is invalid', { status: 503 });
     return request(`/repos/${encodeURIComponent(templateOwner)}/${encodeURIComponent(templateRepo)}/generate`, {
       method: 'POST',
       body: { owner, name, description, include_all_branches: false, private: true }
     });
+  };
+
+  const createPrivateRepository = async ({ owner, ownerType = 'user', name, description = '' }) => {
+    const type = String(ownerType || 'user').toLowerCase();
+    if (!['user', 'org'].includes(type)) throw new GitHubRuntimeError('GITHUB_REPO_OWNER_TYPE must be user or org', { status: 500 });
+    let path;
+    let tokenOverride = bootstrapToken || null;
+    if (type === 'user') {
+      if (!bootstrapToken) {
+        throw new GitHubRuntimeError('GITHUB_BOOTSTRAP_TOKEN is required to create repositories on a personal GitHub account', { status: 503 });
+      }
+      path = '/user/repos';
+    } else {
+      path = `/orgs/${encodeURIComponent(owner)}/repos`;
+    }
+    return request(path, {
+      method: 'POST',
+      tokenOverride,
+      body: {
+        name,
+        description,
+        private: true,
+        auto_init: true,
+        has_issues: true,
+        has_projects: false,
+        has_wiki: false
+      }
+    });
+  };
+
+  const putRepositoryFile = async ({ repositoryFullName, path, content, branch = 'main', message = 'Initialize Akinael project' }) => {
+    const { owner, repo } = splitRepo(repositoryFullName);
+    const tokenOverride = bootstrapToken || null;
+    return request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${String(path).split('/').map(encodeURIComponent).join('/')}`, {
+      method: 'PUT',
+      tokenOverride,
+      body: {
+        message,
+        content: Buffer.from(String(content)).toString('base64'),
+        branch
+      }
+    });
+  };
+
+  const seedRepository = async ({ repositoryFullName, files, branch = 'main' }) => {
+    for (const [path, content] of Object.entries(files || {})) {
+      await putRepositoryFile({ repositoryFullName, path, content, branch, message: `Initialize ${path}` });
+    }
+    return { repositoryFullName, branch, fileCount: Object.keys(files || {}).length };
+  };
+
+  const verifyAppRepositoryAccess = async (repositoryFullName) => {
+    const { owner, repo } = splitRepo(repositoryFullName);
+    const appToken = staticToken ? null : await getToken();
+    await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`, { tokenOverride: appToken });
+    return true;
   };
 
   return {
@@ -162,7 +219,11 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
     getRun,
     getBranchHead,
     getFileText,
-    createFromTemplate
+    createFromTemplate,
+    createPrivateRepository,
+    putRepositoryFile,
+    seedRepository,
+    verifyAppRepositoryAccess
   };
 };
 

@@ -1,0 +1,201 @@
+name: Akinael Agent
+run-name: ${{ inputs.run_name }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      task_id:
+        description: Core task UUID
+        required: true
+        type: string
+      workflow_run_id:
+        description: Core workflow UUID
+        required: true
+        type: string
+      branch_name:
+        description: Isolated Akinael work branch
+        required: true
+        type: string
+      permission_profile:
+        description: Codex permission profile
+        required: true
+        default: ':read-only'
+        type: string
+      stage:
+        description: execute, review, or correction
+        required: true
+        type: string
+      cycle:
+        description: correction cycle
+        required: true
+        default: '0'
+        type: string
+      run_name:
+        description: Correlation name used by Core
+        required: true
+        type: string
+      prompt:
+        description: Task prompt produced by Core
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  codex:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      final_message: ${{ steps.codex.outputs.final-message }}
+      qa_conclusion: ${{ steps.qa.outputs.conclusion }}
+    steps:
+      - name: Validate dispatch inputs
+        shell: bash
+        env:
+          TASK_ID: ${{ inputs.task_id }}
+          WORKFLOW_RUN_ID: ${{ inputs.workflow_run_id }}
+          BRANCH_NAME: ${{ inputs.branch_name }}
+          STAGE: ${{ inputs.stage }}
+          CYCLE: ${{ inputs.cycle }}
+          PERMISSION_PROFILE: ${{ inputs.permission_profile }}
+        run: |
+          set -euo pipefail
+          [[ "$TASK_ID" =~ ^[A-Za-z0-9-]+$ ]]
+          [[ "$WORKFLOW_RUN_ID" =~ ^[A-Za-z0-9-]+$ ]]
+          [[ "$BRANCH_NAME" =~ ^akinael/run-[A-Za-z0-9-]+$ ]]
+          [[ "$STAGE" =~ ^(execute|review|correction)$ ]]
+          [[ "$CYCLE" =~ ^[0-9]+$ ]]
+          [[ "$PERMISSION_PROFILE" == ':workspace' || "$PERMISSION_PROFILE" == ':read-only' ]]
+
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prepare isolated work branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH_NAME: ${{ inputs.branch_name }}
+        run: |
+          set -euo pipefail
+          auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          if git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" ls-remote --exit-code --heads origin "refs/heads/$BRANCH_NAME" >/dev/null 2>&1; then
+            git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" fetch --no-tags origin "$BRANCH_NAME"
+            git switch -C "$BRANCH_NAME" FETCH_HEAD
+          else
+            git switch -c "$BRANCH_NAME"
+          fi
+          git config user.name 'akinael-ai[bot]'
+          git config user.email 'akinael-ai[bot]@users.noreply.github.com'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies before sandboxed execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f package-lock.json ]; then
+            npm ci
+          fi
+          if [ -f package.json ] && node -e "const p=require('./package.json');process.exit((p.dependencies?.['@playwright/test']||p.devDependencies?.['@playwright/test'])?0:1)"; then
+            npx --no-install playwright install --with-deps chromium
+          fi
+
+      - name: Run Codex
+        id: codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ${{ inputs.permission_profile }}
+          safety-strategy: drop-sudo
+          allow-bots: true
+          effort: high
+          prompt: ${{ inputs.prompt }}
+
+      - name: Restore protected control files
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config core.hooksPath /dev/null
+          git restore --source=HEAD --staged --worktree -- .github 2>/dev/null || true
+          git restore --source=HEAD --staged --worktree -- AGENTS.md 2>/dev/null || true
+          rm -rf .codex .akinael
+
+      - name: Run repository QA
+        id: qa
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          conclusion=success
+          if [ -f package.json ] && node -e "const p=require('./package.json');process.exit(p.scripts?.qa?0:1)"; then
+            npm run qa
+            code=$?
+          elif [ -f package.json ] && node -e "const p=require('./package.json');process.exit(p.scripts?.test?0:1)"; then
+            npm test
+            code=$?
+          else
+            code=0
+          fi
+          if [ "$code" -ne 0 ]; then conclusion=failure; fi
+          echo "conclusion=$conclusion" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Write machine-readable task result
+        if: always()
+        shell: bash
+        env:
+          TASK_ID: ${{ inputs.task_id }}
+          STAGE: ${{ inputs.stage }}
+          CYCLE: ${{ inputs.cycle }}
+          FINAL_MESSAGE: ${{ steps.codex.outputs.final-message }}
+          QA_CONCLUSION: ${{ steps.qa.outputs.conclusion }}
+        run: |
+          set -euo pipefail
+          result_path=".akinael/results/${TASK_ID}-${STAGE}-${CYCLE}.json"
+          mkdir -p "$(dirname "$result_path")"
+          RESULT_PATH="$result_path" node <<'NODE'
+          const fs = require('fs');
+          fs.writeFileSync(process.env.RESULT_PATH, JSON.stringify({
+            task_id: process.env.TASK_ID,
+            stage: process.env.STAGE,
+            cycle: Number(process.env.CYCLE || 0),
+            final_message: process.env.FINAL_MESSAGE || '',
+            qa_conclusion: process.env.QA_CONCLUSION || 'unknown',
+            generated_at: new Date().toISOString()
+          }, null, 2));
+          NODE
+
+      - name: Commit safe workspace changes and result
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH_NAME: ${{ inputs.branch_name }}
+          TASK_ID: ${{ inputs.task_id }}
+          STAGE: ${{ inputs.stage }}
+          CYCLE: ${{ inputs.cycle }}
+        run: |
+          set -euo pipefail
+          git add -A
+          while IFS= read -r path; do
+            case "$path" in
+              .github/*|.codex/*|AGENTS.md) echo "Protected path changed: $path" >&2; exit 1 ;;
+              .akinael/*) [[ "$path" == .akinael/results/* ]] || { echo "Reserved path changed: $path" >&2; exit 1; } ;;
+            esac
+          done < <(git diff --cached --name-only)
+
+          if ! git diff --cached --quiet; then
+            git commit -m "Akinael ${TASK_ID} ${STAGE} ${CYCLE}"
+            auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+            git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" push origin "HEAD:refs/heads/$BRANCH_NAME"
+          fi

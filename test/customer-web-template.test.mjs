@@ -30,6 +30,8 @@ test('central Akinael runner keeps the customer-repository security contract', a
   assert.match(workflow, /code=1/);
   assert.match(workflow, /Protected path changed/);
   assert.match(workflow, /\.akinael\/results/);
+  assert.doesNotMatch(workflow, /rm -rf \\.codex \\.akinael/);
+  assert.match(workflow, /git rebase FETCH_HEAD/);
   assert.match(workflow, /permissions:\n\s+contents:\s+read/);
   assert.doesNotMatch(workflow, /pull_request_target/);
 });

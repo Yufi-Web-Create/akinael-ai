@@ -19,7 +19,8 @@ const nextCheckAt = () => new Date(Date.now() + 5_000).toISOString();
 
 const isExternalTask = (context) => EXTERNAL_MODES.has(context.task.mode)
   || context.task.agent_role === 'frontend_engineer'
-  || context.task.agent_role === 'seo_accessibility';
+  || context.task.agent_role === 'seo_accessibility'
+  || (context.task.mode === 'copy_review' && Boolean(context.repository?.repository_full_name));
 const isReviewTask = (task) => REVIEW_MODES.has(task.mode);
 
 const normalizeReview = (output) => {

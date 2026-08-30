@@ -24,6 +24,8 @@ test('repository QA failures are represented as mandatory major review findings'
 test('external task routing keeps implementation and browser review on GitHub executor', () => {
   assert.equal(isExternalTask({ task: { mode: 'build', agent_role: 'frontend_engineer' } }), true);
   assert.equal(isExternalTask({ task: { mode: 'visual_review', agent_role: 'quality_assurance' } }), true);
+  assert.equal(isExternalTask({ task: { mode: 'copy_review', agent_role: 'content_editor' }, repository: { repository_full_name: 'owner/site' } }), true);
+  assert.equal(isExternalTask({ task: { mode: 'copy_review', agent_role: 'content_editor' }, repository: null }), false);
   assert.equal(isExternalTask({ task: { mode: 'research', agent_role: 'research_strategist' } }), false);
   assert.match(branchFor('11111111-2222-3333-4444-555555555555'), /^akinael\/run-/);
   assert.equal(resultPathFor('task-1', 'review', 2), '.akinael/results/task-1-review-2.json');

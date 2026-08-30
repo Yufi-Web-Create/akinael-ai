@@ -10,6 +10,9 @@ test('web_new uses full research-first autonomous pipeline', () => {
   assert.equal(plan.metadata.dynamic_expansion, false);
   assert.equal(plan.tasks[0].task_key, 'intake_spec');
   assert.equal(plan.tasks.at(-1).task_key, 'release_gate');
+  assert.deepEqual(plan.tasks.find((item) => item.task_key === 'visual_review').depends_on, ['seo_a11y_review']);
+  assert.deepEqual(plan.tasks.find((item) => item.task_key === 'copy_review').depends_on, ['visual_review']);
+  assert.deepEqual(plan.tasks.find((item) => item.task_key === 'technical_review').depends_on, ['copy_review']);
 
   const build = plan.tasks.find((item) => item.task_key === 'build');
   assert.deepEqual(build.depends_on, ['copy_direction', 'design_direction']);

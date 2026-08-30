@@ -12,6 +12,8 @@ test('central Akinael runner keeps the customer-repository security contract', a
   assert.match(workflow, /repository:\s*\$\{\{ inputs\.target_repository \}\}/);
   assert.match(workflow, /persist-credentials:\s*false/);
   assert.match(workflow, /openai\/codex-action@v1/);
+  assert.match(workflow, /model:\s*gpt-5\.6-terra/);
+  assert.match(workflow, /timeout-minutes:\s*90/);
   assert.match(workflow, /permission-profile:\s*\$\{\{ inputs\.permission_profile \}\}/);
   assert.match(workflow, /safety-strategy:\s*drop-sudo/);
   assert.match(workflow, /AKINAEL_GITHUB_APP_ID:\s*['"]4762113['"]/);
@@ -20,6 +22,8 @@ test('central Akinael runner keeps the customer-repository security contract', a
   assert.match(workflow, /allow-bot-users:\s*\$\{\{ env\.AKINAEL_BOT_USER \}\}/);
   assert.doesNotMatch(workflow, /allow-bots:\s*true/);
   assert.match(workflow, /npm run qa/);
+  assert.match(workflow, /playwright install --with-deps\n/);
+  assert.doesNotMatch(workflow, /playwright install --with-deps chromium/);
   assert.match(workflow, /code=1/);
   assert.match(workflow, /Protected path changed/);
   assert.match(workflow, /\.akinael\/results/);

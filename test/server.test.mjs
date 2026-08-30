@@ -113,6 +113,14 @@ test('login mode disables the registration-only consent requirement', async () =
   assert.match(source, /authConsentInput\.required = mode === 'register'/);
 });
 
+test('frontend pages cache-bust the customer login fix', async () => {
+  for (const path of ['/', '/mypage']) {
+    const response = await fetch(`${baseUrl}${path}`, { redirect: 'manual' });
+    const html = await response.text();
+    assert.match(html, /\/assets\/app\.js\?v=20260830-login-fix/);
+  }
+});
+
 test('public pricing uses the formal plan and approval policy', async () => {
   const response = await fetch(`${baseUrl}/api/public/pricing`);
   const config = await response.json();

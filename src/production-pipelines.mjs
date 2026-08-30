@@ -24,9 +24,9 @@ const WEB_NEW = {
     task({ key: 'design_direction', role: 'visual_designer', title: 'DESIGN_DIRECTION・DESIGN_SYSTEMを作る', phase: 'direction', dependsOn: ['ux_architecture'], mode: 'create' }),
     task({ key: 'build', role: 'frontend_engineer', title: '仕様・コピー・デザインに基づいて実装する', phase: 'build', dependsOn: ['copy_direction', 'design_direction'], mode: 'build' }),
     task({ key: 'seo_a11y_review', role: 'seo_accessibility', title: '最終DOMと実画面のSEO・アクセシビリティを検証する', phase: 'review', dependsOn: ['build'], mode: 'review' }),
-    task({ key: 'visual_review', role: 'quality_assurance', title: '実ブラウザ・全viewportでVisual Reviewを行う', phase: 'review', dependsOn: ['build'], mode: 'visual_review' }),
-    task({ key: 'copy_review', role: 'content_editor', title: '実装画面の最終コピーを独立レビューする', phase: 'review', dependsOn: ['build'], mode: 'copy_review' }),
-    task({ key: 'technical_review', role: 'quality_assurance', title: 'コード・テスト・API・セキュリティを独立レビューする', phase: 'review', dependsOn: ['build'], mode: 'technical_review' }),
+    task({ key: 'visual_review', role: 'quality_assurance', title: '実ブラウザ・全viewportでVisual Reviewを行う', phase: 'review', dependsOn: ['seo_a11y_review'], mode: 'visual_review' }),
+    task({ key: 'copy_review', role: 'content_editor', title: '実装画面の最終コピーを独立レビューする', phase: 'review', dependsOn: ['visual_review'], mode: 'copy_review' }),
+    task({ key: 'technical_review', role: 'quality_assurance', title: 'コード・テスト・API・セキュリティを独立レビューする', phase: 'review', dependsOn: ['copy_review'], mode: 'technical_review' }),
     task({ key: 'release_gate', role: 'quality_assurance', title: '全QA結果を統合しDEPLOY READYを判定する', phase: 'release', dependsOn: ['seo_a11y_review', 'visual_review', 'copy_review', 'technical_review'], mode: 'release_gate' })
   ]
 };

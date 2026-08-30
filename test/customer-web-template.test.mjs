@@ -11,8 +11,11 @@ test('central Akinael runner keeps the customer-repository security contract', a
   assert.match(workflow, /actions\/create-github-app-token@v2/);
   assert.match(workflow, /repository:\s*\$\{\{ inputs\.target_repository \}\}/);
   assert.match(workflow, /persist-credentials:\s*false/);
-  assert.match(workflow, /openai\/codex-action@v1/);
+  assert.match(workflow, /openai\/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e/);
+  assert.match(workflow, /codex-version:\s*['"]0\.150\.0['"]/);
   assert.match(workflow, /model:\s*gpt-5\.6-terra/);
+  assert.match(workflow, /effort:\s*medium/);
+  assert.doesNotMatch(workflow, /openai\/codex-action@v1(?:\s|$)/);
   assert.match(workflow, /timeout-minutes:\s*90/);
   assert.match(workflow, /permission-profile:\s*\$\{\{ inputs\.permission_profile \}\}/);
   assert.match(workflow, /safety-strategy:\s*drop-sudo/);

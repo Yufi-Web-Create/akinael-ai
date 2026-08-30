@@ -67,7 +67,7 @@ env:
 jobs:
   codex:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - name: Validate dispatch inputs
         shell: bash
@@ -142,7 +142,7 @@ jobs:
             npm install --no-audit --no-fund
           fi
           if [ -f package.json ] && node -e "const p=require('./package.json');process.exit((p.dependencies?.['@playwright/test']||p.devDependencies?.['@playwright/test'])?0:1)"; then
-            npx --no-install playwright install --with-deps chromium
+            npx --no-install playwright install --with-deps
           fi
 
       - name: Run Codex
@@ -150,6 +150,7 @@ jobs:
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          model: gpt-5.6-terra
           permission-profile: ${{ inputs.permission_profile }}
           safety-strategy: drop-sudo
           allow-bot-users: ${{ env.AKINAEL_BOT_USER }}
@@ -177,7 +178,7 @@ jobs:
             npm install --no-audit --no-fund
           fi
           if [ -f package.json ] && node -e "const p=require('./package.json');process.exit((p.dependencies?.['@playwright/test']||p.devDependencies?.['@playwright/test'])?0:1)"; then
-            npx --no-install playwright install --with-deps chromium
+            npx --no-install playwright install --with-deps
           fi
           exit 0
 

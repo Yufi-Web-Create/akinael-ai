@@ -17,7 +17,7 @@ services:
       - key: STORAGE_DIR
         value: /var/data/uploads
       - key: SUPABASE_URL
-        sync: false
+        value: https://rxxmbnlqomtfjekdrblo.supabase.co
       - key: SUPABASE_SECRET_KEY
         sync: false
       - key: SUPABASE_PUBLISHABLE_KEY
@@ -58,3 +58,57 @@ services:
       name: akinael-data
       mountPath: /var/data
       sizeGB: 1
+
+  # Executes queued AI tasks. Creating/enabling this paid Render worker remains a Human Gate.
+  - type: worker
+    name: akinael-ai-worker
+    runtime: node
+    plan: starter
+    buildCommand: npm ci --omit=dev
+    startCommand: npm run worker
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        value: https://rxxmbnlqomtfjekdrblo.supabase.co
+      # Reuse the already-configured service secret instead of duplicating it in Render.
+      - key: SUPABASE_SECRET_KEY
+        fromService:
+          type: web
+          name: akinael-ai
+          envVarKey: SUPABASE_SECRET_KEY
+      - key: AKINAEL_TENANT_NAME
+        value: akinael
+      - key: WORKER_INTERVAL_MS
+        value: 5000
+      # The existing web service stores the same OpenAI credential as LLM_API_KEY.
+      - key: OPENAI_API_KEY
+        fromService:
+          type: web
+          name: akinael-ai
+          envVarKey: LLM_API_KEY
+      - key: OPENAI_RESPONSES_URL
+        value: https://api.openai.com/v1/responses
+      - key: RESEARCH_MODEL
+        value: gpt-5.6-terra
+      - key: GENERAL_AGENT_MODEL
+        value: gpt-5.6-terra
+      - key: GITHUB_API_URL
+        value: https://api.github.com
+      - key: GITHUB_EXECUTOR_REPO
+        value: Yufi-Web-Create/akinael-ai
+      - key: GITHUB_EXECUTOR_REF
+        value: main
+      - key: GITHUB_AGENT_WORKFLOW
+        value: akinael-agent.yml
+      - key: GITHUB_APP_ID
+        value: '4762113'
+      # This is the only new secret the worker needs in Render.
+      - key: GITHUB_APP_PRIVATE_KEY
+        sync: false
+      - key: GITHUB_REPO_OWNER
+        value: akinael-ai-clients
+      - key: GITHUB_REPO_OWNER_TYPE
+        value: org
+      - key: GITHUB_CUSTOMER_REPO_PREFIX
+        value: client

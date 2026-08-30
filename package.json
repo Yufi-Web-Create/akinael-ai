@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "node --env-file-if-exists=.env src/platform-server.mjs",
+    "worker": "node --env-file-if-exists=.env src/worker.mjs",
+    "readiness:worker": "node --env-file-if-exists=.env scripts/worker-readiness.mjs",
     "test": "node --test"
   },
   "dependencies": {

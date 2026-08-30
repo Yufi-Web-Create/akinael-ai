@@ -147,9 +147,10 @@ jobs:
 
       - name: Run Codex
         id: codex
-        # v1 currently resolves to action v1.12. Keep the action immutable and
-        # pin the CLI release that fixes the heavy Linux run hang (openai/codex-action#150).
-        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e
+        # Action v1.12 still loses the GitHub-hosted runner on this production
+        # workload even with CLI 0.150.0. Pin the last verified heavy-run-safe
+        # wrapper (v1.11) while retaining the CLI fix from openai/codex-action#150.
+        uses: openai/codex-action@52fe01ec70a42f454c9d2ebd47598f9fd6893d56
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           codex-version: '0.150.0'

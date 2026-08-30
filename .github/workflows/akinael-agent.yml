@@ -169,7 +169,10 @@ jobs:
           git config core.hooksPath /dev/null
           git restore --source=HEAD --staged --worktree -- .github 2>/dev/null || true
           git restore --source=HEAD --staged --worktree -- AGENTS.md 2>/dev/null || true
-          rm -rf .codex .akinael
+          rm -rf .codex
+          if [ -d .akinael ]; then
+            find .akinael -mindepth 1 -maxdepth 1 ! -name results -exec rm -rf -- {} +
+          fi
 
       - name: Reconcile generated dependencies
         if: always()
@@ -253,5 +256,7 @@ jobs:
           if ! git diff --cached --quiet; then
             git commit -m "Akinael ${TASK_ID} ${STAGE} ${CYCLE}"
             auth="$(printf 'x-access-token:%s' "$TARGET_TOKEN" | base64 -w0)"
+            git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" fetch --no-tags origin "$BRANCH_NAME"
+            git rebase FETCH_HEAD
             git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" push origin "HEAD:refs/heads/$BRANCH_NAME"
           fi

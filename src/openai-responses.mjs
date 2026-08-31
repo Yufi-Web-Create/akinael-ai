@@ -10,6 +10,27 @@ export class OpenAIResponsesError extends Error {
   }
 }
 
+const BILLING_ERROR_PATTERNS = [
+  /no credits remaining/i,
+  /insufficient[_\s-]*quota/i,
+  /billing[_\s-]*hard[_\s-]*limit/i,
+  /credit balance/i,
+  /billing quota/i
+];
+
+export const classifyOpenAIError = (error) => {
+  const body = error?.body && typeof error.body === 'object' ? JSON.stringify(error.body) : '';
+  const text = `${error?.message || ''}\n${body}`;
+  if (BILLING_ERROR_PATTERNS.some((pattern) => pattern.test(text))) {
+    return {
+      kind: 'billing_quota',
+      terminal: true,
+      message: 'OpenAI API credits or billing quota exhausted'
+    };
+  }
+  return { kind: 'runtime', terminal: false, message: String(error?.message || error || 'OpenAI request failed') };
+};
+
 const collectOutput = (response) => {
   const texts = [];
   const citations = [];
@@ -61,16 +82,17 @@ const collectOutput = (response) => {
 export const createResponsesExecutor = ({ env = process.env, fetchImpl = fetch } = {}) => {
   const apiKey = secret(env.OPENAI_API_KEY || env.LLM_API_KEY);
   const endpoint = configured(env.OPENAI_RESPONSES_URL, 'https://api.openai.com/v1/responses');
-  const researchModel = configured(env.RESEARCH_MODEL, 'gpt-5.6-terra');
+  const lightweightModel = configured(env.LIGHTWEIGHT_AGENT_MODEL, 'gpt-5.6-luna');
+  const researchModel = configured(env.RESEARCH_MODEL, lightweightModel);
   const generalModel = configured(env.GENERAL_AGENT_MODEL, 'gpt-5.6-terra');
 
-  const run = async ({ prompt, research = false, reasoningEffort = 'medium' }) => {
+  const run = async ({ prompt, research = false, lightweight = false, reasoningEffort = 'medium' }) => {
     if (!apiKey) {
       throw new OpenAIResponsesError('OPENAI_API_KEY is not configured', { status: 503 });
     }
 
     const payload = {
-      model: research ? researchModel : generalModel,
+      model: research ? researchModel : lightweight ? lightweightModel : generalModel,
       input: prompt,
       reasoning: { effort: reasoningEffort }
     };
@@ -103,6 +125,7 @@ export const createResponsesExecutor = ({ env = process.env, fetchImpl = fetch }
     mode: apiKey ? 'connected' : 'not_configured',
     researchModel,
     generalModel,
+    lightweightModel,
     run
   };
 };

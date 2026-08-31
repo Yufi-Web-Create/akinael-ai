@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createResponsesExecutor, extractLooseJson } from '../src/openai-responses.mjs';
-import { createGitHubRuntime, GitHubRuntimeError } from '../src/github-runtime.mjs';
+import { createResponsesExecutor, extractLooseJson, classifyOpenAIError } from '../src/openai-responses.mjs';
+import { createGitHubRuntime, GitHubRuntimeError, classifyGitHubJobFailure } from '../src/github-runtime.mjs';
 
 const jsonResponse = (payload, status = 200) => new Response(JSON.stringify(payload), {
   status,
@@ -15,7 +15,8 @@ test('Responses executor enables web search only for research tasks and keeps ci
       OPENAI_API_KEY: 'test-key',
       OPENAI_RESPONSES_URL: 'https://api.example.com/v1/responses',
       RESEARCH_MODEL: 'research-model',
-      GENERAL_AGENT_MODEL: 'general-model'
+      GENERAL_AGENT_MODEL: 'general-model',
+      LIGHTWEIGHT_AGENT_MODEL: 'light-model'
     },
     fetchImpl: async (url, options) => {
       calls.push({ url: String(url), body: JSON.parse(options.body) });
@@ -43,6 +44,20 @@ test('Responses executor enables web search only for research tasks and keeps ci
   await executor.run({ prompt: 'normal', research: false });
   assert.equal(calls[1].body.model, 'general-model');
   assert.equal(Object.hasOwn(calls[1].body, 'tools'), false);
+
+  await executor.run({ prompt: 'light', lightweight: true, reasoningEffort: 'low' });
+  assert.equal(calls[2].body.model, 'light-model');
+  assert.equal(calls[2].body.reasoning.effort, 'low');
+});
+
+test('billing and credit exhaustion are classified as terminal failures', () => {
+  const apiError = Object.assign(new Error('You have no credits remaining.'), { body: { error: { code: 'insufficient_quota' } } });
+  assert.deepEqual(classifyOpenAIError(apiError), {
+    kind: 'billing_quota', terminal: true, message: 'OpenAI API credits or billing quota exhausted'
+  });
+  assert.equal(classifyOpenAIError(new Error('temporary network error')).terminal, false);
+  assert.equal(classifyGitHubJobFailure('ERROR: You have no credits remaining.').terminal, true);
+  assert.equal(classifyGitHubJobFailure('runner disconnected').terminal, false);
 });
 
 test('extractLooseJson accepts fenced and trailing structured results', () => {
@@ -73,7 +88,9 @@ test('GitHub runtime dispatches customer work through the central Core workflow'
     branchName: 'akinael/run-1',
     permissionProfile: ':read-only',
     stage: 'review',
-    cycle: 1
+    cycle: 1,
+    model: 'gpt-5.6-luna',
+    effort: 'low'
   });
   assert.equal(dispatched.runName, 'Akinael task-1 review 1');
   assert.equal(dispatched.executorRepository, 'core/akinael-ai');
@@ -85,6 +102,8 @@ test('GitHub runtime dispatches customer work through the central Core workflow'
   assert.equal(body.inputs.target_repo, 'site');
   assert.equal(body.inputs.target_default_branch, 'main');
   assert.equal(body.inputs.permission_profile, ':read-only');
+  assert.equal(body.inputs.model, 'gpt-5.6-luna');
+  assert.equal(body.inputs.effort, 'low');
   assert.equal(body.inputs.branch_name, 'akinael/run-1');
 });
 

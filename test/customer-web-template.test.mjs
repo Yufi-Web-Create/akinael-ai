@@ -13,8 +13,9 @@ test('central Akinael runner keeps the customer-repository security contract', a
   assert.match(workflow, /persist-credentials:\s*false/);
   assert.match(workflow, /openai\/codex-action@52fe01ec70a42f454c9d2ebd47598f9fd6893d56/);
   assert.match(workflow, /codex-version:\s*['"]0\.150\.0['"]/);
-  assert.match(workflow, /model:\s*gpt-5\.6-terra/);
-  assert.match(workflow, /effort:\s*medium/);
+  assert.match(workflow, /default:\s*gpt-5\.6-terra/);
+  assert.match(workflow, /model:\s*\$\{\{ inputs\.model \}\}/);
+  assert.match(workflow, /effort:\s*\$\{\{ inputs\.effort \}\}/);
   assert.doesNotMatch(workflow, /openai\/codex-action@v1(?:\s|$)/);
   assert.match(workflow, /timeout-minutes:\s*90/);
   assert.match(workflow, /permission-profile:\s*\$\{\{ inputs\.permission_profile \}\}/);

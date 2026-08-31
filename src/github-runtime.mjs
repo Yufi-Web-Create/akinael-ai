@@ -4,6 +4,26 @@ const secret = (value) => String(value || '').trim();
 const configured = (value, fallback) => String(value || fallback).trim();
 const base64url = (value) => Buffer.from(value).toString('base64url');
 
+const BILLING_LOG_PATTERNS = [
+  /no credits remaining/i,
+  /insufficient[_\s-]*quota/i,
+  /billing[_\s-]*hard[_\s-]*limit/i,
+  /credit balance/i,
+  /billing quota/i
+];
+
+export const classifyGitHubJobFailure = (logs = '') => {
+  const text = String(logs || '');
+  if (BILLING_LOG_PATTERNS.some((pattern) => pattern.test(text))) {
+    return {
+      kind: 'billing_quota',
+      terminal: true,
+      message: 'OpenAI API credits or billing quota exhausted'
+    };
+  }
+  return { kind: 'runtime', terminal: false, message: 'GitHub executor failed' };
+};
+
 export class GitHubRuntimeError extends Error {
   constructor(message, { status = 500, body = null } = {}) {
     super(message);
@@ -151,7 +171,22 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
     return payload;
   };
 
-  const dispatchAgent = async ({ repositoryFullName, ref = 'main', taskId, workflowRunId, prompt, branchName, permissionProfile = ':workspace', stage = 'execute', cycle = 0 }) => {
+  const requestText = async (path, { tokenOverride = null } = {}) => {
+    const token = tokenOverride || await getToken();
+    if (!token) throw new GitHubRuntimeError('GitHub runtime credentials are not configured', { status: 503 });
+    const response = await fetchImpl(`${apiBase}${path}`, {
+      headers: {
+        authorization: `Bearer ${token}`,
+        accept: 'application/vnd.github+json',
+        'x-github-api-version': '2022-11-28'
+      }
+    });
+    const payload = await response.text().catch(() => '');
+    if (!response.ok) throw new GitHubRuntimeError(`GitHub API failed: ${response.status}`, { status: response.status });
+    return payload;
+  };
+
+  const dispatchAgent = async ({ repositoryFullName, ref = 'main', taskId, workflowRunId, prompt, branchName, permissionProfile = ':workspace', stage = 'execute', cycle = 0, model = 'gpt-5.6-terra', effort = 'medium' }) => {
     const target = splitRepo(repositoryFullName);
     const executor = splitRepo(executorRepository);
     const workflowFile = configured(env.GITHUB_AGENT_WORKFLOW, 'akinael-agent.yml');
@@ -171,6 +206,8 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
           permission_profile: String(permissionProfile),
           stage: String(stage),
           cycle: String(cycle),
+          model: String(model),
+          effort: String(effort),
           run_name: runName,
           prompt: String(prompt).slice(0, 55_000)
         }
@@ -189,6 +226,19 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
   const getRun = async ({ repositoryFullName = executorRepository, runId }) => {
     const { owner, repo } = splitRepo(repositoryFullName);
     return request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${encodeURIComponent(runId)}`);
+  };
+
+  const getRunFailure = async ({ repositoryFullName = executorRepository, runId }) => {
+    const { owner, repo } = splitRepo(repositoryFullName);
+    const jobs = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${encodeURIComponent(runId)}/jobs?per_page=20`);
+    const failedJobs = (jobs?.jobs || []).filter((job) => job.conclusion === 'failure');
+    const logParts = [];
+    for (const job of failedJobs.slice(0, 3)) {
+      try {
+        logParts.push(await requestText(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/jobs/${encodeURIComponent(job.id)}/logs`));
+      } catch {}
+    }
+    return classifyGitHubJobFailure(logParts.join('\n'));
   };
 
   const getBranchHead = async ({ repositoryFullName, branchName }) => {
@@ -295,6 +345,7 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
     dispatchAgent,
     findDispatchedRun,
     getRun,
+    getRunFailure,
     getBranchHead,
     getFileText,
     createFromTemplate,

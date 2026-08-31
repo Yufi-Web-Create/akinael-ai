@@ -103,6 +103,16 @@ export const createExecutionStore = ({ env = process.env, fetchImpl = fetch } = 
     return first(rows);
   };
 
+  const stopTaskRetries = async (taskId, attempts) => {
+    const rows = await admin.request('/rest/v1/tasks', {
+      method: 'PATCH',
+      query: `id=eq.${encodeURIComponent(taskId)}&status=eq.running&select=id,attempts,max_attempts,status`,
+      headers: { Prefer: 'return=representation' },
+      body: { max_attempts: Math.max(1, Number(attempts) || 1) }
+    });
+    return first(rows);
+  };
+
   const upsertExecutorJob = async ({ taskId, status, externalReference = null, externalUrl = null, payload = {}, nextCheckAt = null }) => admin.request('/rest/v1/rpc/upsert_executor_job', {
     method: 'POST',
     body: {
@@ -161,6 +171,7 @@ export const createExecutionStore = ({ env = process.env, fetchImpl = fetch } = 
     finishTask,
     appendWorkflowTasks,
     patchTaskMetadata,
+    stopTaskRetries,
     upsertExecutorJob,
     patchExecutorJob,
     listRunningExternalTasks,

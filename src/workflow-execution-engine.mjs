@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { createExecutionStore } from './execution-store.mjs';
-import { createResponsesExecutor, extractLooseJson } from './openai-responses.mjs';
+import { createResponsesExecutor, extractLooseJson, classifyOpenAIError } from './openai-responses.mjs';
 import { createGitHubRuntime } from './github-runtime.mjs';
 import { buildTaskPrompt, buildCorrectionPrompt } from './execution-prompts.mjs';
 import { planDynamicExpansion } from './dynamic-expansion.mjs';
@@ -16,6 +16,19 @@ const artifactKind = (task) => `${task.phase || 'work'}_${task.mode || 'execute'
 const branchFor = (workflowId) => `akinael/run-${String(workflowId).replace(/[^a-zA-Z0-9-]/g, '').slice(0, 36)}`;
 const resultPathFor = (taskId, stage, cycle) => `.akinael/results/${taskId}-${stage}-${cycle}.json`;
 const nextCheckAt = () => new Date(Date.now() + 5_000).toISOString();
+const LIGHTWEIGHT_INTERNAL_MODES = new Set(['analyze', 'research', 'review', 'copy_review', 'release_gate', 'triage']);
+
+const configuredModel = (value, fallback) => String(value || fallback).trim();
+
+const externalExecutionProfile = ({ task, stage, env = {} }) => {
+  const lightweightReview = stage === 'review' && task?.mode !== 'technical_review';
+  return {
+    model: lightweightReview
+      ? configuredModel(env.REVIEW_AGENT_MODEL, 'gpt-5.6-luna')
+      : configuredModel(env.GENERAL_AGENT_MODEL, 'gpt-5.6-terra'),
+    effort: lightweightReview ? 'low' : 'medium'
+  };
+};
 
 const isExternalTask = (context) => EXTERNAL_MODES.has(context.task.mode)
   || context.task.agent_role === 'frontend_engineer'
@@ -72,6 +85,11 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
     result
   });
 
+  const finishTerminalFailure = async (task, error, result = null) => {
+    await store.stopTaskRetries(task.id, task.attempts).catch(() => null);
+    return finishFailure(task.id, error, result);
+  };
+
   const markExecutorFailed = async (taskId, error, result = null) => store.patchExecutorJob(taskId, {
     status: 'failed',
     result,
@@ -106,6 +124,7 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
     const branchName = context.task.metadata?.external_executor?.branch || branchFor(context.workflow.id);
     const permissionProfile = stage === 'correction' || !isReviewTask(context.task) ? ':workspace' : ':read-only';
     const resultPath = resultPathFor(context.task.id, stage, cycle);
+    const { model, effort } = externalExecutionProfile({ task: context.task, stage, env });
     const dispatched = await github.dispatchAgent({
       repositoryFullName,
       ref: context.repository.default_branch || 'main',
@@ -115,7 +134,9 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
       branchName,
       permissionProfile,
       stage,
-      cycle
+      cycle,
+      model,
+      effort
     });
 
     const externalExecutor = {
@@ -131,7 +152,9 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
       cycle,
       result_path: resultPath,
       dispatched_at: nowIso(),
-      review_result: reviewResult || null
+      review_result: reviewResult || null,
+      model,
+      effort
     };
     const metadata = { ...(context.task.metadata || {}), external_executor: externalExecutor };
     await store.patchTaskMetadata(context.task.id, metadata);
@@ -147,17 +170,18 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
   const executeInternal = async (context) => {
     const prompt = buildTaskPrompt(context);
     const research = context.task.mode === 'research';
-    let response = await responses.run({ prompt, research, reasoningEffort: research ? 'high' : 'medium' });
+    const lightweight = LIGHTWEIGHT_INTERNAL_MODES.has(context.task.mode);
+    let response = await responses.run({ prompt, research, lightweight, reasoningEffort: research ? 'medium' : lightweight ? 'low' : 'medium' });
     let output = response.output;
     let review = isReviewTask(context.task) ? normalizeReview(output) : null;
 
     if (isReviewTask(context.task) && review?.status === 'FAIL' && context.task.mode !== 'release_gate') {
       for (let cycle = 0; cycle < MAX_REVIEW_CORRECTIONS && review?.status === 'FAIL'; cycle += 1) {
         const correctionPrompt = `${buildTaskPrompt(context)}\n\n# Correction pass\n独立レビューで次の問題が見つかりました。再レビューではなく、元の成果物を修正版として作り直してください。\n${JSON.stringify(review, null, 2)}`;
-        const correction = await responses.run({ prompt: correctionPrompt, research: false, reasoningEffort: 'medium' });
-        const correctionArtifact = await saveTextArtifact(context, correction.output, { correction_cycle: cycle + 1, corrected_from: context.task.task_key });
+        const correction = await responses.run({ prompt: correctionPrompt, research: false, lightweight: false, reasoningEffort: 'medium' });
+        const correctionArtifact = await saveTextArtifact(context, correction.output, { correction_cycle: cycle + 1, corrected_from: context.task.task_key, model: correction.model, usage: correction.usage });
         context.artifacts = [...(context.artifacts || []), { ...correctionArtifact, content_text: correction.output, metadata: { correction_cycle: cycle + 1 } }];
-        response = await responses.run({ prompt: buildTaskPrompt(context), research: false, reasoningEffort: 'medium' });
+        response = await responses.run({ prompt: buildTaskPrompt(context), research: false, lightweight: true, reasoningEffort: 'low' });
         output = response.output;
         review = normalizeReview(output);
       }
@@ -168,6 +192,7 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
       response_id: response.responseId,
       citations: response.citations,
       sources: response.sources,
+      usage: response.usage,
       review
     });
 
@@ -211,12 +236,15 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
       }
       return await executeInternal(context);
     } catch (error) {
+      const classified = classifyOpenAIError(error);
+      if (classified.terminal) return finishTerminalFailure(context.task, classified.message, { failure_kind: classified.kind });
       return finishFailure(context.task.id, error);
     }
   };
 
-  const failExternal = async (task, error, result = null) => {
+  const failExternal = async (task, error, result = null, { terminal = false } = {}) => {
     await markExecutorFailed(task.id, error, result).catch(() => null);
+    if (terminal) await store.stopTaskRetries(task.id, task.attempts).catch(() => null);
     return finishFailure(task.id, error, result);
   };
 
@@ -266,17 +294,18 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
       ref: external.branch
     });
     const resultFile = parseResultFile(resultText);
+    if (run.conclusion !== 'success') {
+      const failure = await github.getRunFailure({ repositoryFullName: executorRepository, runId: run.id }).catch(() => ({ kind: 'runtime', terminal: false }));
+      const message = failure.terminal ? failure.message : `GitHub executor failed: ${run.conclusion || 'unknown'}`;
+      return failExternal(task, message, {
+        executor: 'github_codex', run_id: run.id, run_url: run.html_url || null, result: resultFile, failure_kind: failure.kind
+      }, { terminal: Boolean(failure.terminal) });
+    }
     if (!resultFile) {
       return failExternal(task, 'GitHub executor completed without a machine-readable result file', { run_id: run.id, run_url: run.html_url || null });
     }
     const finalMessage = String(resultFile.final_message || resultFile.message || '').trim();
     const qaFailed = String(resultFile.qa_conclusion || '').toLowerCase() === 'failure';
-
-    if (run.conclusion !== 'success') {
-      return failExternal(task, `GitHub executor failed: ${run.conclusion || 'unknown'}`, {
-        executor: 'github_codex', run_id: run.id, run_url: run.html_url || null, result: resultFile
-      });
-    }
 
     const context = await store.getTaskContext(task.id);
     if (external.stage === 'review') {
@@ -369,4 +398,4 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
   };
 };
 
-export { normalizeReview, isExternalTask, branchFor, resultPathFor, qaFailureReview };
+export { normalizeReview, isExternalTask, branchFor, resultPathFor, qaFailureReview, externalExecutionProfile };

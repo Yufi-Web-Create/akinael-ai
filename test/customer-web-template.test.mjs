@@ -19,6 +19,12 @@ test('central Akinael runner keeps the customer-repository security contract', a
   assert.doesNotMatch(workflow, /openai\/codex-action@v1(?:\s|$)/);
   assert.match(workflow, /timeout-minutes:\s*90/);
   assert.match(workflow, /permission-profile:\s*\$\{\{ inputs\.permission_profile \}\}/);
+  assert.match(workflow, /task_mode:/);
+  assert.match(workflow, /inputs\.task_mode == 'visual_review' && inputs\.stage == 'review'/);
+  assert.match(workflow, /viewport-360\.png/);
+  assert.match(workflow, /viewport-768\.png/);
+  assert.match(workflow, /viewport-1280\.png/);
+  assert.match(workflow, /codex-args:.*--image/);
   assert.match(workflow, /safety-strategy:\s*drop-sudo/);
   assert.match(workflow, /AKINAEL_GITHUB_APP_ID:\s*['"]4762113['"]/);
   assert.match(workflow, /app-id:\s*\$\{\{ env\.AKINAEL_GITHUB_APP_ID \}\}/);

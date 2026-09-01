@@ -147,6 +147,8 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Prepare existing project dependencies
+        env:
+          XDG_CACHE_HOME: ${{ github.workspace }}/.tmp/runtime-cache
         shell: bash
         run: |
           set -euo pipefail
@@ -189,6 +191,8 @@ jobs:
           fi
 
       - name: Reconcile generated dependencies
+        env:
+          XDG_CACHE_HOME: ${{ github.workspace }}/.tmp/runtime-cache
         if: always()
         shell: bash
         run: |
@@ -204,6 +208,8 @@ jobs:
           exit 0
 
       - name: Run repository QA
+        env:
+          XDG_CACHE_HOME: ${{ github.workspace }}/.tmp/runtime-cache
         id: qa
         if: always()
         shell: bash

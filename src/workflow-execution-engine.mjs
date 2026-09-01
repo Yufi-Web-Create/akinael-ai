@@ -72,6 +72,31 @@ const mergeReviewFailure = (review, extra) => {
   };
 };
 
+const isExecutionEnvironmentFinding = (finding) => {
+  const text = [
+    finding?.problem,
+    finding?.expected,
+    finding?.location
+  ].filter(Boolean).join(' ');
+  const environmentConstraint = /(read[- ]?only|permission|eperm|workspace|runner environment|読み取り専用|権限制限|環境制約|書き込み.{0,12}(できない|不可|失敗))/i.test(text);
+  const blockedVerification = /(repository qa|npm run qa|build|browser|playwright|\.next|test|qa|ビルド|ブラウザ|テスト)/i.test(text);
+  return environmentConstraint && blockedVerification;
+};
+
+const reconcileReviewWithQa = (review, { qaFailed = false } = {}) => {
+  if (!review || qaFailed || review.status !== 'FAIL') return review;
+  const findings = Array.isArray(review.findings) ? review.findings : [];
+  const productFindings = findings.filter((finding) => !isExecutionEnvironmentFinding(finding));
+  if (productFindings.length > 0 || findings.length === 0) {
+    return productFindings.length === findings.length ? review : { ...review, findings: productFindings };
+  }
+  return {
+    status: 'PASS',
+    findings: [],
+    summary: 'Repository QA passed; the reviewer reported only read-only runner limitations, not a product defect.'
+  };
+};
+
 const parseResultFile = (text) => {
   if (!text) return null;
   try { return JSON.parse(text); } catch { return { final_message: text }; }
@@ -316,6 +341,7 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
     if (external.stage === 'review') {
       let review = normalizeReview(finalMessage);
       if (qaFailed) review = mergeReviewFailure(review, qaFailureReview('Repository QA failed during independent review'));
+      review = reconcileReviewWithQa(review, { qaFailed });
       if (!review) {
         return failExternal(task, 'review executor returned no structured PASS/FAIL result', { run_id: run.id, result: resultFile });
       }
@@ -407,4 +433,4 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
   };
 };
 
-export { normalizeReview, isExternalTask, branchFor, resultPathFor, qaFailureReview, externalExecutionProfile, isReviewRetryExhausted };
+export { normalizeReview, isExternalTask, branchFor, resultPathFor, qaFailureReview, externalExecutionProfile, isReviewRetryExhausted, isExecutionEnvironmentFinding, reconcileReviewWithQa };

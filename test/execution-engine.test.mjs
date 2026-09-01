@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeReview, isExternalTask, branchFor, resultPathFor, qaFailureReview, externalExecutionProfile, isReviewRetryExhausted } from '../src/workflow-execution-engine.mjs';
+import { normalizeReview, isExternalTask, branchFor, resultPathFor, qaFailureReview, externalExecutionProfile, isReviewRetryExhausted, reconcileReviewWithQa } from '../src/workflow-execution-engine.mjs';
 import { planDynamicExpansion } from '../src/dynamic-expansion.mjs';
 import { buildTaskPrompt } from '../src/execution-prompts.mjs';
 
@@ -48,6 +48,50 @@ test('review correction exhaustion is terminal instead of restarting the whole t
   assert.equal(isReviewRetryExhausted({ stage: 'correction', cycle: 1, qaFailed: true }), true);
   assert.equal(isReviewRetryExhausted({ stage: 'review', cycle: 1, reviewStatus: 'FAIL' }), false);
   assert.equal(isReviewRetryExhausted({ stage: 'review', cycle: 2, reviewStatus: 'PASS' }), false);
+});
+
+test('successful repository QA overrides only read-only runner limitations', () => {
+  const review = reconcileReviewWithQa({
+    status: 'FAIL',
+    summary: 'Static checks found no defect, but the read-only workspace could not build.',
+    findings: [{
+      severity: 'major',
+      location: 'npm run qa / .next generation',
+      problem: '読み取り専用workspaceの権限制限で .next を作成できずブラウザ検証できない',
+      expected: '書き込み可能な環境でnpm run qaを実行する'
+    }]
+  }, { qaFailed: false });
+  assert.equal(review.status, 'PASS');
+  assert.deepEqual(review.findings, []);
+});
+
+test('real product findings remain failures even when repository QA passes', () => {
+  const review = reconcileReviewWithQa({
+    status: 'FAIL',
+    summary: 'Accessibility issue',
+    findings: [{
+      severity: 'major',
+      location: 'header navigation',
+      problem: 'Keyboard focus is not visible',
+      expected: 'Provide a visible focus indicator'
+    }]
+  }, { qaFailed: false });
+  assert.equal(review.status, 'FAIL');
+  assert.equal(review.findings.length, 1);
+});
+
+test('repository QA failure never gets reconciled into a pass', () => {
+  const review = reconcileReviewWithQa({
+    status: 'FAIL',
+    summary: 'read-only workspace',
+    findings: [{
+      severity: 'major',
+      location: 'npm run qa',
+      problem: 'permission denied while building',
+      expected: 'build must pass'
+    }]
+  }, { qaFailed: true });
+  assert.equal(review.status, 'FAIL');
 });
 
 test('web change expansion routes content changes through builder and independent reviews', () => {

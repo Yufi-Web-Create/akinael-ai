@@ -155,14 +155,18 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
     const permissionProfile = stage === 'correction' || !isReviewTask(context.task) ? ':workspace' : ':read-only';
     const resultPath = resultPathFor(context.task.id, stage, cycle);
     const { model, effort } = externalExecutionProfile({ task: context.task, stage, env });
+    const executorPrompt = context.task.mode === 'visual_review' && stage === 'review'
+      ? `${prompt}\n\n# Attached visual evidence\nGitHub Actions captured full-page screenshots at 360px, 768px, and 1280px and attached them to this Codex run. Inspect all three images directly. Do not fail merely because the read-only reviewer cannot launch another server or browser.`
+      : prompt;
     const dispatched = await github.dispatchAgent({
       repositoryFullName,
       ref: context.repository.default_branch || 'main',
       taskId: context.task.id,
       workflowRunId: context.workflow.id,
-      prompt,
+      prompt: executorPrompt,
       branchName,
       permissionProfile,
+      taskMode: context.task.mode,
       stage,
       cycle,
       model,

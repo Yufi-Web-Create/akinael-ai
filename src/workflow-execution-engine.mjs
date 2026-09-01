@@ -78,13 +78,13 @@ const isExecutionEnvironmentFinding = (finding) => {
     finding?.expected,
     finding?.location
   ].filter(Boolean).join(' ');
-  const environmentConstraint = /(read[- ]?only|permission|eperm|workspace|runner environment|読み取り専用|権限制限|環境制約|書き込み.{0,12}(できない|不可|失敗))/i.test(text);
-  const blockedVerification = /(repository qa|npm run qa|build|browser|playwright|\.next|test|qa|ビルド|ブラウザ|テスト)/i.test(text);
-  return environmentConstraint && blockedVerification;
+  const explicitRunnerFailure = /(could not|cannot|unable to|permission denied|eperm|enoent|failed to (create|write|run|launch|listen)|作成できず|実行できず|起動できず|書き込めず|読み取り専用|環境起因)/i.test(text);
+  const blockedVerification = /(repository qa|npm run qa|next(\.js)? build|browser|playwright|\.next|runner|sandbox|workspace|ビルド|ブラウザ|テスト)/i.test(text);
+  return explicitRunnerFailure && blockedVerification;
 };
 
-const reconcileReviewWithQa = (review, { qaFailed = false } = {}) => {
-  if (!review || qaFailed || review.status !== 'FAIL') return review;
+const reconcileReviewWithQa = (review, { qaFailed = false, taskMode = null } = {}) => {
+  if (!review || qaFailed || taskMode !== 'review' || review.status !== 'FAIL') return review;
   const findings = Array.isArray(review.findings) ? review.findings : [];
   const productFindings = findings.filter((finding) => !isExecutionEnvironmentFinding(finding));
   if (productFindings.length > 0 || findings.length === 0) {
@@ -341,7 +341,7 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
     if (external.stage === 'review') {
       let review = normalizeReview(finalMessage);
       if (qaFailed) review = mergeReviewFailure(review, qaFailureReview('Repository QA failed during independent review'));
-      review = reconcileReviewWithQa(review, { qaFailed });
+      review = reconcileReviewWithQa(review, { qaFailed, taskMode: context.task.mode });
       if (!review) {
         return failExternal(task, 'review executor returned no structured PASS/FAIL result', { run_id: run.id, result: resultFile });
       }

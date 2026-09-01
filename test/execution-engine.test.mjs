@@ -60,7 +60,7 @@ test('successful repository QA overrides only read-only runner limitations', () 
       problem: '読み取り専用workspaceの権限制限で .next を作成できずブラウザ検証できない',
       expected: '書き込み可能な環境でnpm run qaを実行する'
     }]
-  }, { qaFailed: false });
+  }, { qaFailed: false, taskMode: 'review' });
   assert.equal(review.status, 'PASS');
   assert.deepEqual(review.findings, []);
 });
@@ -75,7 +75,7 @@ test('real product findings remain failures even when repository QA passes', () 
       problem: 'Keyboard focus is not visible',
       expected: 'Provide a visible focus indicator'
     }]
-  }, { qaFailed: false });
+  }, { qaFailed: false, taskMode: 'review' });
   assert.equal(review.status, 'FAIL');
   assert.equal(review.findings.length, 1);
 });
@@ -90,7 +90,50 @@ test('repository QA failure never gets reconciled into a pass', () => {
       problem: 'permission denied while building',
       expected: 'build must pass'
     }]
-  }, { qaFailed: true });
+  }, { qaFailed: true, taskMode: 'review' });
+  assert.equal(review.status, 'FAIL');
+});
+
+test('authoritative QA reconciles the observed Japanese runner-only build failure', () => {
+  const review = reconcileReviewWithQa({
+    status: 'FAIL',
+    summary: '環境起因のビルド失敗',
+    findings: [{
+      severity: 'major',
+      location: 'npm run qa / Next.js build',
+      problem: '.nextディレクトリを作成できずビルドに失敗したため、QA全体と実ブラウザ検証を完了できない',
+      expected: 'Next.js buildおよびnpm run qaが成功し、ブラウザ検証まで完了する'
+    }]
+  }, { qaFailed: false, taskMode: 'review' });
+  assert.equal(review.status, 'PASS');
+});
+
+test('common workspace and permission words do not hide a product authorization defect', () => {
+  const review = reconcileReviewWithQa({
+    status: 'FAIL',
+    summary: 'Authorization defect',
+    findings: [{
+      severity: 'major',
+      location: 'workspace settings',
+      problem: 'Workspace members can build without the required permission; add a regression test',
+      expected: 'Only authorized members can start builds'
+    }]
+  }, { qaFailed: false, taskMode: 'review' });
+  assert.equal(review.status, 'FAIL');
+  assert.equal(review.findings.length, 1);
+});
+
+test('visual review remains failed when independent browser inspection was not performed', () => {
+  const review = reconcileReviewWithQa({
+    status: 'FAIL',
+    summary: 'read-only runner could not launch browser',
+    findings: [{
+      severity: 'major',
+      location: 'Playwright visual review',
+      problem: 'read-only runner environment could not launch the browser',
+      expected: 'Run the required independent viewport inspection'
+    }]
+  }, { qaFailed: false, taskMode: 'visual_review' });
   assert.equal(review.status, 'FAIL');
 });
 

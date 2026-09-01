@@ -87,6 +87,7 @@ test('GitHub runtime dispatches customer work through the central Core workflow'
     prompt: 'do work',
     branchName: 'akinael/run-1',
     permissionProfile: ':read-only',
+    taskMode: 'visual_review',
     stage: 'review',
     cycle: 1,
     model: 'gpt-5.6-luna',
@@ -102,6 +103,7 @@ test('GitHub runtime dispatches customer work through the central Core workflow'
   assert.equal(body.inputs.target_repo, 'site');
   assert.equal(body.inputs.target_default_branch, 'main');
   assert.equal(body.inputs.permission_profile, ':read-only');
+  assert.equal(body.inputs.task_mode, 'visual_review');
   assert.equal(body.inputs.model, 'gpt-5.6-luna');
   assert.equal(body.inputs.effort, 'low');
   assert.equal(body.inputs.branch_name, 'akinael/run-1');

@@ -186,7 +186,7 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
     return payload;
   };
 
-  const dispatchAgent = async ({ repositoryFullName, ref = 'main', taskId, workflowRunId, prompt, branchName, permissionProfile = ':workspace', stage = 'execute', cycle = 0, model = 'gpt-5.6-terra', effort = 'medium' }) => {
+  const dispatchAgent = async ({ repositoryFullName, ref = 'main', taskId, workflowRunId, prompt, branchName, permissionProfile = ':workspace', taskMode = 'execute', stage = 'execute', cycle = 0, model = 'gpt-5.6-terra', effort = 'medium' }) => {
     const target = splitRepo(repositoryFullName);
     const executor = splitRepo(executorRepository);
     const workflowFile = configured(env.GITHUB_AGENT_WORKFLOW, 'akinael-agent.yml');
@@ -204,6 +204,7 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
           target_default_branch: String(ref || 'main'),
           branch_name: String(branchName),
           permission_profile: String(permissionProfile),
+          task_mode: String(taskMode),
           stage: String(stage),
           cycle: String(cycle),
           model: String(model),

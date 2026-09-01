@@ -38,6 +38,11 @@ on:
         required: true
         default: ':read-only'
         type: string
+      task_mode:
+        description: Core task execution mode
+        required: true
+        default: execute
+        type: string
       stage:
         description: execute, review, or correction
         required: true
@@ -91,6 +96,7 @@ jobs:
           STAGE: ${{ inputs.stage }}
           CYCLE: ${{ inputs.cycle }}
           PERMISSION_PROFILE: ${{ inputs.permission_profile }}
+          TASK_MODE: ${{ inputs.task_mode }}
           MODEL: ${{ inputs.model }}
           EFFORT: ${{ inputs.effort }}
         run: |
@@ -104,6 +110,7 @@ jobs:
           [[ "$STAGE" =~ ^(execute|review|correction)$ ]]
           [[ "$CYCLE" =~ ^[0-9]+$ ]]
           [[ "$PERMISSION_PROFILE" == ':workspace' || "$PERMISSION_PROFILE" == ':read-only' ]]
+          [[ "$TASK_MODE" =~ ^[a-z0-9_-]+$ ]]
           [[ "$MODEL" =~ ^gpt-[A-Za-z0-9.-]+$ ]]
           [[ "$EFFORT" =~ ^(low|medium|high)$ ]]
 
@@ -161,6 +168,30 @@ jobs:
             npx --no-install playwright install --with-deps
           fi
 
+      - name: Capture visual review evidence
+        if: inputs.task_mode == 'visual_review' && inputs.stage == 'review'
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .akinael/visual-evidence
+          node <<'NODE'
+          const fs = require('fs');
+          fs.writeFileSync('tests/__akinael_visual_evidence.spec.ts', `import { test } from '@playwright/test';
+
+          test('capture visual review evidence', async ({ page }, testInfo) => {
+            await page.goto('/');
+            const width = testInfo.project.use.viewport?.width || 0;
+            await page.screenshot({
+              path: \`.akinael/visual-evidence/viewport-\${width}.png\`,
+              fullPage: true
+            });
+          });
+          `);
+          NODE
+          npx --no-install playwright test tests/__akinael_visual_evidence.spec.ts --workers=1
+
       - name: Run Codex
         id: codex
         # Action v1.12 still loses the GitHub-hosted runner on this production
@@ -175,6 +206,7 @@ jobs:
           safety-strategy: drop-sudo
           allow-bot-users: ${{ env.AKINAEL_BOT_USER }}
           effort: ${{ inputs.effort }}
+          codex-args: ${{ inputs.task_mode == 'visual_review' && inputs.stage == 'review' && '["--image",".akinael/visual-evidence/viewport-360.png","--image",".akinael/visual-evidence/viewport-768.png","--image",".akinael/visual-evidence/viewport-1280.png"]' || '' }}
           prompt: ${{ inputs.prompt }}
 
       - name: Restore protected control files
@@ -186,6 +218,8 @@ jobs:
           git restore --source=HEAD --staged --worktree -- .github 2>/dev/null || true
           git restore --source=HEAD --staged --worktree -- AGENTS.md 2>/dev/null || true
           rm -rf .codex
+          rm -f tests/__akinael_visual_evidence.spec.ts
+          rm -rf .akinael/visual-evidence
           if [ -d .akinael ]; then
             find .akinael -mindepth 1 -maxdepth 1 ! -name results -exec rm -rf -- {} +
           fi

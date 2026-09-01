@@ -47,6 +47,16 @@ on:
         required: true
         default: '0'
         type: string
+      model:
+        description: Approved Codex model for this stage
+        required: true
+        default: gpt-5.6-terra
+        type: string
+      effort:
+        description: Codex reasoning effort
+        required: true
+        default: medium
+        type: string
       run_name:
         description: Correlation name used by Core
         required: true
@@ -81,6 +91,8 @@ jobs:
           STAGE: ${{ inputs.stage }}
           CYCLE: ${{ inputs.cycle }}
           PERMISSION_PROFILE: ${{ inputs.permission_profile }}
+          MODEL: ${{ inputs.model }}
+          EFFORT: ${{ inputs.effort }}
         run: |
           set -euo pipefail
           [[ "$TASK_ID" =~ ^[A-Za-z0-9-]+$ ]]
@@ -92,6 +104,8 @@ jobs:
           [[ "$STAGE" =~ ^(execute|review|correction)$ ]]
           [[ "$CYCLE" =~ ^[0-9]+$ ]]
           [[ "$PERMISSION_PROFILE" == ':workspace' || "$PERMISSION_PROFILE" == ':read-only' ]]
+          [[ "$MODEL" =~ ^gpt-[A-Za-z0-9.-]+$ ]]
+          [[ "$EFFORT" =~ ^(low|medium|high)$ ]]
 
       - name: Create scoped GitHub App token
         id: target-token
@@ -154,11 +168,11 @@ jobs:
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           codex-version: '0.150.0'
-          model: gpt-5.6-terra
+          model: ${{ inputs.model }}
           permission-profile: ${{ inputs.permission_profile }}
           safety-strategy: drop-sudo
           allow-bot-users: ${{ env.AKINAEL_BOT_USER }}
-          effort: medium
+          effort: ${{ inputs.effort }}
           prompt: ${{ inputs.prompt }}
 
       - name: Restore protected control files
@@ -185,7 +199,7 @@ jobs:
             npm install --no-audit --no-fund
           fi
           if [ -f package.json ] && node -e "const p=require('./package.json');process.exit((p.dependencies?.['@playwright/test']||p.devDependencies?.['@playwright/test'])?0:1)"; then
-            npx --no-install playwright install --with-deps
+            npx --no-install playwright install
           fi
           exit 0
 
@@ -218,6 +232,7 @@ jobs:
           CYCLE: ${{ inputs.cycle }}
           FINAL_MESSAGE: ${{ steps.codex.outputs.final-message }}
           QA_CONCLUSION: ${{ steps.qa.outputs.conclusion }}
+          CODEX_CONCLUSION: ${{ steps.codex.conclusion }}
         run: |
           set -euo pipefail
           result_path=".akinael/results/${TASK_ID}-${STAGE}-${CYCLE}.json"
@@ -230,6 +245,7 @@ jobs:
             cycle: Number(process.env.CYCLE || 0),
             final_message: process.env.FINAL_MESSAGE || '',
             qa_conclusion: process.env.QA_CONCLUSION || 'unknown',
+            codex_conclusion: process.env.CODEX_CONCLUSION || 'unknown',
             generated_at: new Date().toISOString()
           }, null, 2));
           NODE

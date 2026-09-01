@@ -90,7 +90,11 @@ services:
       - key: OPENAI_RESPONSES_URL
         value: https://api.openai.com/v1/responses
       - key: RESEARCH_MODEL
-        value: gpt-5.6-terra
+        value: gpt-5.6-luna
+      - key: LIGHTWEIGHT_AGENT_MODEL
+        value: gpt-5.6-luna
+      - key: REVIEW_AGENT_MODEL
+        value: gpt-5.6-luna
       - key: GENERAL_AGENT_MODEL
         value: gpt-5.6-terra
       - key: GITHUB_API_URL

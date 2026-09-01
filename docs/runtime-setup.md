@@ -35,8 +35,14 @@ GitHub Actions用SecretとRender Worker用Secretは役割が異なる。
 - `GITHUB_REPO_OWNER_TYPE=org`
 - `GITHUB_CUSTOMER_REPO_PREFIX=client`
 - `OPENAI_RESPONSES_URL=https://api.openai.com/v1/responses`
-- `RESEARCH_MODEL=gpt-5.6-terra`
+- `RESEARCH_MODEL=gpt-5.6-luna`
+- `LIGHTWEIGHT_AGENT_MODEL=gpt-5.6-luna`
+- `REVIEW_AGENT_MODEL=gpt-5.6-luna`
 - `GENERAL_AGENT_MODEL=gpt-5.6-terra`
+
+Research、intake、triage、SEO/A11y・Visual・Copy ReviewはLuna/low〜mediumを使用する。
+Direction、Design、Build、Builder correction、Technical ReviewはTerra/mediumを維持する。
+これにより制作品質に直結する実装判断をTerraへ残しながら、反復回数の多い検査コストを抑える。
 
 ## 3. Core GitHub repository settings
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeReview, isExternalTask, branchFor, resultPathFor, qaFailureReview } from '../src/workflow-execution-engine.mjs';
+import { normalizeReview, isExternalTask, branchFor, resultPathFor, qaFailureReview, externalExecutionProfile } from '../src/workflow-execution-engine.mjs';
 import { planDynamicExpansion } from '../src/dynamic-expansion.mjs';
 import { buildTaskPrompt } from '../src/execution-prompts.mjs';
 
@@ -29,6 +29,18 @@ test('external task routing keeps implementation and browser review on GitHub ex
   assert.equal(isExternalTask({ task: { mode: 'research', agent_role: 'research_strategist' } }), false);
   assert.match(branchFor('11111111-2222-3333-4444-555555555555'), /^akinael\/run-/);
   assert.equal(resultPathFor('task-1', 'review', 2), '.akinael/results/task-1-review-2.json');
+});
+
+test('external model routing reserves Terra for builds, corrections, and technical review', () => {
+  assert.deepEqual(externalExecutionProfile({ task: { mode: 'visual_review' }, stage: 'review' }), {
+    model: 'gpt-5.6-luna', effort: 'low'
+  });
+  assert.deepEqual(externalExecutionProfile({ task: { mode: 'technical_review' }, stage: 'review' }), {
+    model: 'gpt-5.6-terra', effort: 'medium'
+  });
+  assert.deepEqual(externalExecutionProfile({ task: { mode: 'visual_review' }, stage: 'correction' }), {
+    model: 'gpt-5.6-terra', effort: 'medium'
+  });
 });
 
 test('web change expansion routes content changes through builder and independent reviews', () => {
@@ -71,4 +83,5 @@ test('execution prompt includes source truth and protected repository paths', ()
   assert.match(prompt, /owner\/site/);
   assert.match(prompt, /`\.github\/`/);
   assert.match(prompt, /テストを弱め/);
+  assert.match(prompt, /読み取り専用環境でQA・build・browserを実行できないことはFindingにしない/);
 });

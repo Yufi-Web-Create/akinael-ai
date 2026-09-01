@@ -56,6 +56,12 @@ DB claimは `FOR UPDATE SKIP LOCKED` を使用するため、Workerを複数起�
 Research taskのみResponses APIのWeb Search toolを有効化する。
 Research結果ではURL citation/sourceもartifact metadataへ保存する。
 
+Model routing:
+
+- Research / intake / triage / lightweight review: `gpt-5.6-luna`, effort low〜medium
+- Direction / design / build / correction / Technical Review: `gpt-5.6-terra`, effort medium
+- Responses API usageはartifact metadataへ保存し、案件単位で原価を追跡できるようにする
+
 ## Central GitHub Codex Executor
 
 Codex runnerは顧客repositoryごとに複製せず、Core repositoryの `.github/workflows/akinael-agent.yml` に1つだけ置く。
@@ -163,6 +169,12 @@ Reviewer outputは機械判定可能なJSONを要求する。
 `npm run qa` がFAILした場合、Reviewer本文がPASSでもCore側で強制FAILとする。
 Review correctionは最大2周。通常task failureはDBの `max_attempts`（既定3回）まで自動retryする。
 
+独立Reviewerはread-only環境内でQA/build/browserを再実行できないこと自体をFindingにしない。
+書き込み可能なGitHub Actionsのrepository QAを唯一の自動QA判定としてCoreが統合する。
+
+OpenAIのcredit残高・billing quota枯渇は再試行しても回復しないためterminal failureとする。
+GitHub Actionsのjob logから安全な分類だけを取得し、Secretやログ本文はDBへ保存せず、同じtaskの自動retryを即停止する。
+
 テストやReview基準を弱めてFAILを消すことは禁止する。
 
 ## Dynamic expansion
@@ -208,6 +220,8 @@ Core / Worker:
 - `SUPABASE_SECRET_KEY`
 - `OPENAI_API_KEY`
 - `RESEARCH_MODEL`
+- `LIGHTWEIGHT_AGENT_MODEL`
+- `REVIEW_AGENT_MODEL`
 - `GENERAL_AGENT_MODEL`
 - `GITHUB_EXECUTOR_REPO`
 - GitHub App credentials

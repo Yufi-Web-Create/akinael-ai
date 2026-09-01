@@ -30,6 +30,11 @@ const externalExecutionProfile = ({ task, stage, env = {} }) => {
   };
 };
 
+const isReviewRetryExhausted = ({ stage, cycle, qaFailed = false, reviewStatus = null }) => (
+  (stage === 'review' && reviewStatus === 'FAIL' && cycle >= MAX_REVIEW_CORRECTIONS)
+  || (stage === 'correction' && qaFailed && cycle >= MAX_REVIEW_CORRECTIONS - 1)
+);
+
 const isExternalTask = (context) => EXTERNAL_MODES.has(context.task.mode)
   || context.task.agent_role === 'frontend_engineer'
   || context.task.agent_role === 'seo_accessibility'
@@ -316,9 +321,11 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
       }
       if (review.status === 'FAIL') {
         const cycle = Number(external.cycle || 0);
-        if (cycle >= MAX_REVIEW_CORRECTIONS) {
+        if (isReviewRetryExhausted({ stage: 'review', cycle, reviewStatus: review.status })) {
           await saveTextArtifact(context, finalMessage, { executor: 'github_codex', review, run_id: run.id });
-          return failExternal(task, review.summary || 'review failed after correction loop', { review, run_id: run.id, result: resultFile });
+          return failExternal(task, review.summary || 'review failed after correction loop', {
+            review, run_id: run.id, result: resultFile, failure_kind: 'review_corrections_exhausted'
+          }, { terminal: true });
         }
         const correctionPrompt = buildCorrectionPrompt(context, review);
         return dispatchExternal(context, { prompt: correctionPrompt, stage: 'correction', cycle, reviewResult: review });
@@ -337,8 +344,10 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
       const currentCycle = Number(external.cycle || 0);
       if (qaFailed) {
         const review = mergeReviewFailure(external.review_result, qaFailureReview('Repository QA still fails after Builder correction'));
-        if (currentCycle >= MAX_REVIEW_CORRECTIONS - 1) {
-          return failExternal(task, review.summary, { review, run_id: run.id, result: resultFile });
+        if (isReviewRetryExhausted({ stage: 'correction', cycle: currentCycle, qaFailed })) {
+          return failExternal(task, review.summary, {
+            review, run_id: run.id, result: resultFile, failure_kind: 'review_corrections_exhausted'
+          }, { terminal: true });
         }
         const correctionPrompt = buildCorrectionPrompt(context, review);
         return dispatchExternal(context, { prompt: correctionPrompt, stage: 'correction', cycle: currentCycle + 1, reviewResult: review });
@@ -398,4 +407,4 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
   };
 };
 
-export { normalizeReview, isExternalTask, branchFor, resultPathFor, qaFailureReview, externalExecutionProfile };
+export { normalizeReview, isExternalTask, branchFor, resultPathFor, qaFailureReview, externalExecutionProfile, isReviewRetryExhausted };

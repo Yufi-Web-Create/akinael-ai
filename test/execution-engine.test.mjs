@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeReview, isExternalTask, branchFor, resultPathFor, qaFailureReview, externalExecutionProfile } from '../src/workflow-execution-engine.mjs';
+import { normalizeReview, isExternalTask, branchFor, resultPathFor, qaFailureReview, externalExecutionProfile, isReviewRetryExhausted } from '../src/workflow-execution-engine.mjs';
 import { planDynamicExpansion } from '../src/dynamic-expansion.mjs';
 import { buildTaskPrompt } from '../src/execution-prompts.mjs';
 
@@ -41,6 +41,13 @@ test('external model routing reserves Terra for builds, corrections, and technic
   assert.deepEqual(externalExecutionProfile({ task: { mode: 'visual_review' }, stage: 'correction' }), {
     model: 'gpt-5.6-terra', effort: 'medium'
   });
+});
+
+test('review correction exhaustion is terminal instead of restarting the whole task', () => {
+  assert.equal(isReviewRetryExhausted({ stage: 'review', cycle: 2, reviewStatus: 'FAIL' }), true);
+  assert.equal(isReviewRetryExhausted({ stage: 'correction', cycle: 1, qaFailed: true }), true);
+  assert.equal(isReviewRetryExhausted({ stage: 'review', cycle: 1, reviewStatus: 'FAIL' }), false);
+  assert.equal(isReviewRetryExhausted({ stage: 'review', cycle: 2, reviewStatus: 'PASS' }), false);
 });
 
 test('web change expansion routes content changes through builder and independent reviews', () => {

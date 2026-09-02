@@ -2,8 +2,8 @@
   "task_id": "853d4c7b-9764-4f8a-8a99-69a17763ad8a",
   "stage": "correction",
   "cycle": 1,
-  "final_message": "FAQ構造化データの不一致を解消しました。\n\n- [public/index.html](/home/runner/work/akinael-ai/akinael-ai/public/index.html:33): 最終DOMのFAQ全11件と、順序・質問・回答文を完全同期。\n- FAQの「＋」を`aria-hidden`にし、読み上げ対象から除外。\n- [test/public-a11y.test.mjs](/home/runner/work/akinael-ai/akinael-ai/test/public-a11y.test.mjs:36): DOMとFAQPage JSON-LDの完全一致を検証する回帰テストを追加。\n- [QA_REPORT.md](/home/runner/work/akinael-ai/akinael-ai/QA_REPORT.md:1): 実行結果・未実施理由を記録。\n\n判断理由:\n- FAQ本文を唯一の表示基準として、JSON-LDを完全同期しました。今後は片方だけの変更でテストが失敗します。\n- 関連A11yテストはPASS。ローカル待受を要しないリポジトリテスト12件もPASSです。\n\n未解決事項:\n- このサンドボックスはlocalhost待受を`EPERM`で禁止し、Chromium/Firefoxのヘッドレス起動も失敗するため、指定8 viewportの実ブラウザ証跡は取得できませんでした。\n- したがって、リリースゲートの最終PASSには、ブラウザ実行可能な環境でのviewport・水平overflow・フォーカス・コンソール確認が残ります。",
+  "final_message": "OGP画像の欠落は修正し、回帰テストも追加しました。\n\n- 共有メタデータと画像を追加: [portal/index.html](/home/runner/work/akinael-ai/akinael-ai/portal/index.html)\n- 1200×630のOGP画像を追加: [og-image.svg](/home/runner/work/akinael-ai/akinael-ai/portal/public/og-image.svg)\n- SEO/A11y回帰テストを追加: [portal-seo-a11y.test.mjs](/home/runner/work/akinael-ai/akinael-ai/test/portal-seo-a11y.test.mjs)\n- 引き渡し用の検証記録を更新: [QA_REPORT.md](/home/runner/work/akinael-ai/akinael-ai/portal/QA_REPORT.md)\n\n判断理由: 新規テストはPASS、差分の whitespace 検査もPASSです。  \n未解決事項: この実行環境はローカル待受（`listen EPERM`）と Chromium/Firefox の起動を禁止しており、依存関係も取得不能です。そのため、production build と8 viewportの実ブラウザ検証は未完了で、Release Gate は正しく FAIL のままです。",
   "qa_conclusion": "success",
   "codex_conclusion": "success",
-  "generated_at": "2026-09-02T14:20:11.977Z"
+  "generated_at": "2026-09-02T14:44:23.474Z"
 }

@@ -1,63 +1,66 @@
 # QA Report — Customer Portal SEO / Accessibility Revision
 
 Date: 2026-09-02
-Tested revision: `4918985` plus the uncommitted form-label correction in `portal/src/Portal.tsx`
-Scope: `portal` Vite implementation (the configured production build target)
+Scope: `portal` Vite implementation
+Status: **FAIL — release gate is blocked by the execution environment**
 
-## Correction applied
+## Fixes applied
 
-- Replaced `aria-label`-only text fields with programmatic `<label htmlFor>` / `id` pairs for authentication, onboarding, and project creation.
-- Added appropriate autofill semantics for email, password, name, and organization fields.
-- Kept the existing error (`role="alert"`), status (`role="status"`), required-field, disabled-state, and `:focus-visible` behavior unchanged.
+- Added a version-controlled 1200×630 Open Graph image at `portal/public/og-image.svg`.
+- Added `og:image`, secure URL, MIME type, dimensions, alternative text, and matching X/Twitter image metadata to `portal/index.html`.
+- Added `test/portal-seo-a11y.test.mjs` to prevent regression of the portal metadata, OGP asset, semantic heading, label association, live-message, safe external-link, and focus-style checks.
+- The prior explicit form-label correction in `portal/src/Portal.tsx` remains intact.
 
-## SEO / accessibility source review
+## Acceptance criteria and evidence
 
-| Requirement | Result | Evidence |
+| Criterion | Result | Evidence |
 |---|---|---|
-| Japanese language, title, description | PASS (source) | `index.html` declares `lang="ja"`, title, and description. |
-| Authenticated portal not indexed | PASS (source) | `robots` is `noindex, nofollow, noarchive`. |
-| Canonical and Open Graph metadata | PASS (source) | Canonical plus `og:title`, `og:description`, `og:type`, and `og:url` are present. |
-| Landmark and heading | PASS (source) | One page `main` and one page `h1`; subsequent page headings are `h2`. |
-| Form labels and messages | PASS (source) | Every rendered text field has a label association; the textarea already has one. Errors and notices use live roles. |
-| Keyboard focus styling | PASS (source) | `:focus-visible` outlines cover links, buttons, inputs, and textarea. |
-| FAQ schema parity | PASS (source) | Neither FAQ UI nor `FAQPage` structured data is emitted by this authenticated portal. |
+| `og:image` is defined and has a versioned local asset | PASS | `portal/index.html`, `portal/public/og-image.svg` |
+| OGP image has usable dimensions and alternative text | PASS | 1200×630, `og:image:alt` present |
+| Title, description, canonical, noindex, and sharing metadata exist | PASS | `test/portal-seo-a11y.test.mjs` |
+| Semantic heading, labels, live messages, focus rule, and safe external link are retained | PASS (source) | `test/portal-seo-a11y.test.mjs` |
+| Portal production typecheck and build | BLOCKED | Required portal dependencies are unavailable |
+| Final DOM, screenshots, console, overflow, and keyboard checks at 8 viewports | BLOCKED | This sandbox prohibits local listening and browser startup |
 
 ## Commands executed
 
-| Command | Result | Evidence |
+| Command | Result | Details |
 |---|---|---|
-| `npm ci --offline --ignore-scripts --no-audit --no-fund --cache /tmp/akinael-npm-cache` | BLOCKED | `ENOTCACHED`: the required `@types/react` package is absent from the cache. |
-| `npm ci --ignore-scripts --no-audit --no-fund --verbose` | BLOCKED | Registry lookup for `https://registry.npmjs.org/react` fails with `EAI_AGAIN`; network/DNS is unavailable. |
-| `npm run lint` | BLOCKED | Dependencies are unavailable; TypeScript cannot resolve `vite/client`. |
-| `npm run build` | BLOCKED | Dependencies are unavailable; TypeScript cannot resolve `vite` and `@vitejs/plugin-react`. |
-| Source accessibility assertions | PASS | All metadata, landmarks, explicit labels, live roles, and heading assertions passed. |
-| `chromium --headless=new ... --dump-dom about:blank` | BLOCKED | Chromium aborts in Crashpad before opening a page: `setsockopt: Operation not permitted`; `client.StartHandler` fails. |
-| `firefox --headless --screenshot ... about:blank` | BLOCKED | Firefox headless also terminates with a core dump before producing a screenshot. |
+| `node --test test/portal-seo-a11y.test.mjs` | PASS | 2 assertions passed. |
+| `npm test` | BLOCKED (unrelated test) | 14 test files passed; `test/platform-server.test.mjs` fails because the sandbox returns `listen EPERM` for `127.0.0.1`. No application assertion failed. |
+| `npm --prefix portal run lint` | BLOCKED | TypeScript cannot resolve `vite/client`, `vite`, and `@vitejs/plugin-react` because portal dependencies are absent. |
+| `npm --prefix portal run build` | BLOCKED | Same missing dependencies; no production bundle was produced. |
+| `npm ci --prefix portal` | BLOCKED | The environment cannot reach the npm registry, and the available package cache does not contain the required portal packages. |
+| Chromium headless, including `--no-sandbox` and isolated profile | BLOCKED | Chromium aborts during Crashpad startup: `setsockopt: Operation not permitted`. |
+| Firefox headless with isolated profile and disabled content sandbox env vars | BLOCKED | Firefox exits with signal 11 before producing a screenshot. |
+| `git diff --check` | PASS | No whitespace errors. |
 
-## Browser matrix and runtime checks
+## Required browser matrix
 
-The required eight viewports are **not PASS**. A production bundle could not be generated, and neither installed browser can start in this sandbox. Accordingly, no screenshots, final-DOM inspection, browser console result, horizontal-overflow result, or keyboard traversal result is claimed.
+No row may be marked PASS without a production bundle and real-browser evidence.
 
-| Viewport | Screenshot | Console | Overflow | Keyboard / focus | Status |
+| Viewport | Screenshot | Console | Overflow | Keyboard/focus | Status |
 |---|---:|---:|---:|---:|---|
-| 360x800 | — | — | — | — | BLOCKED |
-| 375x812 | — | — | — | — | BLOCKED |
-| 390x844 | — | — | — | — | BLOCKED |
-| 430x932 | — | — | — | — | BLOCKED |
-| 768x1024 | — | — | — | — | BLOCKED |
-| 1024x768 | — | — | — | — | BLOCKED |
-| 1280x800 | — | — | — | — | BLOCKED |
-| 1440x900 | — | — | — | — | BLOCKED |
+| 360×800 | — | — | — | — | BLOCKED |
+| 375×812 | — | — | — | — | BLOCKED |
+| 390×844 | — | — | — | — | BLOCKED |
+| 430×932 | — | — | — | — | BLOCKED |
+| 768×1024 | — | — | — | — | BLOCKED |
+| 1024×768 | — | — | — | — | BLOCKED |
+| 1280×800 | — | — | — | — | BLOCKED |
+| 1440×900 | — | — | — | — | BLOCKED |
 
-## Release revalidation procedure
+## Judgment rationale
 
-Run in an environment with npm registry access and an operational headless browser:
+- The OGP finding is resolved in source and protected by a dedicated automated regression test.
+- The required browser evidence cannot be substituted with source inspection. The same sandbox policy that blocks browser IPC also blocks a local `127.0.0.1` listener, so neither Vite preview nor the existing server-backed tests can be exercised here.
+- The release gate therefore remains FAIL; no tests were removed, skipped, or weakened, and no public release action was performed.
+
+## Unresolved items / handoff
+
+Run the following in a browser-capable environment with npm registry access before requesting release approval:
 
 1. `cd portal && npm ci && npm run lint && npm run build`
-2. Serve `dist/` with `npm run start -- --host 127.0.0.1`.
-3. At all eight required viewports, capture a screenshot and record zero console errors, no horizontal overflow, reachable navigation/CTA/form controls, and visible focus during keyboard traversal.
-4. Inspect the final Vite DOM for the source-reviewed metadata, landmark, heading order, and input-label associations.
-
-## Status
-
-**FAIL — release gate remains blocked by the execution environment.** The form-label correction is implemented and source assertions pass, but build and real-browser evidence are mandatory and remain unexecuted. No public release action was performed.
+2. Serve `portal/dist` locally or deploy it to an approved preview environment.
+3. At all eight required viewports, capture screenshots and record final DOM metadata, zero console errors, no horizontal overflow, reachable controls, and visible keyboard focus.
+4. Confirm `https://akinael-ai.com/portal/og-image.svg` is publicly served with `image/svg+xml` after the approved deployment. If a target social platform does not support SVG preview images, publish an approved raster derivative and change the two image URLs together.

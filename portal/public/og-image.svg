@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title description">
+  <title id="title">アキナエルAI お客様ポータル</title>
+  <desc id="description">相談、案件、制作進捗を確認するお客様専用ポータル</desc>
+  <rect width="1200" height="630" fill="#f7f3ea"/>
+  <rect x="75" y="75" width="1050" height="480" rx="32" fill="#ffffff" stroke="#d9ded8" stroke-width="4"/>
+  <rect x="75" y="75" width="22" height="480" rx="11" fill="#b64836"/>
+  <text x="150" y="220" fill="#b64836" font-family="system-ui, sans-serif" font-size="28" font-weight="700" letter-spacing="5">CUSTOMER PORTAL</text>
+  <text x="150" y="330" fill="#17302e" font-family="system-ui, sans-serif" font-size="72" font-weight="700">アキナエルAI</text>
+  <text x="150" y="420" fill="#17302e" font-family="system-ui, sans-serif" font-size="54" font-weight="700">お客様ポータル</text>
+  <text x="150" y="485" fill="#52615e" font-family="system-ui, sans-serif" font-size="30">相談、案件、制作進捗を確認できます。</text>
+</svg>

@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 type Project={id:string;name:string;status?:string;plan?:string}; type Production={workflows?:Array<{status?:string}>;tasks?:Array<{task_key:string;status:string}>;artifacts?:Array<{id:string;kind:string;title?:string;created_at?:string;preview_url?:string}>}; type RequestItem={id:string;title?:string;body?:string;status?:string}; type Message={id:string;content:string;author_type?:string;created_at?:string}; type Me={email?:string;onboardingRequired?:boolean;customer?:{displayName?:string;businessName?:string}};
-const core=process.env.NEXT_PUBLIC_CORE_API_URL||"https://akinael-ai.com"; const tokenKey="customer-token";
+const core=import.meta.env.VITE_CORE_API_URL||"https://akinael-ai.com"; const tokenKey="customer-token";
 export default function Portal(){
  const [token,setToken]=useState<string|null>(null),[projects,setProjects]=useState<Project[]>([]),[production,setProduction]=useState<Production|null>(null),[requests,setRequests]=useState<RequestItem[]>([]),[messages,setMessages]=useState<Message[]>([]),[draft,setDraft]=useState(""),[error,setError]=useState(""),[me,setMe]=useState<Me|null>(null),[authMode,setAuthMode]=useState<"login"|"register">("login"),[email,setEmail]=useState(""),[password,setPassword]=useState(""),[displayName,setDisplayName]=useState(""),[businessName,setBusinessName]=useState(""),[busy,setBusy]=useState(false),[notice,setNotice]=useState("");
  const headers=useCallback((t=token)=>t?{authorization:`Bearer ${t}`}:{},[token]);

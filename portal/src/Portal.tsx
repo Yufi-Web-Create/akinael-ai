@@ -8,11 +8,9 @@ type Production = {
 };
 type Item = { id: string; title?: string; body?: string; content?: string; status?: string; author_type?: string };
 
-const core = import.meta.env.VITE_CORE_API_URL || "https://akinael-ai.com";
-const tokenKey = "customer-token";
-
+const core = import.meta.env.VITE_CORE_API_URL || window.location.origin;
 export default function Portal() {
-  const [token, setToken] = useState<string | null>(null);
+  const [authenticated, setAuthenticated] = useState(false);
   const [me, setMe] = useState<{ onboardingRequired?: boolean } | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [production, setProduction] = useState<Production | null>(null);
@@ -29,37 +27,29 @@ export default function Portal() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  const headers = useCallback((value = token): Record<string, string> => value ? { authorization: `Bearer ${value}` } : {}, [token]);
-  const refresh = useCallback(async (value = token) => {
-    if (!value) return;
-    const authHeaders = { authorization: `Bearer ${value}` };
-    const meResponse = await fetch(`${core}/api/v2/auth/me`, { headers: authHeaders });
+  const apiFetch = useCallback((path: string, init: RequestInit = {}) => fetch(`${core}${path}`, { ...init, credentials: "include" }), []);
+  const refresh = useCallback(async () => {
+    const meResponse = await apiFetch("/api/v2/auth/me");
     if (!meResponse.ok) throw Error("セッションの有効期限が切れています。再度ログインしてください。");
     setMe(await meResponse.json());
-    const projectResponse = await fetch(`${core}/api/v2/projects`, { headers: authHeaders });
+    const projectResponse = await apiFetch("/api/v2/projects");
     if (!projectResponse.ok) throw Error("案件を取得できませんでした");
     const list = await projectResponse.json();
     setProjects(list);
     if (!list[0]) return;
     const id = list[0].id;
     const [productionResponse, requestResponse, messageResponse] = await Promise.all([
-      fetch(`${core}/api/v2/projects/${id}/production`, { headers: authHeaders }),
-      fetch(`${core}/api/v2/projects/${id}/requests`, { headers: authHeaders }),
-      fetch(`${core}/api/v2/projects/${id}/messages`, { headers: authHeaders })
+      apiFetch(`/api/v2/projects/${id}/production`),
+      apiFetch(`/api/v2/projects/${id}/requests`),
+      apiFetch(`/api/v2/projects/${id}/messages`)
     ]);
     setProduction(productionResponse.ok ? await productionResponse.json() : null);
     setRequests(requestResponse.ok ? await requestResponse.json() : []);
     setMessages(messageResponse.ok ? await messageResponse.json() : []);
-  }, [token]);
+  }, [apiFetch]);
 
   useEffect(() => {
-    const stored = localStorage.getItem(tokenKey);
-    setToken(stored);
-    if (stored) refresh(stored).catch((caught) => {
-      localStorage.removeItem(tokenKey);
-      setToken(null);
-      setError(caught.message);
-    });
+    refresh().then(() => setAuthenticated(true)).catch(() => setAuthenticated(false));
   }, [refresh]);
 
   const authenticate = async (event: FormEvent) => {
@@ -67,7 +57,7 @@ export default function Portal() {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch(`${core}/api/v2/auth/login`, {
+      const response = await apiFetch("/api/v2/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email, password })
@@ -78,10 +68,10 @@ export default function Portal() {
         setNotice("確認メールを開き、確認後にログインしてください。");
         return;
       }
-      localStorage.setItem(tokenKey, data.token);
-      setToken(data.token);
-      await refresh(data.token);
+      setAuthenticated(true);
+      await refresh();
     } catch (caught) {
+      setAuthenticated(false);
       setError(caught instanceof Error ? caught.message : "認証に失敗しました");
     } finally {
       setBusy(false);
@@ -92,9 +82,9 @@ export default function Portal() {
     event.preventDefault();
     setBusy(true);
     try {
-      const response = await fetch(`${core}/api/v2/onboarding`, {
+      const response = await apiFetch("/api/v2/onboarding", {
         method: "POST",
-        headers: { ...headers(), "content-type": "application/json" },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ displayName, businessName, consent })
       });
       if (!response.ok) throw Error("プロフィールを保存できませんでした");
@@ -110,9 +100,9 @@ export default function Portal() {
     event.preventDefault();
     setBusy(true);
     try {
-      const response = await fetch(`${core}/api/v2/projects`, {
+      const response = await apiFetch("/api/v2/projects", {
         method: "POST",
-        headers: { ...headers(), "content-type": "application/json" },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ name: projectName })
       });
       if (!response.ok) throw Error("案件を作成できませんでした");
@@ -127,13 +117,13 @@ export default function Portal() {
 
   const send = async (kind: "request" | "message" | "approval") => {
     const project = projects[0];
-    if (!project || !token || !draft.trim()) return;
+    if (!project || !authenticated || !draft.trim()) return;
     setBusy(true);
     try {
       const isRequest = kind === "request";
-      const response = await fetch(`${core}/api/v2/projects/${project.id}/${isRequest ? "requests" : "messages"}`, {
+      const response = await apiFetch(`/api/v2/projects/${project.id}/${isRequest ? "requests" : "messages"}`, {
         method: "POST",
-        headers: { ...headers(), "content-type": "application/json" },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify(isRequest
           ? { type: "general", title: draft.slice(0, 80), body: draft, priority: "normal" }
           : { content: kind === "approval" ? `承認: ${draft}` : draft, requestId: requests[0]?.id })
@@ -150,19 +140,18 @@ export default function Portal() {
   };
 
   const logout = async () => {
-    if (token) await fetch(`${core}/api/v2/auth/logout`, { method: "POST", headers: headers() }).catch(() => {});
-    localStorage.removeItem(tokenKey);
-    setToken(null);
+    if (authenticated) await apiFetch("/api/v2/auth/logout", { method: "POST" }).catch(() => {});
+    setAuthenticated(false);
     setMe(null);
     setProjects([]);
   };
 
   const project = projects[0];
   return <main>
-    <header><div><span className="eyebrow">CUSTOMER PORTAL</span><h1>相談の続きから、<br />制作の今を確認できます。</h1></div>{token ? <button type="button" onClick={logout}>ログアウト</button> : <span className="status">お客様専用</span>}</header>
+    <header><div><span className="eyebrow">CUSTOMER PORTAL</span><h1>相談の続きから、<br />制作の今を確認できます。</h1></div>{authenticated ? <button type="button" onClick={logout}>ログアウト</button> : <span className="status">お客様専用</span>}</header>
     {error && <section className="card error" role="alert"><p>{error}</p></section>}
     {notice && <section className="card notice" role="status"><p>{notice}</p></section>}
-    {!token ? <section className="card auth">
+    {!authenticated ? <section className="card auth">
       <span className="eyebrow">AUTHENTICATION</span><h2>ログイン</h2>
       <form onSubmit={authenticate}>
         <label className="fieldLabel" htmlFor="email">メールアドレス</label><input id="email" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required />

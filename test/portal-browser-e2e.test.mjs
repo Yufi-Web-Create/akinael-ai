@@ -14,7 +14,7 @@ test('portal release E2E covers the required viewports, rendered login journey, 
   }
   assert.match(script, /broken internal link/);
   assert.match(script, /--screenshot=/);
-  assert.match(script, /CONSOLE.*ERROR/);
+  assert.match(script, /hasBrowserConsoleError/);
   assert.match(script, /\/ログイン\//);
   assert.match(workflow, /npm --prefix portal run build/);
   assert.match(workflow, /npm --prefix portal run test:e2e/);

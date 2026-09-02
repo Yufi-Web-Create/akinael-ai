@@ -2,8 +2,8 @@
   "task_id": "8ca28beb-0502-4ba3-a0ca-fb69afbc5950",
   "stage": "correction",
   "cycle": 0,
-  "final_message": "旧APIの公開到達経路を全面遮断し、同意未記録の顧客入力が旧LLM経路へ渡らない回帰テストを追加しました。\n\n- [`src/platform-server.mjs`](/home/runner/work/akinael-ai/akinael-ai/src/platform-server.mjs) — `/api/v2/*`以外の旧`/api/*`を一律`410 legacy_api_retired`で遮断。\n- [`test/platform-server.test.mjs`](/home/runner/work/akinael-ai/akinael-ai/test/platform-server.test.mjs) — 旧ログイン、案件、メッセージ、公開チャット、管理APIを境界で拒否するテスト。\n- [`README.md`](/home/runner/work/akinael-ai/akinael-ai/README.md) — 実際のAPI境界と公開操作の制約へ修正。\n- [`portal/QA_REPORT.md`](/home/runner/work/akinael-ai/akinael-ai/portal/QA_REPORT.md) — 根拠のないPASS表記を訂正し、実行結果を記録。\n\n検証結果:\n\n- `npm test`: PASS（18 test files、0 failed / 0 skipped）\n- `git diff --check`: PASS\n- ポータル依存の復元: BLOCKED（npm registry DNS解決失敗 `EAI_AGAIN`、ローカルキャッシュにも不足）\n\n未解決事項:\n\n- `portal` のlint、production build、実ブラウザE2Eは依存関係を取得できないため未完了です。QAレポートは正しくFAILのままとしており、公開承認には進めません。",
+  "final_message": "レビュー指摘の修正を実装しました。\n\n- Chromeの `ERROR:CONSOLE(...)`（404を含む）と `CONSOLE ERROR/SEVERE` を検出するコンソールゲートと回帰テストを追加。\n- ポータルのBearerトークンの`localStorage`保存・再利用を廃止。\n- v2ログイン／登録を `HttpOnly; Secure; SameSite=Lax` Cookieセッションへ変更し、アクセストークンをJSONで返さないように修正。\n- Cookie認証のAPIテスト、CI上のポータル回帰テスト実行を追加。\n- QA記録を実測結果に更新しました: [QA_REPORT.md](/home/runner/work/akinael-ai/akinael-ai/portal/QA_REPORT.md)\n\n確認済み:\n\n- `npm test` → PASS（20/20）\n- `npm --prefix portal test` → PASS（3/3）\n- `npm --prefix portal run lint` → PASS\n\n判断理由:\n\n- JSからセッション資格情報を読み出せないCookie方式へ移行し、XSS時のトークン持ち出しリスクを解消しました。\n- コンソール判定はログ中の語順に依存しない実装にし、Chromeの404形式を明示的に回帰テスト化しました。\n\n未解決事項:\n\n- このサンドボックスでは依存関係の完全復元ができずポータルビルドが不可、さらにローカルポートbindが禁止されChromium E2Eも開始できませんでした。したがって公開判定はまだFAILです。\n- CIで `npm --prefix portal test`、build、Chromium E2Eが成功したことを確認後にのみ、公開準備PASSへ更新できます。",
   "qa_conclusion": "success",
   "codex_conclusion": "success",
-  "generated_at": "2026-09-02T23:31:35.938Z"
+  "generated_at": "2026-09-02T23:57:47.813Z"
 }

@@ -105,7 +105,7 @@ test('production entrypoint retains only non-API legacy routes', async () => {
   assert.deepEqual(await result.json(), { status: 'ok' });
 });
 
-test('v2 auth endpoint verifies Supabase user and returns onboarding state', async () => {
+test('v2 auth endpoint verifies the HttpOnly cookie session and returns onboarding state', async () => {
   const supabaseFetch = async (url) => {
     const value = String(url);
     if (value.endsWith('/auth/v1/user')) {
@@ -121,7 +121,7 @@ test('v2 auth endpoint verifies Supabase user and returns onboarding state', asy
   };
 
   const server = createApp({ env, fetchImpl: supabaseFetch });
-  const result = await request(server, { path: '/api/v2/auth/me', headers: { authorization: 'Bearer access-token' } });
+  const result = await request(server, { path: '/api/v2/auth/me', headers: { cookie: 'akinael_v2_session=access-token' } });
   const body = await result.json();
   assert.equal(result.status, 200);
   assert.equal(body.onboardingRequired, true);
@@ -181,7 +181,8 @@ test('v2 registration creates a Supabase user, persists document versions and pr
   const result = await request(server, { path: '/api/v2/auth/register', method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'owner@example.com', password: 'a-secure-password', consent: true }) });
   const body = await result.json();
   assert.equal(result.status, 201);
-  assert.equal(body.token, 'new-access-token');
+  assert.deepEqual(body, { ok: true });
+  assert.match(result.headers['set-cookie'], /akinael_v2_session=new-access-token; HttpOnly; Secure; SameSite=Lax; Path=\//);
   assert.equal(provisioned, true);
   assert.ok(calls.some((call) => call.url.endsWith('/auth/v1/signup')));
   const signupBody = JSON.parse(calls.find((call) => call.url.endsWith('/auth/v1/signup')).options.body);
@@ -214,5 +215,6 @@ test('v2 login exchanges credentials for a Supabase access token', async () => {
   const server = createApp({ env, fetchImpl: supabaseFetch });
   const result = await request(server, { path: '/api/v2/auth/login', method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'owner@example.com', password: 'a-secure-password' }) });
   assert.equal(result.status, 200);
-  assert.deepEqual(await result.json(), { token: 'access-token' });
+  assert.deepEqual(await result.json(), { ok: true });
+  assert.match(result.headers['set-cookie'], /akinael_v2_session=access-token; HttpOnly; Secure; SameSite=Lax; Path=\//);
 });

@@ -6,6 +6,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { createApp } from '../../src/platform-server.mjs';
 import { resetStore } from '../../src/server.mjs';
+import { hasBrowserConsoleError } from './console-errors.mjs';
 
 const viewports = [
   [360, 800], [375, 812], [390, 844], [430, 932],
@@ -35,7 +36,7 @@ const run = (command, args) => new Promise((resolve, reject) => {
 
 const server = createApp({
   env: { SUPABASE_URL: 'https://example.supabase.co', SUPABASE_SECRET_KEY: 'test-secret', SUPABASE_PUBLISHABLE_KEY: 'test-publishable', AKINAEL_TENANT_NAME: 'akinael' },
-  fetchImpl: async () => { throw new Error('The logged-out portal journey must not call the API'); }
+  fetchImpl: async () => new Response(JSON.stringify({ message: 'unauthorized' }), { status: 401 })
 });
 
 try {
@@ -65,7 +66,7 @@ try {
       assert.match(result.stdout, /ログイン/, `login journey did not render at ${width}x${height}`);
       assert.match(result.stdout, /id="email"/, `email field missing at ${width}x${height}`);
       assert.match(result.stdout, /id="password"/, `password field missing at ${width}x${height}`);
-      assert.doesNotMatch(result.stderr, /CONSOLE.*(?:ERROR|SEVERE)/i, `browser console error at ${width}x${height}`);
+      assert.equal(hasBrowserConsoleError(result.stderr), false, `browser console error at ${width}x${height}: ${result.stderr}`);
     } finally {
       await rm(profile, { recursive: true, force: true });
       resetStore();

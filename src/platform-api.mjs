@@ -64,10 +64,14 @@ const readJsonBody = (request) => new Promise((resolve, reject) => {
 });
 
 export const extractAccessToken = (request) => {
+  const sessionCookie = request.headers.cookie?.split(';').map((part) => part.trim()).find((part) => part.startsWith('akinael_v2_session='))?.slice('akinael_v2_session='.length);
+  if (sessionCookie) return sessionCookie;
   const header = request.headers.authorization || '';
   const match = /^Bearer\s+(.+)$/i.exec(header);
   return match?.[1]?.trim() || null;
 };
+
+const sessionCookie = (accessToken, { expires = false } = {}) => `akinael_v2_session=${expires ? '' : accessToken}; HttpOnly; Secure; SameSite=Lax; Path=/${expires ? '; Max-Age=0' : ''}`;
 
 export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {}) => {
   const store = createPlatformStore({ env, fetchImpl });
@@ -130,7 +134,7 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
         }
         await requireConfirmedEmail(accessToken);
         await store.provisionCustomer(accessToken, { displayName: email.split('@')[0] });
-        return writeJson(response, 201, { token: accessToken }), true;
+        return writeJson(response, 201, { ok: true }, { 'set-cookie': sessionCookie(accessToken) }), true;
       }
 
       if (method === 'POST' && url.pathname === '/api/v2/auth/login') {
@@ -145,12 +149,12 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
         const accessToken = result?.access_token || null;
         if (!accessToken) throw new SupabaseAuthError('invalid credentials', { status: 401, code: 'invalid_credentials' });
         await requireConfirmedEmail(accessToken);
-        return writeJson(response, 200, { token: accessToken }), true;
+        return writeJson(response, 200, { ok: true }, { 'set-cookie': sessionCookie(accessToken) }), true;
       }
 
       if (method === 'POST' && url.pathname === '/api/v2/auth/logout') {
         if (token) await auth.signOut(token);
-        return writeJson(response, 200, { ok: true }), true;
+        return writeJson(response, 200, { ok: true }, { 'set-cookie': sessionCookie('', { expires: true }) }), true;
       }
 
       if (method === 'GET' && url.pathname === '/api/v2/auth/me') {

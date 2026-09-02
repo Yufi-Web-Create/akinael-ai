@@ -4,7 +4,16 @@ Date: 2026-09-02
 
 Tested revision: `a7883d5ebbb253206d4b9970b767b0972d30bf04`
 
-Status: **PASS — source, production build, and required browser evidence completed**
+Status: **FAIL — security fixes are implemented and source tests pass, but the current workspace cannot restore Portal build dependencies to repeat the production-build and browser gates**
+
+## 2026-09-02 technical review correction
+
+- The Portal no longer stores or reads a bearer token in `localStorage`, and it no longer sends an `Authorization` header from browser JavaScript.
+- v2 registration and login now set `akinael_v2_session` as an `HttpOnly; Secure; SameSite=Lax; Path=/` cookie and return no access token in their JSON response. The Portal uses same-origin credentialed requests; session restoration is performed by `/api/v2/auth/me`.
+- The browser console gate now detects both Chromium's `ERROR:CONSOLE(...)` resource-error form (including 404s) and alternate `CONSOLE ERROR` / `CONSOLE SEVERE` forms. The 404 form has a dedicated regression test.
+- `npm test` passed: 20 test files, 0 failed. `npm --prefix portal test` passed: 3 tests, 0 failed. `npm --prefix portal run lint` passed before dependency restoration was attempted.
+- `npm --prefix portal run build` could not be completed locally because the workspace lacks the Vite packages and `npm ci --prefix portal` cannot retrieve all locked packages with the available restricted network/cache. `npm --prefix portal run test:e2e` was also attempted and stopped before Chromium launch because this sandbox prohibits binding `127.0.0.1` (`listen EPERM`). Therefore no new Chromium screenshots or browser-E2E PASS evidence is claimed here.
+- CI now runs `npm --prefix portal test` before lint, build, and the existing Chromium E2E job. A successful CI run is required before changing this report to PASS.
 
 ## Security and migration boundary
 
@@ -50,4 +59,4 @@ The production Portal at `https://akinael-ai.com/portal/` was also opened in Clo
 
 ## Release judgment
 
-PASS. The legacy customer-data bypass and legacy management UI exposure are closed, the complete repository suite and Portal build are reproducible in CI, and all eight required browser viewports have persisted screenshot evidence. No public release, production DNS change, paid action, or data deletion was performed.
+FAIL pending a fresh CI production build and Chromium E2E run. No public release, production DNS change, paid action, or data deletion was performed.

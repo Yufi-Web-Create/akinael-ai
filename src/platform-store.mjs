@@ -48,6 +48,7 @@ const messageSelect = 'id,tenant_id,project_id,request_id,author_user_id,author_
 const customerWorkflowSelect = 'id,project_id,request_id,pipeline,status,current_phase,started_at,completed_at,created_at,updated_at';
 const customerTaskSelect = 'id,project_id,workflow_run_id,task_key,agent_role,title,status,phase,sequence,mode,started_at,completed_at,created_at,updated_at';
 const customerArtifactSelect = 'id,project_id,workflow_run_id,kind,title,content_text,metadata,created_at';
+const customerApprovalSelect = 'id,project_id,request_id,type,status,payload,created_at,decided_at';
 const customerQualityCheckSelect = 'id,project_id,workflow_run_id,reviewer,status,severity,location,problem,expected,created_at';
 const requestTypes = new Set(['general', 'web_new', 'web_change', 'copy', 'social', 'image', 'research', 'automation', 'seo', 'other']);
 const priorities = new Set(['low', 'normal', 'high', 'urgent']);
@@ -354,12 +355,43 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
     return message;
   };
 
+  const listApprovals = async (accessToken, projectId) => {
+    const identity = await identityFor(accessToken);
+    const project = await getProjectForIdentity(identity, projectId);
+    const rows = await admin.request('/rest/v1/approvals', {
+      query: `tenant_id=eq.${encodeURIComponent(identity.tenantId)}&project_id=eq.${encodeURIComponent(project.id)}&select=${customerApprovalSelect}&order=created_at.desc`
+    });
+    return Array.isArray(rows) ? rows : [];
+  };
+
+  const createCustomerApproval = async (accessToken, projectId, input = {}) => {
+    const identity = await identityFor(accessToken);
+    if (identity.role !== 'customer') throw new PlatformStoreError('customers only', { status: 403, code: 'customers_only' });
+    const project = await getProjectForIdentity(identity, projectId);
+    const requestId = optionalText(input.requestId, 64);
+    if (requestId) {
+      const requestItem = first(await admin.request('/rest/v1/requests', {
+        query: `id=eq.${encodeURIComponent(requestId)}&tenant_id=eq.${encodeURIComponent(identity.tenantId)}&project_id=eq.${encodeURIComponent(project.id)}&select=id&limit=1`
+      }));
+      if (!requestItem) throw new PlatformStoreError('request not found', { status: 404, code: 'request_not_found' });
+    }
+    const note = requiredText(input.note, 'approval note', 10000);
+    const rows = await admin.request('/rest/v1/approvals', {
+      method: 'POST', query: `select=${customerApprovalSelect}`,
+      headers: { Prefer: 'return=representation' },
+      body: { tenant_id: identity.tenantId, project_id: project.id, request_id: requestId, type: 'delivery', status: 'approved', requested_by: identity.id, decided_by: identity.id, payload: { note, source: 'customer_portal_e2e' }, decided_at: new Date().toISOString() }
+    });
+    const approval = first(rows);
+    if (!approval) throw new PlatformStoreError('approval could not be recorded', { status: 502, code: 'approval_create_failed' });
+    return approval;
+  };
+
   const getProductionStatus = async (accessToken, projectId) => {
     const identity = await identityFor(accessToken);
     const project = await getProjectForIdentity(identity, projectId);
     const scope = `tenant_id=eq.${encodeURIComponent(identity.tenantId)}&project_id=eq.${encodeURIComponent(project.id)}`;
 
-    const [workflows, tasks, artifacts, qualityChecks] = await Promise.all([
+    const [workflows, tasks, artifacts, qualityChecks, approvals] = await Promise.all([
       admin.request('/rest/v1/workflow_runs', {
         query: `${scope}&select=${customerWorkflowSelect}&order=created_at.desc`
       }),
@@ -371,15 +403,25 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
       }),
       admin.request('/rest/v1/quality_checks', {
         query: `${scope}&select=${customerQualityCheckSelect}&order=created_at.desc`
+      }),
+      admin.request('/rest/v1/approvals', {
+        query: `${scope}&select=${customerApprovalSelect}&order=created_at.desc`
       })
     ]);
+
+    const previewBase = String(env.PUBLIC_URL || 'https://akinael-ai.com').replace(/\/+$/, '');
+    const customerArtifacts = (Array.isArray(artifacts) ? artifacts : []).map((artifact) => ({
+      ...artifact,
+      preview_url: artifact.kind === 'build_build' ? `${previewBase}/preview/${project.id}/${artifact.id}` : null
+    }));
 
     return {
       project,
       workflows: Array.isArray(workflows) ? workflows : [],
       tasks: Array.isArray(tasks) ? tasks : [],
-      artifacts: Array.isArray(artifacts) ? artifacts : [],
-      qualityChecks: Array.isArray(qualityChecks) ? qualityChecks : []
+      artifacts: customerArtifacts,
+      qualityChecks: Array.isArray(qualityChecks) ? qualityChecks : [],
+      approvals: Array.isArray(approvals) ? approvals : []
     };
   };
 
@@ -394,6 +436,8 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
     createRequest,
     listMessages,
     addMessage,
-    getProductionStatus
+    getProductionStatus,
+    listApprovals,
+    createCustomerApproval
   };
 };

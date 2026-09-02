@@ -1,46 +1,48 @@
 # QA Report — Customer Portal SEO / Accessibility Revision
 
 Date: 2026-09-02  
-Scope: `portal` Vite implementation and parallel Next metadata/component files
+Scope: `portal` Vite implementation (the only configured build target)
 
-## Fixes applied
+## Implementation decision
 
-- Added a programmatic, visible label (`相談内容`) associated with the consultation textarea.
-- Added `role="alert"` and `role="status"` for error and completion notices.
-- Added visible keyboard focus styles for links, buttons, inputs, and textareas.
-- Improved muted, eyebrow, and form-border colors for clearer contrast.
-- Added title, description, canonical URL, Open Graph metadata, Twitter card metadata, and `noindex, nofollow, noarchive` to the Vite HTML document.
-- Added matching metadata, canonical URL, Open Graph metadata, Twitter metadata, and no-index robots directives to the Next layout.
+- The distributable is the Vite application: `package.json` runs `vite` for development, production build, and preview.
+- Removed unconfigured parallel Next.js files. They were not referenced by a build script and could not be the final DOM.
+- This authenticated customer portal does not display FAQ content. It also emits no `FAQPage` JSON-LD; therefore no visible FAQ/structured-data mismatch exists. FAQ structured data is intentionally not added for content that is not present.
 
-## Automated checks
+## SEO / accessibility review
 
-| Check | Result | Evidence |
+| Requirement | Result | Evidence |
 |---|---|---|
-| Type check (`npm run lint`) | PASS | Completed with `tsc --noEmit`. |
-| Diff whitespace (`git diff --check`) | PASS | No output / no whitespace errors. |
-| Dependency install (`npm ci`) | BLOCKED | npm returned `EUSAGE` despite a committed lockfile; dependencies are absent. |
-| Production build (`npm run build`) | BLOCKED | Cannot resolve `vite`, `@vitejs/plugin-react`, and `vite/client` because dependencies are absent. |
-| E2E / browser console | BLOCKED | No runnable local build or browser runner is available in this environment. |
-| Deployed-page inspection | BLOCKED | `akinael-ai.com` DNS resolution is unavailable in this environment. |
+| Japanese document language, title, description | PASS (static) | `index.html` declares `lang="ja"`, title and description. |
+| Authenticated portal not indexed | PASS (static) | `robots` is `noindex, nofollow, noarchive`. |
+| Canonical and Open Graph metadata | PASS (static) | `index.html` contains canonical, `og:title`, `og:description`, `og:type`, and `og:url`. |
+| Heading and landmark | PASS (source) | The application uses one page `h1`, section headings, and a semantic `main`. |
+| Form labels and status messages | PASS (source) | Inputs have accessible labels; the textarea has `<label for="consultation-draft">`; errors use `role="alert"`; notices use `role="status"`. |
+| Keyboard focus | PASS (source) | `:focus-visible` outline covers links, buttons, inputs, and textarea. |
+| FAQ schema parity | PASS (source) | Neither visible FAQ content nor FAQ structured data is emitted. |
 
-## Static DOM / metadata review
+## Commands executed
 
-- The Vite document has one Japanese-language document title and description.
-- The portal is intentionally excluded from indexing because it is an authenticated customer portal.
-- The consultation textarea has an associated `label[for="consultation-draft"]` and `textarea#consultation-draft`.
-- User-triggered controls retain native semantic elements (`button`, `a`, `input`, `textarea`).
-- CSS defines `:focus-visible` outlines for every interactive element type present in the portal.
+| Command | Result | Notes |
+|---|---|---|
+| `node -e "JSON.parse(require('fs').readFileSync('package-lock.json'))"` | PASS | The committed lockfile is syntactically valid JSON. |
+| `npm ci --offline --ignore-scripts --no-audit --no-fund` | BLOCKED | Fails with `ENOTCACHED` for `@types/react`: the sandbox has neither registry DNS nor a populated npm cache. It no longer fails because the lockfile is truncated/unparseable. |
+| `npm run lint` / `npm run build` | BLOCKED | Cannot run until dependencies can be installed. |
+| Chromium headless | BLOCKED | Chromium aborts before launch because its Crashpad handler cannot create the required sandbox socket (`Operation not permitted`). |
 
-## Required revalidation before release
+## Browser matrix
 
-Run from `portal` in an environment that can install dependencies and launch a browser:
+The required 360x800 through 1440x900 matrix has **not** been marked PASS. The runnable production bundle cannot be produced in this sandbox because registry DNS is unavailable, and the available Chromium binary fails during its own initialization. No screenshots were produced; no browser evidence is claimed.
 
-1. `npm ci`
-2. `npm run lint && npm run build`
-3. Start the built portal and inspect the final DOM for title, description, robots, canonical, OGP, label association, and focus styles.
-4. Test 360x800, 375x812, 390x844, 430x932, 768x1024, 1024x768, 1280x800, and 1440x900. Confirm no horizontal overflow, clipped text, or inaccessible controls.
-5. Keyboard-test authentication fields, the consultation textarea, all send buttons, and links; capture screenshots and browser-console output.
+## Required release revalidation
+
+Run in an environment with npm registry access and a working browser sandbox:
+
+1. `cd portal && npm install --package-lock-only --ignore-scripts` to finish resolving the pinned dependency graph, then commit the generated lockfile.
+2. `npm ci && npm run lint && npm run build`.
+3. Serve `dist/` and capture the eight required viewports: 360x800, 375x812, 390x844, 430x932, 768x1024, 1024x768, 1280x800, and 1440x900.
+4. Verify keyboard traversal, visible focus, no horizontal overflow or clipped controls, and browser console output on the final Vite DOM.
 
 ## Status
 
-**FAIL (environment-blocked):** Code-level reviewer findings are addressed, but the required production-build and real-browser evidence cannot be generated in this sandbox. Do not treat this report as release approval.
+**FAIL — environment-blocked.** The stale implementation ambiguity and FAQ/schema mismatch concern are resolved in source. Release approval remains blocked only by the unresolvable dependency-install and browser-runtime environment; the viewport matrix and production build must be re-run outside this sandbox.

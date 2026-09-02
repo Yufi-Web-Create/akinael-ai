@@ -2,8 +2,8 @@
   "task_id": "853d4c7b-9764-4f8a-8a99-69a17763ad8a",
   "stage": "correction",
   "cycle": 0,
-  "final_message": "修正しました。\n\n- 認証タブに `aria-selected`、`aria-controls`、対応する `tabpanel` を追加\n- タブ切替時のARIA状態同期と、矢印・Home・Endキー操作を実装\n- SEO／A11yの重要要素とタブ仕様を検証する回帰テストを追加\n\n変更ファイル:\n\n- [public/index.html](/home/runner/work/akinael-ai/akinael-ai/public/index.html:217)\n- [public/assets/app.js](/home/runner/work/akinael-ai/akinael-ai/public/assets/app.js:84)\n- [test/public-a11y.test.mjs](/home/runner/work/akinael-ai/akinael-ai/test/public-a11y.test.mjs:1)\n\n検証結果:\n\n- `node --check public/assets/app.js`: PASS\n- `node --test test/public-a11y.test.mjs`: PASS\n- 主要既存テスト群: PASS\n- `index.html` が参照するローカルアセット12件: すべて存在を確認\n- `git diff --check`: PASS\n\n判断理由: 指摘されたタブは、見た目の切替だけで選択状態・パネルの関連付けが支援技術へ伝わらない状態だったため、WAI-ARIAのタブパターンに沿って補完しました。\n\n未解決事項:\n\n- 実ブラウザ全viewport検査は、このサンドボックスでブラウザが起動できず未実施です（ChromiumのCrashpad制限、Firefox headlessのsegmentation fault）。\n- `test/platform-server.test.mjs` はローカル待受が禁止される環境制約（`listen EPERM`）でFAILします。実装由来ではなく、同じ理由でサーバー起動型の検査もこの環境では実行不能です。\n- `portal` のproduction buildは依存関係未導入で、レジストリ通信制限により `npm ci` を完了できません。",
+  "final_message": "修正を反映しましたが、Release Gateは未達です。\n\n- Vite版を唯一の採用実装として確定し、未使用のNext並行実装を削除。\n- FAQは画面・JSON-LDとも未提供のため、FAQ構造化データ不一致は解消済み。\n- 依存バージョンを固定し、壊れていたlockfileを有効なJSONへ修正。\n- SEO/A11yの静的検査はPASS。記録は [QA_REPORT.md](/home/runner/work/akinael-ai/akinael-ai/portal/QA_REPORT.md) に更新済み。\n\n判断理由:\n- `portal/package.json` の実行スクリプトはViteのみを参照しており、Next版は最終DOMになり得ません。\n- 認証ポータルに存在しないFAQのJSON-LDは出力しない方針が正しい整合状態です。\n\n未解決事項:\n- この環境はnpmレジストリDNS・キャッシュがなく、`npm ci`、build、lintを完走できません。\n- ChromiumもCrashpad初期化時の権限エラーで起動できず、8 viewportの実画面検証・証跡取得は未実施です。\n- ネットワーク可能な環境でlockfileを完全解決し、`npm ci && npm run lint && npm run build` とviewport検証を再実行する必要があります。",
   "qa_conclusion": "success",
   "codex_conclusion": "success",
-  "generated_at": "2026-09-02T13:59:34.198Z"
+  "generated_at": "2026-09-02T14:14:39.259Z"
 }

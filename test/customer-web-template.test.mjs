@@ -24,6 +24,9 @@ test('central Akinael runner keeps the customer-repository security contract', a
   assert.match(workflow, /viewport-360\.png/);
   assert.match(workflow, /viewport-768\.png/);
   assert.match(workflow, /viewport-1280\.png/);
+  assert.match(workflow, /\.akinael\/visual-evidence\/playwright\.config\.ts/);
+  assert.match(workflow, /http\.server 4173/);
+  assert.match(workflow, /page\.goto\('http:\/\/127\.0\.0\.1:4173\//);
   assert.match(workflow, /codex-args:.*--image/);
   assert.match(workflow, /safety-strategy:\s*drop-sudo/);
   assert.match(workflow, /AKINAEL_GITHUB_APP_ID:\s*['"]4762113['"]/);

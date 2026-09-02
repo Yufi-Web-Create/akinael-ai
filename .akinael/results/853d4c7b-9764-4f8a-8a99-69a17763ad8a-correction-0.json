@@ -2,8 +2,8 @@
   "task_id": "853d4c7b-9764-4f8a-8a99-69a17763ad8a",
   "stage": "correction",
   "cycle": 0,
-  "final_message": "修正を反映しましたが、Release Gateは未達です。\n\n- Vite版を唯一の採用実装として確定し、未使用のNext並行実装を削除。\n- FAQは画面・JSON-LDとも未提供のため、FAQ構造化データ不一致は解消済み。\n- 依存バージョンを固定し、壊れていたlockfileを有効なJSONへ修正。\n- SEO/A11yの静的検査はPASS。記録は [QA_REPORT.md](/home/runner/work/akinael-ai/akinael-ai/portal/QA_REPORT.md) に更新済み。\n\n判断理由:\n- `portal/package.json` の実行スクリプトはViteのみを参照しており、Next版は最終DOMになり得ません。\n- 認証ポータルに存在しないFAQのJSON-LDは出力しない方針が正しい整合状態です。\n\n未解決事項:\n- この環境はnpmレジストリDNS・キャッシュがなく、`npm ci`、build、lintを完走できません。\n- ChromiumもCrashpad初期化時の権限エラーで起動できず、8 viewportの実画面検証・証跡取得は未実施です。\n- ネットワーク可能な環境でlockfileを完全解決し、`npm ci && npm run lint && npm run build` とviewport検証を再実行する必要があります。",
+  "final_message": "フォームを明示的な`label`関連付けへ修正し、SEO/A11y静的検査はPASSです。\n\n- 修正: [Portal.tsx](/home/runner/work/akinael-ai/akinael-ai/portal/src/Portal.tsx)\n- 実行結果・8 viewport未実施理由: [QA_REPORT.md](/home/runner/work/akinael-ai/akinael-ai/portal/QA_REPORT.md)\n\n判断理由: `aria-label`のみだった入力欄を実ラベル化し、キーボードフォーカス、ライブリージョン、SEOメタ情報も静的検査で確認しました。\n\n未解決事項: Release GateはFAILのままです。npmレジストリDNS障害（`EAI_AGAIN`/`ENOTCACHED`）でビルド不能、Chromium/Firefoxともサンドボックス内で起動前にクラッシュするため、最終DOM・8 viewport・コンソール・横スクロール・実キーボード操作の証跡を取得できませんでした。公開操作は行っていません。",
   "qa_conclusion": "success",
   "codex_conclusion": "success",
-  "generated_at": "2026-09-02T14:14:39.259Z"
+  "generated_at": "2026-09-02T14:29:41.921Z"
 }

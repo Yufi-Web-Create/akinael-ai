@@ -391,7 +391,7 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
     const project = await getProjectForIdentity(identity, projectId);
     const scope = `tenant_id=eq.${encodeURIComponent(identity.tenantId)}&project_id=eq.${encodeURIComponent(project.id)}`;
 
-    const [workflows, tasks, artifacts, qualityChecks, approvals] = await Promise.all([
+    const [workflows, tasks, artifacts, qualityChecks] = await Promise.all([
       admin.request('/rest/v1/workflow_runs', {
         query: `${scope}&select=${customerWorkflowSelect}&order=created_at.desc`
       }),
@@ -403,9 +403,6 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
       }),
       admin.request('/rest/v1/quality_checks', {
         query: `${scope}&select=${customerQualityCheckSelect}&order=created_at.desc`
-      }),
-      admin.request('/rest/v1/approvals', {
-        query: `${scope}&select=${customerApprovalSelect}&order=created_at.desc`
       })
     ]);
 
@@ -420,8 +417,7 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
       workflows: Array.isArray(workflows) ? workflows : [],
       tasks: Array.isArray(tasks) ? tasks : [],
       artifacts: customerArtifacts,
-      qualityChecks: Array.isArray(qualityChecks) ? qualityChecks : [],
-      approvals: Array.isArray(approvals) ? approvals : []
+      qualityChecks: Array.isArray(qualityChecks) ? qualityChecks : []
     };
   };
 

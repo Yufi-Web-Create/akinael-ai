@@ -55,7 +55,7 @@ export const createExecutionStore = ({ env = process.env, fetchImpl = fetch } = 
     };
   };
 
-  const saveArtifact = async ({ context, kind = 'task_output', title, contentText, metadata = {} }) => {
+  const saveArtifact = async ({ context, kind = 'task_output', title, contentText = null, storageKey = null, metadata = {} }) => {
     const rows = await admin.request('/rest/v1/artifacts', {
       method: 'POST',
       query: 'select=id,kind,title,metadata,created_at',
@@ -66,7 +66,8 @@ export const createExecutionStore = ({ env = process.env, fetchImpl = fetch } = 
         workflow_run_id: context.workflow.id,
         kind,
         title: clampText(title || context.task.title, 300),
-        content_text: clampText(contentText, 120000),
+        content_text: contentText == null ? null : clampText(contentText, 120000),
+        storage_key: storageKey,
         metadata
       }
     });

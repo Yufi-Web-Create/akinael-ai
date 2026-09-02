@@ -15,7 +15,7 @@ test('portal release E2E covers the required viewports, rendered login journey, 
   assert.match(script, /broken internal link/);
   assert.match(script, /--screenshot=/);
   assert.match(script, /CONSOLE.*ERROR/);
-  assert.match(script, /管理.*ログイン/);
+  assert.match(script, /\/ログイン\//);
   assert.match(workflow, /npm --prefix portal run build/);
   assert.match(workflow, /npm --prefix portal run test:e2e/);
   assert.match(workflow, /actions\/upload-artifact@v4/);

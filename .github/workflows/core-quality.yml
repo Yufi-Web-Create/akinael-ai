@@ -27,7 +27,7 @@ jobs:
       - name: Run Portal browser E2E
         env:
           CHROMIUM_BIN: google-chrome
-          PORTAL_E2E_ARTIFACT_DIR: portal/test-artifacts
+          PORTAL_E2E_ARTIFACT_DIR: ${{ github.workspace }}/portal/test-artifacts
         run: npm --prefix portal run test:e2e
       - name: Upload Portal browser evidence
         if: always()

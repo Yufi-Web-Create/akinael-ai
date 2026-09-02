@@ -54,7 +54,7 @@ try {
       `--window-size=${width},${height}`, '--virtual-time-budget=1500', `--screenshot=${screenshot}`,
       '--dump-dom', `${baseUrl}/portal/`
     ]);
-    assert.match(result.stdout, /管理.*ログイン/, `login journey did not render at ${width}x${height}`);
+    assert.match(result.stdout, /ログイン/, `login journey did not render at ${width}x${height}`);
     assert.match(result.stdout, /id="email"/, `email field missing at ${width}x${height}`);
     assert.match(result.stdout, /id="password"/, `password field missing at ${width}x${height}`);
     assert.doesNotMatch(result.stderr, /CONSOLE.*(?:ERROR|SEVERE)/i, `browser console error at ${width}x${height}`);

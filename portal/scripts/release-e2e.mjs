@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { createApp } from '../../src/platform-server.mjs';
+import { resetStore } from '../../src/server.mjs';
 
 const viewports = [
   [360, 800], [375, 812], [390, 844], [430, 932],
@@ -67,6 +68,7 @@ try {
       assert.doesNotMatch(result.stderr, /CONSOLE.*(?:ERROR|SEVERE)/i, `browser console error at ${width}x${height}`);
     } finally {
       await rm(profile, { recursive: true, force: true });
+      resetStore();
     }
   }
   console.log(`Portal browser E2E passed for ${viewports.length} viewports. Screenshots: ${artifactDirectory}`);

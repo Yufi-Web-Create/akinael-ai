@@ -3,6 +3,19 @@ import { createPlatformApi } from './platform-api.mjs';
 
 const PORT = Number(process.env.PORT || 3000);
 const isRetiredLegacyApiRoute = (pathname) => pathname.startsWith('/api/') && !pathname.startsWith('/api/v2/');
+// These pages are retained in the repository only as migration references.
+// They use the retired in-memory administration API and must never be served
+// by the production entrypoint until a separately reviewed v2 Admin App exists.
+const isRetiredLegacyManagementPage = (pathname) => ['/admin', '/admin-login', '/mypage'].includes(pathname);
+
+const retiredManagementPage = (response) => {
+  response.writeHead(404, {
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'no-store',
+    'x-content-type-options': 'nosniff'
+  });
+  response.end(JSON.stringify({ error: { code: 'legacy_management_ui_retired', message: 'management UI is not available' } }));
+};
 
 export const createApp = ({ env = process.env, fetchImpl = fetch } = {}) => {
   const server = createLegacyApp();
@@ -28,6 +41,7 @@ export const createApp = ({ env = process.env, fetchImpl = fetch } = {}) => {
         });
         return response.end(JSON.stringify({ error: { code: 'legacy_api_retired', message: 'use the v2 API' } }));
       }
+      if (isRetiredLegacyManagementPage(pathname)) return retiredManagementPage(response);
       return await legacyHandler(request, response);
     } catch {
       if (response.headersSent) return response.end();

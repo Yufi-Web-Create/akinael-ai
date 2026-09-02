@@ -88,6 +88,16 @@ test('production entrypoint blocks every legacy API route before it can process 
   }
 });
 
+test('production entrypoint does not publish the legacy management UI that calls retired APIs', async () => {
+  const server = createApp({ env, fetchImpl: async () => { throw new Error('Supabase should not be called'); } });
+  for (const path of ['/admin', '/admin-login', '/mypage']) {
+    const result = await request(server, { path });
+    assert.equal(result.status, 404, path);
+    assert.equal(result.headers['cache-control'], 'no-store', path);
+    assert.equal((await result.json()).error.code, 'legacy_management_ui_retired', path);
+  }
+});
+
 test('production entrypoint retains only non-API legacy routes', async () => {
   const server = createApp({ env, fetchImpl: async () => { throw new Error('Supabase should not be called'); } });
   const result = await request(server, { path: '/health' });

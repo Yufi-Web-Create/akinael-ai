@@ -95,4 +95,4 @@ Research / QA /修正などAI内部で解決可能な工程では人間確認の
 7. JSON persistence撤去
 8. Render persistent disk依存撤去
 
-旧 `public/admin.html` と `public/mypage.html` は本番UIとしては廃止する。機能要件の参考としてのみ保持し、新Admin App / Customer Portal完成後に削除する。
+旧 `public/admin.html` と `public/mypage.html` は本番UIとしては廃止する。機能要件の参考としてのみ保持し、新Admin App / Customer Portal完成後に削除する。これらのUIは旧 `/api/*` を呼び出すため、本番エントリポイントでは `/admin`、`/admin-login`、`/mypage` を配信しない。管理機能の再公開は、v2の厳格な管理者認可と既存の人間承認ゲートを実装・レビューした新UIに限る。

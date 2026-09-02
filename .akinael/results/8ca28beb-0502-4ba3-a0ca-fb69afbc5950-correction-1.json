@@ -2,8 +2,8 @@
   "task_id": "8ca28beb-0502-4ba3-a0ca-fb69afbc5950",
   "stage": "correction",
   "cycle": 1,
-  "final_message": "レビュー指摘の安全対策を回帰テストで固定し、リポジトリQAをPASSへ回復しました。\n\n- 旧 `/api/*` の完全遮断、同意必須、受付の既定閉鎖、同意版・日時の記録を本番エントリポイント経由で検証。\n- TCP待受不可のCIでもサーバールート結合テストを実行できるよう改善。\n- 受付停止状態に合わせて古いテスト期待値とAPIドキュメントを更新。\n- QA記録を最新結果へ更新。\n\n変更: [README.md](/home/runner/work/akinael-ai/akinael-ai/README.md)、[platform-server.test.mjs](/home/runner/work/akinael-ai/akinael-ai/test/platform-server.test.mjs)、[server.test.mjs](/home/runner/work/akinael-ai/akinael-ai/test/server.test.mjs)、[QA_REPORT.md](/home/runner/work/akinael-ai/akinael-ai/QA_REPORT.md)\n\n検証結果:\n\n- `npm test` — PASS（18 files、fail/skip/cancel なし）\n- `npm --prefix portal run lint` — PASS\n- `git diff --check` — PASS\n\n未解決事項:\n\n- `portal` のproduction buildは依存パッケージ未取得・ネットワーク制限のため未実施。\n- ChromiumはCrashpadの権限エラーで起動できず、8 viewport の実ブラウザE2Eは未実施。\n- 運営者情報・外部問い合わせ窓口・個人情報受付の可否は人間／法務判断待ち。新規受付は引き続き閉鎖です。\n\n以上により、コード・API・テスト上のレビュー指摘は対応済みですが、公開判定は上記のビルド・実ブラウザ・法務条件が揃うまで保留です。",
-  "qa_conclusion": "success",
+  "final_message": "レビュー指摘を原因から修正しました。\n\n- 旧APIを呼ぶ旧UIを本番入口から停止しました。`/admin`、`/admin-login`、`/mypage` は no-store の404となり、旧 `/api/*` は引き続き410です。回帰テストを追加済みです。\n- Customer Portal のリリースE2Eを追加しました。8 viewport、ログイン画面描画、console error、内部リンク、スクリーンショットを検査し、CIでビルド後に必須実行・保存します。\n- QA記録とアーキテクチャ／READMEを更新しました。\n\n主な変更: [platform-server.mjs](/home/runner/work/akinael-ai/akinael-ai/src/platform-server.mjs)、[release-e2e.mjs](/home/runner/work/akinael-ai/akinael-ai/portal/scripts/release-e2e.mjs)、[core-quality.yml](/home/runner/work/akinael-ai/akinael-ai/.github/workflows/core-quality.yml)、[QA_REPORT.md](/home/runner/work/akinael-ai/akinael-ai/portal/QA_REPORT.md)\n\n検証結果:\n\n- `npm test`: PASS（19 tests、skipなし）\n- `git diff --check`: PASS\n- `npm --prefix portal run lint`: PASS\n- portal production build: ローカル依存関係をネットワーク制約下で完全復元できず未完了\n- Chromium E2E: この環境はローカルTCP listenを拒否するため未実行。CIではChromiumをセットアップして必須実行します。\n\n判断理由: 旧管理UIのv2移行は未実装であり、旧API停止と共存できません。未認可の代替APIを急造せず、公開経路から確実に除外しました。\n\n未解決事項: CI上で portal build と8 viewport Chromium E2E を通し、生成されたスクリーンショットを確認するまで公開判定は不可です。",
+  "qa_conclusion": "failure",
   "codex_conclusion": "success",
-  "generated_at": "2026-09-02T23:13:45.627Z"
+  "generated_at": "2026-09-02T23:37:12.886Z"
 }

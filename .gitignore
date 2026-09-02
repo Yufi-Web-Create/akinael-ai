@@ -7,3 +7,5 @@ node_modules/
 .claude/
 *.docx
 deliverables/
+portal/test-artifacts/
+portal/*.tsbuildinfo

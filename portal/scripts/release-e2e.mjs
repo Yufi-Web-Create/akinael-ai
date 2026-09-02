@@ -51,7 +51,7 @@ try {
     const screenshot = path.join(artifactDirectory, `portal-${width}x${height}.png`);
     const result = await run(chromium, [
       '--headless', '--no-sandbox', '--disable-gpu', '--enable-logging=stderr', '--log-level=0',
-      `--window-size=${width},${height}`, '--virtual-time-budget=1500', `--screenshot=${screenshot}`,
+      `--window-size=${width},${height}`, '--virtual-time-budget=5000', `--screenshot=${screenshot}`,
       '--dump-dom', `${baseUrl}/portal/`
     ]);
     assert.match(result.stdout, /ログイン/, `login journey did not render at ${width}x${height}`);

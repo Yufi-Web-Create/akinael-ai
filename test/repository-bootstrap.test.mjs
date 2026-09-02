@@ -28,10 +28,12 @@ test('only a new-web build without an existing repository is eligible for bootst
 test('the bundled starter is a non-indexed pre-launch page until official store information is supplied', () => {
   const files = customerWebStarterFiles();
   assert.match(files['src/app/layout.tsx'], /robots: \{ index: false, follow: false \}/);
+  assert.match(files['src/app/robots.ts'], /disallow: '\/'/);
   assert.match(files['src/app/page.tsx'], /未確認の店舗情報、料金、実績は掲載しません。/);
   assert.match(files['src/app/page.tsx'], /店舗名・所在地・営業時間・連絡先/);
   assert.match(files['tests/smoke.spec.ts'], /360/);
   assert.match(files['tests/smoke.spec.ts'], /1440/);
+  assert.match(files['tests/smoke.spec.ts'], /console/);
 });
 
 test('bootstrap without a template creates, seeds, verifies and then registers a private repository', async () => {

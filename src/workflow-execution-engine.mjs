@@ -332,6 +332,12 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
   const pollExternalTask = async (task) => {
     const external = task.metadata?.external_executor;
     if (!external?.repository || !external?.run_name) return null;
+    const timeoutMs = Math.max(60_000, Number(env.TASK_TIMEOUT_MS || 45 * 60_000));
+    if (task.started_at && Date.now() - Date.parse(task.started_at) > timeoutMs) {
+      return failExternal(task, `External task timed out after ${timeoutMs}ms`, {
+        executor: 'github_codex', failure_kind: 'timeout', started_at: task.started_at, timeout_ms: timeoutMs
+      });
+    }
     const executorRepository = external.executor_repository || github.executorRepository;
 
     let runId = external.run_id;

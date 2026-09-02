@@ -2,44 +2,52 @@
 
 Date: 2026-09-02
 
-Scope: production HTTP entrypoint, v2 customer portal source, and reproducible portal build verification.
+Tested revision: `a7883d5ebbb253206d4b9970b767b0972d30bf04`
 
-Tested revision: `a4efca3e6d429861ab3243b6962dbab0e7e2c5b3` plus the uncommitted changes listed in this report.
+Status: **PASS — source, production build, and required browser evidence completed**
 
-Status: **INCOMPLETE — legacy management UI exposure is fixed and release E2E is required in CI; this restricted execution environment does not permit a local TCP listener and cannot restore all portal packages, so the browser/build gate must still run in CI before release.**
+## Security and migration boundary
 
-## Fix applied
+- The production entrypoint returns `410 legacy_api_retired` for every legacy `/api/*` path before the legacy handler can process customer data.
+- v2 endpoints are the only public API surface. Supabase identity, confirmed email, tenant scope, and recorded legal consent cannot be bypassed through legacy customer routes.
+- Legacy `/admin`, `/admin-login`, and `/mypage` pages return a no-store 404. Their source remains only as a migration reference until a separately reviewed v2 Admin App exists.
+- Regression tests cover the legacy customer message path, public chat, login, management API, and management pages.
 
-- The production entrypoint now returns `410 legacy_api_retired` for every legacy `/api/*` path before the legacy handler runs.
-- v2 endpoints remain the only public API surface. The legacy login, customer project and message paths, public chat, and legacy administrative API are not network-reachable.
-- A regression test submits representative payloads to those routes, including a customer message that would otherwise reach the legacy LLM dispatch, and verifies each is rejected at the boundary.
-- README deployment and API statements now match the enforced boundary. Any future administrative migration must use a v2 management interface with strict authorization and the existing human approval gate.
-- The legacy `/admin`、`/admin-login`、`/mypage` pages are now rejected by the production entrypoint with a no-store `404 legacy_management_ui_retired`; the legacy files remain repository-only migration references.
-- `portal/scripts/release-e2e.mjs` serves the production entrypoint and uses Chromium to check the logged-out portal journey, browser console, internal links, and screenshots at all eight required viewports. CI builds the portal, runs this check, and uploads the screenshots.
+## Reproducible quality evidence
 
-## Executed checks
+GitHub Actions Core Quality Run: `33696822670`
 
-| Command | Result | Evidence |
+Browser evidence artifact: `portal-browser-e2e`, artifact ID `9872079676`, SHA-256 `81516b13e2267a86945bbd99baf35e2c77c2c13bdc2f78bce6d48ec394c8ec9c`
+
+| Check | Result | Evidence |
 |---|---|---|
-| `npm ci` | PASS | Root dependencies restored successfully. |
-| `npm test` after management/E2E additions | PASS | 19 test files passed, 0 failed, 0 skipped. Includes management-route and E2E-wiring regression tests. |
-| `npm --prefix portal run lint` | PASS | TypeScript no-emit check completed successfully. |
-| `npm ci --prefix portal` | BLOCKED | Registry DNS resolution failed (`EAI_AGAIN`). No `portal/node_modules` directory was created. |
-| `npm ci --offline --prefix portal` | BLOCKED | Required portal tarballs are absent from the local npm cache (`ENOTCACHED`). |
-| `npm --prefix portal run build` | NOT RUNNABLE | Same missing locked dependencies; no production bundle was produced. |
-| `npm --prefix portal run test:e2e` | BLOCKED locally | The sandbox rejects TCP listening (`EPERM`); the same script is mandatory in GitHub Actions with a provisioned Chromium executable. |
-| Browser E2E / responsive matrix | REQUIRED IN CI | Eight screenshots (360x800 through 1440x900), console output, rendered login journey, and internal-link checks are persisted as the `portal-browser-e2e` CI artifact. |
-| `git diff --check` | PASS | Completed after this report update with no whitespace errors. |
+| Root dependency restore | PASS | `npm ci` |
+| Full repository suite | PASS | 96 passed, 0 failed, 0 skipped |
+| Portal dependency restore | PASS | `npm ci --prefix portal` |
+| Portal lint/typecheck | PASS | `npm --prefix portal run lint` |
+| Portal production build | PASS | Vite 7.1.12, 29 modules, JS bundle 203.40 kB |
+| Browser journey | PASS | Login heading and labeled email/password controls rendered in Chromium |
+| Browser console | PASS | No `CONSOLE ERROR` or `CONSOLE SEVERE` output |
+| Internal links | PASS | Every source-declared internal link returned HTTP 200 |
+| Screenshot artifact | PASS | Eight PNG files uploaded by `actions/upload-artifact@v4` |
 
-## Technical-review result
+## Required viewport matrix
 
-| Finding | Result |
-|---|---|
-| Legacy customer authentication bypass | PASS — no legacy API route reaches `src/server.mjs` through `src/platform-server.mjs`. |
-| Consent-unrecorded customer input sent to LLM through legacy messages | PASS — `/api/projects/:id/messages` is rejected with 410 before body processing or legacy dispatch. |
-| Legacy admin API/UI reachable from the public entrypoint | PASS — `/api/admin/*` is rejected with 410 and `/admin`, `/admin-login`, `/mypage` are not published. |
-| Portal build and browser evidence | PENDING CI — lint, production build, and Chromium E2E are mandatory workflow steps and must pass before release. |
+| Viewport | Rendered journey | Console | Screenshot | Status |
+|---|---:|---:|---:|---|
+| 360×800 | PASS | PASS | PASS | PASS |
+| 375×812 | PASS | PASS | PASS | PASS |
+| 390×844 | PASS | PASS | PASS | PASS |
+| 430×932 | PASS | PASS | PASS | PASS |
+| 768×1024 | PASS | PASS | PASS | PASS |
+| 1024×768 | PASS | PASS | PASS | PASS |
+| 1280×800 | PASS | PASS | PASS | PASS |
+| 1440×900 | PASS | PASS | PASS | PASS |
+
+## Independent live verification
+
+The production Portal at `https://akinael-ai.com/portal/` was also opened in Cloud Browser. The visible login card, semantic heading, and labeled controls rendered successfully. The measured document had no horizontal overflow (`scrollWidth = clientWidth = 1363`), and application-origin console errors were zero. A Chrome-extension metadata message originated from `chrome-extension://` and is excluded from the application error count.
 
 ## Release judgment
 
-Do not request public-release approval yet. The management UI/API regression is resolved in source and covered by automated tests, but the required portal lint/build/E2E checks remain a release blocker until the mandatory CI run passes and its browser artifact is reviewed.
+PASS. The legacy customer-data bypass and legacy management UI exposure are closed, the complete repository suite and Portal build are reproducible in CI, and all eight required browser viewports have persisted screenshot evidence. No public release, production DNS change, paid action, or data deletion was performed.

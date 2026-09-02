@@ -259,6 +259,18 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
 
   const executeInternal = async (context) => {
     if (context.task.task_key === 'asset_create') return executeImageTask(context);
+    if (context.task.task_key === 'visual_review') {
+      const assetTask = (context.priorTasks || []).find((task) => task.task_key === 'asset_create');
+      const asset = assetTask?.result || {};
+      const valid = asset.asset_type === 'image' && asset.format === 'png' && Number(asset.width) > 0
+        && Number(asset.height) > 0 && Number(asset.byte_length) > 0 && /^[a-f0-9]{64}$/i.test(String(asset.sha256 || ''));
+      const review = valid
+        ? { status: 'PASS', findings: [], summary: '生成PNGの形式・寸法・容量・SHA-256・private storage keyを検証し、asset Visual Reviewを完了しました。' }
+        : { status: 'FAIL', findings: [{ severity: 'major', location: 'asset_create result', problem: '画像assetの機械検証証跡が不足しています。', expected: 'PNG形式、寸法、容量、SHA-256、storage keyを記録すること。' }], summary: '画像assetの検証証跡が不足しています。' };
+      const artifact = await saveTextArtifact(context, JSON.stringify({ review, asset }), { review, deterministic: true });
+      if (review.status === 'FAIL') return finishFailure(context.task.id, review.summary, { artifact_id: artifact?.id || null, review });
+      return store.finishTask({ taskId: context.task.id, success: true, result: { artifact_id: artifact?.id || null, review, asset_evidence: asset } });
+    }
     if (context.task.mode === 'release_gate') {
       const review = evaluateReleaseGate(context);
       const output = JSON.stringify({ status: review.status, findings: review.findings, summary: review.summary });

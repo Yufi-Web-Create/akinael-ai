@@ -365,6 +365,7 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
     createFromTemplate,
     createPrivateRepository,
     putRepositoryFile,
+    createBranch,
     seedRepository,
     verifyAppRepositoryAccess
   };

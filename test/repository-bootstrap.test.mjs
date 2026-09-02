@@ -31,6 +31,9 @@ test('the bundled starter is a non-indexed pre-launch page until official store 
   assert.match(files['src/app/robots.ts'], /disallow: '\/'/);
   assert.match(files['src/app/page.tsx'], /未確認の店舗情報、料金、実績は掲載しません。/);
   assert.match(files['src/app/page.tsx'], /店舗名・所在地・営業時間・連絡先/);
+  assert.match(files['src/app/page.tsx'], /<p className="eyebrow">公開前確認<\/p>/);
+  assert.match(files['src/app/page.tsx'], /店舗情報、主要ページ、問い合わせ・予約導線を確認してから公開します。/);
+  assert.doesNotMatch(files['src/app/page.tsx'], /STORE WEBSITE \/ PRE-LAUNCH/);
   assert.match(files['tests/smoke.spec.ts'], /360/);
   assert.match(files['tests/smoke.spec.ts'], /1440/);
   assert.match(files['tests/smoke.spec.ts'], /console/);

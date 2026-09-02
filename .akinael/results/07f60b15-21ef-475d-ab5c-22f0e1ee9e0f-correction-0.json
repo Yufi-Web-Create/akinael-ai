@@ -1,0 +1,9 @@
+{
+  "task_id": "07f60b15-21ef-475d-ab5c-22f0e1ee9e0f",
+  "stage": "correction",
+  "cycle": 0,
+  "final_message": "コピー指摘を修正しました。\n\n- 英語装飾を「公開前確認」に置換\n- ヒーロー説明を「店舗情報、主要ページ、問い合わせ・予約導線を確認してから公開します。」へ具体化\n- 旧文言が戻らないことと新文言が表示されることを、生成先Playwrightテスト・ブートストラップテストで回帰保護\n\n変更: [customer-web-starter.mjs](/home/runner/work/akinael-ai/akinael-ai/src/customer-web-starter.mjs)、[repository-bootstrap.test.mjs](/home/runner/work/akinael-ai/akinael-ai/test/repository-bootstrap.test.mjs)\n\n検証:\n- `node --test test/customer-web-template.test.mjs test/repository-bootstrap.test.mjs` — PASS\n- `git diff --check` — PASS\n- `npm test` — 関連14件はPASS。`platform-server.test.mjs` のみ、環境がローカル待受を禁止する `listen EPERM` で失敗（変更と無関係）。\n\n判断理由:\n- 意味のない英語ラベルを、ページ目的を明示する日本語へ変更しました。\n- 抽象的な「迷わず使える導線」を、実際の確認対象へ置き換えました。\n- 未確認の店舗情報・料金・実績を掲載しない方針は維持しています。\n\n未解決事項:\n- Chromium が環境制約でCrashpad起動時に停止し、実ブラウザの8 viewport・スクリーンショット取得は未実施です。したがって、実画面確認を要求するレビューゲートはこの環境ではまだPASSにできません。ブラウザ実行可能なCI／プレビュー環境で生成後の `npm run qa` と8 viewportのPlaywright確認が必要です。",
+  "qa_conclusion": "success",
+  "codex_conclusion": "success",
+  "generated_at": "2026-09-02T15:26:56.620Z"
+}

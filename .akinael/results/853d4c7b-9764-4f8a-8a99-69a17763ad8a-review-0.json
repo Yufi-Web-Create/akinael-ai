@@ -1,0 +1,9 @@
+{
+  "task_id": "853d4c7b-9764-4f8a-8a99-69a17763ad8a",
+  "stage": "review",
+  "cycle": 0,
+  "final_message": "検査結果: FAIL\n\n- `public/index.html` は title、description、canonical、OGP、robots/sitemap、見出し構造、画像alt、フォームラベル、スキップリンク、フォーカス表示を実装済み。\n- ただし、対象サイトURL・検証環境が未提供のため、最終DOM・実ブラウザ・全8viewport・コンソールエラー・リンク切れを確認できない。\n- `role=\"tab\"` に `aria-selected` と `aria-controls` がなく、タブ状態の支援技術向け情報が不足。\n- `npm test` は `test/platform-server.test.mjs` がFAIL。\n- `portal` のbuildは依存関係未導入およびread-only filesystemにより実行不能。\n\n{\"status\":\"FAIL\",\"findings\":[{\"severity\":\"major\",\"location\":\"検証対象URL・実ブラウザ検査\",\"problem\":\"対象URLまたは検証可能な環境が提供されておらず、最終DOM、実画面、複数viewport、コンソール、内部リンクを検証できない\",\"expected\":\"対象URLまたは起動可能な検証環境を指定し、360x800〜1440x900で実ブラウザ検査を完了する\"},{\"severity\":\"minor\",\"location\":\"public/index.html:218-219\",\"problem\":\"role=\\\"tab\\\" のボタンに aria-selected と aria-controls が設定されていない\",\"expected\":\"選択状態を aria-selected で示し、対応するパネルを aria-controls で関連付ける\"},{\"severity\":\"major\",\"location\":\"test/platform-server.test.mjs\",\"problem\":\"既存自動テストがFAILしている\",\"expected\":\"失敗原因を修正し、全自動テストをPASSさせる\"},{\"severity\":\"major\",\"location\":\"portal build\",\"problem\":\"production buildが依存関係不足とread-only filesystemにより完了していない\",\"expected\":\"依存関係を導入可能な環境でproduction buildを完了する\"}],\"summary\":\"静的なSEO/A11y要素は概ね整備されているが、実画面検証が未実施で、自動テストとbuildも完了していないため公開準備判定はFAIL。\"}",
+  "qa_conclusion": "success",
+  "codex_conclusion": "success",
+  "generated_at": "2026-09-02T13:53:10.992Z"
+}

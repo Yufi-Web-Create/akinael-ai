@@ -59,17 +59,33 @@ export const createProviders = (env = process.env) => ({
     }
   },
   storage: {
-    name: configured(env.OBJECT_STORAGE_PROVIDER, secret(env.R2_BUCKET) ? 'cloudflare-r2' : 'local'),
-    mode: secret(env.R2_ACCOUNT_ID) && secret(env.R2_ACCESS_KEY_ID) && secret(env.R2_SECRET_ACCESS_KEY) && secret(env.R2_BUCKET) ? 'connected' : 'local',
+    name: configured(env.OBJECT_STORAGE_PROVIDER, secret(env.SUPABASE_URL || env.SUPABASE_PROJECT_URL) && secret(env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_KEY) ? 'supabase-storage' : secret(env.R2_BUCKET) ? 'cloudflare-r2' : 'local'),
+    mode: secret(env.SUPABASE_URL || env.SUPABASE_PROJECT_URL) && secret(env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_KEY)
+      ? 'connected'
+      : secret(env.R2_ACCOUNT_ID) && secret(env.R2_ACCESS_KEY_ID) && secret(env.R2_SECRET_ACCESS_KEY) && secret(env.R2_BUCKET) ? 'connected' : 'local',
     private: true,
     putObject: async ({ key, body, contentType }) => {
+      const supabaseUrl = secret(env.SUPABASE_URL || env.SUPABASE_PROJECT_URL);
+      const serviceKey = secret(env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_KEY);
+      const bucket = configured(env.SUPABASE_ASSET_BUCKET, 'akinael-assets');
+      if (supabaseUrl && serviceKey) {
+        const uploadUrl = `${supabaseUrl.replace(/\/+$/, '')}/storage/v1/object/${encodeURIComponent(bucket)}/${String(key).split('/').map(encodeURIComponent).join('/')}`;
+        const response = await fetch(uploadUrl, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${serviceKey}`, apikey: serviceKey, 'content-type': contentType, 'x-upsert': 'false' },
+          body
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.message || payload.error || `Supabase Storage upload failed: ${response.status}`);
+        return { provider: 'supabase-storage', bucket, key };
+      }
       const accountId = secret(env.R2_ACCOUNT_ID);
       const accessKeyId = secret(env.R2_ACCESS_KEY_ID);
       const secretAccessKey = secret(env.R2_SECRET_ACCESS_KEY);
-      const bucket = secret(env.R2_BUCKET);
-      if (!accountId || !accessKeyId || !secretAccessKey || !bucket) return { provider: 'local' };
+      const r2Bucket = secret(env.R2_BUCKET);
+      if (!accountId || !accessKeyId || !secretAccessKey || !r2Bucket) return { provider: 'local' };
       const client = new S3Client({ region: 'auto', endpoint: `https://${accountId}.r2.cloudflarestorage.com`, credentials: { accessKeyId, secretAccessKey } });
-      await client.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: contentType, CacheControl: 'private, max-age=0, no-store' }));
+      await client.send(new PutObjectCommand({ Bucket: r2Bucket, Key: key, Body: body, ContentType: contentType, CacheControl: 'private, max-age=0, no-store' }));
       return { provider: 'cloudflare-r2', key };
     }
   }

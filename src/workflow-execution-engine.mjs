@@ -86,7 +86,7 @@ const isExecutionEnvironmentFinding = (finding) => {
 
 const isUnprovidedInputFinding = (finding) => {
   const text = [finding?.problem, finding?.expected, finding?.location].filter(Boolean).join(' ');
-  const missingInput = /(未提供|未確定|not provided|not available)/i.test(text);
+  const missingInput = /(未提供|未確定|確認できない|判定できない|not provided|not available|cannot (confirm|determine|verify))/i.test(text);
   const customerInput = /(店舗情報|正式情報|対象.*url|検証環境|target.*url|business information)/i.test(text);
   return missingInput && customerInput;
 };

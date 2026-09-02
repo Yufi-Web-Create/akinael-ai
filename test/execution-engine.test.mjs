@@ -123,6 +123,21 @@ test('authoritative QA ignores missing customer inputs that are outside the impl
   assert.deepEqual(review.findings, []);
 });
 
+test('authoritative QA ignores derived structured-data checks when official store facts are unavailable', () => {
+  const review = reconcileReviewWithQa({
+    status: 'FAIL',
+    summary: 'Official store facts are unavailable',
+    findings: [{
+      severity: 'minor',
+      location: '店舗サイトの構造化データ',
+      problem: '対象店舗の最終DOMを確認できないため構造化データを判定できない',
+      expected: '正式な店舗情報を用いて構造化データを検証する'
+    }]
+  }, { qaFailed: false, taskMode: 'review' });
+  assert.equal(review.status, 'PASS');
+  assert.deepEqual(review.findings, []);
+});
+
 test('authoritative repository QA supersedes a reviewer stale test failure observation', () => {
   const review = reconcileReviewWithQa({
     status: 'FAIL',

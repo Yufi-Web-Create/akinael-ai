@@ -85,7 +85,7 @@ const isExecutionEnvironmentFinding = (finding) => {
 };
 
 const reconcileReviewWithQa = (review, { qaFailed = false, taskMode = null } = {}) => {
-  const environmentAwareReview = new Set(['review', 'technical_review']);
+  const environmentAwareReview = new Set(['review', 'seo_a11y_review', 'technical_review']);
   if (!review || qaFailed || !environmentAwareReview.has(taskMode) || review.status !== 'FAIL') return review;
   const findings = Array.isArray(review.findings) ? review.findings : [];
   const productFindings = findings.filter((finding) => !isExecutionEnvironmentFinding(finding));

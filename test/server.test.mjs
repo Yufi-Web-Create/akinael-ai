@@ -70,6 +70,9 @@ test('homepage pricing and required trust answers stay aligned with formal busin
   assert.match(html, new RegExp(businessConfig.pricing.operations.monthlyAmount.toLocaleString('ja-JP')));
   assert.match(html, new RegExp(businessConfig.pricing.advanced.monthlyAmount.toLocaleString('ja-JP')));
   assert.match(html, new RegExp(businessConfig.pricing.websiteProduction.startingAmount.toLocaleString('ja-JP')));
+  assert.match(html, /表示料金はすべて税込です。/);
+  assert.match(html, /しっかり運用・発展運用では/);
+  assert.match(html, /気軽な相談は公開チャット、案件の確認や継続的なやり取りは会員向けマイページで/);
   assert.match(html, /無料でどこまでできますか/);
   assert.match(html, /勝手に料金が発生しませんか/);
   assert.match(html, /データはどう扱われますか/);

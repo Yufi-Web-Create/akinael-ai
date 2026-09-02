@@ -7,17 +7,17 @@ const [css, script] = await Promise.all([
   readFile(new URL('../public/assets/app.js', import.meta.url), 'utf8')
 ]);
 
-test('landing-page content is visible without JavaScript', () => {
+test('landing-page content is never hidden by its reveal marker', () => {
   assert.match(css, /\.reveal\{opacity:1;transform:none\}/,
-    'reveal content must be visible before progressive enhancement starts');
-  assert.match(css, /\.js \.reveal\{opacity:0;transform:translateY\(30px\);transition:opacity \.75s,transform \.75s\}/,
-    'the hidden state must be scoped to JavaScript enhancement');
-  assert.match(script, /document\.documentElement\.classList\.add\('js'\)/,
-    'the enhancement marker must be applied by the script');
+    'all marked content must remain visible in every rendering mode');
+  assert.doesNotMatch(css, /(?:^|})\s*(?:\.js\s+)?\.reveal(?:\.visible)?\s*\{[^}]*opacity\s*:\s*0/i,
+    'a reveal selector must not make content transparent while waiting for JavaScript or scrolling');
+  assert.doesNotMatch(css, /(?:^|})\s*(?:\.js\s+)?\.reveal(?:\.visible)?\s*\{[^}]*visibility\s*:\s*hidden/i,
+    'a reveal selector must not hide content from the visual tree');
 });
 
-test('landing-page reveal observer activates sections while scrolling', () => {
+test('landing-page observer does not control whether sections are rendered', () => {
   assert.match(script, /entry\.target\.classList\.add\('visible'\)/);
-  assert.match(script, /rootMargin: '0px 0px 15% 0px'/,
-    'near-viewport sections should become visible before screenshot capture');
+  assert.doesNotMatch(script, /classList\.add\('js'\)/,
+    'the script must not enable a CSS state that hides page content');
 });

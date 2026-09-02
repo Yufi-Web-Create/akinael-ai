@@ -1,0 +1,9 @@
+{
+  "task_id": "e867995e-875b-46ac-abf2-01960ace01f8",
+  "stage": "correction",
+  "cycle": 1,
+  "final_message": "主要セクションを隠していた `.reveal` の初期透明化を完全に除去しました。JavaScript・スクロール監視の成否に関わらず、全コンテンツが常時描画されます。\n\n変更:\n\n- [styles.css](/home/runner/work/akinael-ai/akinael-ai/public/assets/styles.css)\n- [app.js](/home/runner/work/akinael-ai/akinael-ai/public/assets/app.js)\n- [public-visual-regression.test.mjs](/home/runner/work/akinael-ai/akinael-ai/test/public-visual-regression.test.mjs)\n- [QA_REPORT.md](/home/runner/work/akinael-ai/akinael-ai/QA_REPORT.md)\n\n検証:\n\n- 対象の自動テスト 3件: PASS\n- `git diff --check`: PASS\n- `npm test`: 影響範囲を含む14テストはPASS。`platform-server` のみ、サンドボックスのローカル待受制限で起動不可。\n\n判断理由:\n\n- 前回修正後も `.js .reveal { opacity: 0 }` が残り、全ページ撮影時にコンテンツが消える余地がありました。これを根本から撤廃し、再導入を防ぐテストを追加しました。\n\n未解決事項:\n\n- Chromium は環境権限によりCrashpad初期化で停止し、実ブラウザの全8 viewport証跡は取得できませんでした。したがってVisual ReviewはPASS扱いにせず、`BLOCKED` と記録しています。",
+  "qa_conclusion": "success",
+  "codex_conclusion": "success",
+  "generated_at": "2026-09-02T15:20:30.977Z"
+}

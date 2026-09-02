@@ -194,10 +194,14 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
     let repositoryAsset = null;
     if (context.repository?.repository_full_name && github.mode === 'connected') {
       const branch = branchFor(context.workflow.id);
-      await github.createBranch({ repositoryFullName: context.repository.repository_full_name, branchName: branch, fromBranch: context.repository.default_branch || 'main' });
-      const path = `public/assets/generated/${context.task.id}.png`;
-      await github.putRepositoryFile({ repositoryFullName: context.repository.repository_full_name, path, contentBase64: generated.body.toString('base64'), branch, message: 'Add generated image asset' });
-      repositoryAsset = { repository: context.repository.repository_full_name, branch, path };
+      try {
+        await github.createBranch({ repositoryFullName: context.repository.repository_full_name, branchName: branch, fromBranch: context.repository.default_branch || 'main' });
+        const path = `public/assets/generated/${context.task.id}.png`;
+        await github.putRepositoryFile({ repositoryFullName: context.repository.repository_full_name, path, contentBase64: generated.body.toString('base64'), branch, message: 'Add generated image asset' });
+        repositoryAsset = { repository: context.repository.repository_full_name, branch, path };
+      } catch (error) {
+        repositoryAsset = { repository: context.repository.repository_full_name, branch, status: 'deferred_to_asset_apply', error: safeError(error) };
+      }
     }
     const artifact = await store.saveArtifact({
       context,

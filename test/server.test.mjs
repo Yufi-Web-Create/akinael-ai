@@ -62,12 +62,15 @@ test('frontend pages and project assets are served with the expected indexing bo
   assert.match(sitemap.headers.get('content-type'), /application\/xml/);
 });
 
-test('homepage withholds unapproved price and tax claims while retaining the required trust answers', async () => {
+test('homepage presents formal prices and tax conditions while retaining the required trust answers', async () => {
   const response = await fetch(`${baseUrl}/`);
   const html = await response.text();
-  assert.match(html, /料金、税表示、契約条件は現在最終確認中です。/);
-  assert.match(html, /確定前の金額を正式料金として掲載しません。/);
-  assert.doesNotMatch(html, /3,980円|7,980円|17,800円|19,800円|5,500円/);
+  assert.match(html, new RegExp(businessConfig.pricing.mini.monthlyAmount.toLocaleString('ja-JP')));
+  assert.match(html, new RegExp(businessConfig.pricing.operations.monthlyAmount.toLocaleString('ja-JP')));
+  assert.match(html, new RegExp(businessConfig.pricing.advanced.monthlyAmount.toLocaleString('ja-JP')));
+  assert.match(html, new RegExp(businessConfig.pricing.websiteProduction.startingAmount.toLocaleString('ja-JP')));
+  assert.match(html, /広告費（税別）の20%に消費税を加えた額/);
+  assert.match(html, /月額最低料金は5,500円（税込）/);
   assert.match(html, /無料登録後、何ができますか/);
   assert.match(html, /勝手に料金が発生しませんか/);
   assert.match(html, /データはどう扱われますか/);

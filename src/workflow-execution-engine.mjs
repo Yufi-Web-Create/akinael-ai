@@ -84,7 +84,8 @@ const isExecutionEnvironmentFinding = (finding) => {
 };
 
 const reconcileReviewWithQa = (review, { qaFailed = false, taskMode = null } = {}) => {
-  if (!review || qaFailed || taskMode !== 'review' || review.status !== 'FAIL') return review;
+  const environmentAwareReview = new Set(['review', 'technical_review']);
+  if (!review || qaFailed || !environmentAwareReview.has(taskMode) || review.status !== 'FAIL') return review;
   const findings = Array.isArray(review.findings) ? review.findings : [];
   const productFindings = findings.filter((finding) => !isExecutionEnvironmentFinding(finding));
   if (productFindings.length > 0 || findings.length === 0) {

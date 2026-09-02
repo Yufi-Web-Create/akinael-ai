@@ -1,0 +1,9 @@
+{
+  "task_id": "853d4c7b-9764-4f8a-8a99-69a17763ad8a",
+  "stage": "correction",
+  "cycle": 1,
+  "final_message": "レビュー指摘を修正しました。\n\n- 相談内容 textarea に可視ラベルを追加\n- エラー／完了通知へ適切なARIAロールを追加\n- 全操作要素の明確なキーボードフォーカス表示を追加\n- canonical・OGP・description・認証ポータル向け `noindex` を追加\n- Vite／Next 両実装へ同内容を反映\n\n検証済み:\n\n- `npm run lint` PASS\n- 静的SEO/A11yアサーション PASS\n- `git diff --check` PASS\n\n記録: [QA_REPORT.md](/home/runner/work/akinael-ai/akinael-ai/portal/QA_REPORT.md)\n\n未解決事項:\n\n- この環境では依存関係を取得できず、production build・実ブラウザ・全viewport確認は未実施です。DNS解決も利用不可でした。\n- そのためQA判定は環境ブロックによる **FAIL（リリース承認不可）** と記録しています。依存関係とブラウザを利用できる環境で、QAレポート記載の再検証が必要です。",
+  "qa_conclusion": "success",
+  "codex_conclusion": "success",
+  "generated_at": "2026-09-02T14:04:52.747Z"
+}

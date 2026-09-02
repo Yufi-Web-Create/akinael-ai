@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 import { createApp } from '../src/platform-server.mjs';
 
 const env = {
@@ -11,58 +12,76 @@ const env = {
 
 const intakeOpenEnv = { ...env, CUSTOMER_INTAKE_ENABLED: 'true' };
 
-const listen = async (server) => {
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const { port } = server.address();
-  return `http://127.0.0.1:${port}`;
-};
+// Exercise the production HTTP server's registered request handler directly.
+// This keeps the composition test independent of a local TCP listener, which
+// is intentionally unavailable in restricted CI sandboxes.
+const request = (server, { path, method = 'GET', headers = {}, body } = {}) => new Promise((resolve, reject) => {
+  const incoming = new EventEmitter();
+  incoming.method = method;
+  incoming.url = path;
+  incoming.headers = { host: 'localhost', ...headers };
+  incoming.socket = { remoteAddress: '127.0.0.1' };
+  incoming.destroy = () => {};
 
-const close = (server) => new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  const response = {
+    headersSent: false,
+    status: 200,
+    headers: {},
+    chunks: [],
+    writeHead(status, responseHeaders = {}) {
+      this.status = status;
+      this.headers = responseHeaders;
+      this.headersSent = true;
+      return this;
+    },
+    end(chunk = '') {
+      if (chunk) this.chunks.push(Buffer.from(chunk));
+      resolve({
+        status: this.status,
+        headers: this.headers,
+        json: async () => JSON.parse(Buffer.concat(this.chunks).toString('utf8'))
+      });
+    }
+  };
+
+  server.emit('request', incoming, response);
+  queueMicrotask(() => {
+    if (body) incoming.emit('data', Buffer.from(body));
+    incoming.emit('end');
+  });
+  server.once('error', reject);
+});
 
 test('platform server keeps legacy health route available', async () => {
   const server = createApp({ env, fetchImpl: async () => { throw new Error('Supabase should not be called'); } });
-  const baseUrl = await listen(server);
-  try {
-    const result = await fetch(`${baseUrl}/health`);
-    assert.equal(result.status, 200);
-    assert.deepEqual(await result.json(), { status: 'ok' });
-  } finally {
-    await close(server);
-  }
+  const result = await request(server, { path: '/health' });
+  assert.equal(result.status, 200);
+  assert.deepEqual(await result.json(), { status: 'ok' });
 });
 
 test('v2 auth endpoint rejects missing bearer token without falling through to legacy API', async () => {
   const server = createApp({ env, fetchImpl: async () => { throw new Error('Supabase should not be called'); } });
-  const baseUrl = await listen(server);
-  try {
-    const result = await fetch(`${baseUrl}/api/v2/auth/me`);
-    const body = await result.json();
-    assert.equal(result.status, 401);
-    assert.equal(body.error.code, 'authentication_required');
-  } finally {
-    await close(server);
-  }
+  const result = await request(server, { path: '/api/v2/auth/me' });
+  const body = await result.json();
+  assert.equal(result.status, 401);
+  assert.equal(body.error.code, 'authentication_required');
 });
 
 test('production entrypoint retires every legacy API route before its handler can process data', async () => {
   const server = createApp({ env, fetchImpl: async () => { throw new Error('legacy routes must not invoke providers'); } });
-  const baseUrl = await listen(server);
-  try {
-    for (const [path, body] of [
+  for (const [path, body] of [
       ['/api/auth/register', { email: 'owner@example.com', password: 'a-secure-password' }],
       ['/api/public/chat', { message: '相談内容' }],
       ['/api/admin/projects', undefined]
     ]) {
-      const result = await fetch(`${baseUrl}${path}`, {
-        method: body ? 'POST' : 'GET',
-        headers: body ? { 'content-type': 'application/json' } : undefined,
-        body: body ? JSON.stringify(body) : undefined
-      });
-      assert.equal(result.status, 410, path);
-      assert.equal((await result.json()).error.code, 'legacy_api_retired', path);
-    }
-  } finally {
-    await close(server);
+    const result = await request(server, {
+      path,
+      method: body ? 'POST' : 'GET',
+      headers: body ? { 'content-type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined
+    });
+    assert.equal(result.status, 410, path);
+    assert.equal((await result.json()).error.code, 'legacy_api_retired', path);
   }
 });
 
@@ -82,54 +101,29 @@ test('v2 auth endpoint verifies Supabase user and returns onboarding state', asy
   };
 
   const server = createApp({ env, fetchImpl: supabaseFetch });
-  const baseUrl = await listen(server);
-  try {
-    const result = await fetch(`${baseUrl}/api/v2/auth/me`, {
-      headers: { authorization: 'Bearer access-token' }
-    });
-    const body = await result.json();
-    assert.equal(result.status, 200);
-    assert.equal(body.onboardingRequired, true);
-    assert.equal(body.user.email, 'owner@example.com');
-  } finally {
-    await close(server);
-  }
+  const result = await request(server, { path: '/api/v2/auth/me', headers: { authorization: 'Bearer access-token' } });
+  const body = await result.json();
+  assert.equal(result.status, 200);
+  assert.equal(body.onboardingRequired, true);
+  assert.equal(body.user.email, 'owner@example.com');
 });
 
 test('v2 registration rejects direct API calls without legal consent', async () => {
   let called = false;
   const server = createApp({ env: intakeOpenEnv, fetchImpl: async () => { called = true; throw new Error('Supabase must not be called'); } });
-  const baseUrl = await listen(server);
-  try {
-    const result = await fetch(`${baseUrl}/api/v2/auth/register`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email: 'owner@example.com', password: 'a-secure-password' })
-    });
-    assert.equal(result.status, 400);
-    assert.equal((await result.json()).error.code, 'legal_consent_required');
-    assert.equal(called, false);
-  } finally {
-    await close(server);
-  }
+  const result = await request(server, { path: '/api/v2/auth/register', method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'owner@example.com', password: 'a-secure-password' }) });
+  assert.equal(result.status, 400);
+  assert.equal((await result.json()).error.code, 'legal_consent_required');
+  assert.equal(called, false);
 });
 
 test('v2 registration is closed by default and does not send personal data to Supabase', async () => {
   let called = false;
   const server = createApp({ env, fetchImpl: async () => { called = true; throw new Error('Supabase must not be called'); } });
-  const baseUrl = await listen(server);
-  try {
-    const result = await fetch(`${baseUrl}/api/v2/auth/register`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email: 'owner@example.com', password: 'a-secure-password', consent: true })
-    });
-    assert.equal(result.status, 503);
-    assert.equal((await result.json()).error.code, 'customer_intake_closed');
-    assert.equal(called, false);
-  } finally {
-    await close(server);
-  }
+  const result = await request(server, { path: '/api/v2/auth/register', method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'owner@example.com', password: 'a-secure-password', consent: true }) });
+  assert.equal(result.status, 503);
+  assert.equal((await result.json()).error.code, 'customer_intake_closed');
+  assert.equal(called, false);
 });
 
 test('v2 registration creates a Supabase user, persists document versions and provisions a customer account', async () => {
@@ -164,25 +158,16 @@ test('v2 registration creates a Supabase user, persists document versions and pr
   };
 
   const server = createApp({ env: intakeOpenEnv, fetchImpl: supabaseFetch });
-  const baseUrl = await listen(server);
-  try {
-    const result = await fetch(`${baseUrl}/api/v2/auth/register`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email: 'owner@example.com', password: 'a-secure-password', consent: true })
-    });
-    const body = await result.json();
-    assert.equal(result.status, 201);
-    assert.equal(body.token, 'new-access-token');
-    assert.equal(provisioned, true);
-    assert.ok(calls.some((call) => call.url.endsWith('/auth/v1/signup')));
-    const signupBody = JSON.parse(calls.find((call) => call.url.endsWith('/auth/v1/signup')).options.body);
-    assert.equal(signupBody.data.legal_consent.termsVersion, '2026-09-02');
-    assert.equal(signupBody.data.legal_consent.privacyVersion, '2026-09-02');
-    assert.match(signupBody.data.legal_consent.acceptedAt, /^\d{4}-\d{2}-\d{2}T/);
-  } finally {
-    await close(server);
-  }
+  const result = await request(server, { path: '/api/v2/auth/register', method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'owner@example.com', password: 'a-secure-password', consent: true }) });
+  const body = await result.json();
+  assert.equal(result.status, 201);
+  assert.equal(body.token, 'new-access-token');
+  assert.equal(provisioned, true);
+  assert.ok(calls.some((call) => call.url.endsWith('/auth/v1/signup')));
+  const signupBody = JSON.parse(calls.find((call) => call.url.endsWith('/auth/v1/signup')).options.body);
+  assert.equal(signupBody.data.legal_consent.termsVersion, '2026-09-02');
+  assert.equal(signupBody.data.legal_consent.privacyVersion, '2026-09-02');
+  assert.match(signupBody.data.legal_consent.acceptedAt, /^\d{4}-\d{2}-\d{2}T/);
 });
 
 test('v2 login exchanges credentials for a Supabase access token', async () => {
@@ -207,16 +192,7 @@ test('v2 login exchanges credentials for a Supabase access token', async () => {
   };
 
   const server = createApp({ env, fetchImpl: supabaseFetch });
-  const baseUrl = await listen(server);
-  try {
-    const result = await fetch(`${baseUrl}/api/v2/auth/login`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email: 'owner@example.com', password: 'a-secure-password' })
-    });
-    assert.equal(result.status, 200);
-    assert.deepEqual(await result.json(), { token: 'access-token' });
-  } finally {
-    await close(server);
-  }
+  const result = await request(server, { path: '/api/v2/auth/login', method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'owner@example.com', password: 'a-secure-password' }) });
+  assert.equal(result.status, 200);
+  assert.deepEqual(await result.json(), { token: 'access-token' });
 });

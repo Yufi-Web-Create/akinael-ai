@@ -1,69 +1,100 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 import { createApp, resetStore, seedAdmin } from '../src/server.mjs';
 import { businessConfig } from '../src/business-config.mjs';
 
 let server;
-let baseUrl;
-const request = (path, options = {}) => fetch(`${baseUrl}${path}`, { headers: { 'content-type': 'application/json', ...(options.token ? { authorization: `Bearer ${options.token}` } : {}) }, ...options, body: options.body && JSON.stringify(options.body) });
+const request = (path, options = {}) => new Promise((resolve, reject) => {
+  const incoming = new EventEmitter();
+  incoming.method = options.method || 'GET';
+  incoming.url = path;
+  incoming.headers = { host: 'localhost', 'content-type': 'application/json', ...(options.token ? { authorization: `Bearer ${options.token}` } : {}), ...(options.headers || {}) };
+  incoming.socket = { remoteAddress: '127.0.0.1' };
+  incoming.destroy = () => {};
 
-test.beforeEach(async () => {
+  const response = {
+    headersSent: false,
+    status: 200,
+    headers: {},
+    chunks: [],
+    writeHead(status, headers = {}) { this.status = status; this.headers = headers; this.headersSent = true; return this; },
+    end(chunk = '') {
+      if (chunk) this.chunks.push(Buffer.from(chunk));
+      const body = Buffer.concat(this.chunks).toString('utf8');
+      server.removeListener('error', onError);
+      resolve({
+        status: this.status,
+        headers: new Headers(this.headers),
+        json: async () => JSON.parse(body),
+        text: async () => body
+      });
+    }
+  };
+
+  const onError = (error) => reject(error);
+  server.once('error', onError);
+  server.emit('request', incoming, response);
+  queueMicrotask(() => {
+    if (options.body) incoming.emit('data', Buffer.from(JSON.stringify(options.body)));
+    incoming.emit('end');
+  });
+});
+
+test.beforeEach(() => {
   resetStore();
   server = createApp();
-  await new Promise((resolve) => server.listen(0, resolve));
-  baseUrl = `http://127.0.0.1:${server.address().port}`;
 });
-test.afterEach(() => server.close());
 
 test('frontend pages and project assets are served with the expected indexing boundary', async () => {
-  const publicPage = await fetch(`${baseUrl}/`);
+  const publicPage = await request('/');
   assert.equal(publicPage.status, 200);
   assert.match(publicPage.headers.get('content-type'), /text\/html/);
   assert.equal(publicPage.headers.get('x-frame-options'), 'DENY');
   assert.match(publicPage.headers.get('content-security-policy'), /frame-ancestors 'none'/);
   assert.match(await publicPage.text(), /アキナエルAI/);
 
-  const customerPage = await fetch(`${baseUrl}/mypage`, { redirect: 'manual' });
+  const customerPage = await request('/mypage');
   assert.equal(customerPage.status, 200);
   assert.equal(customerPage.headers.get('x-robots-tag'), 'noindex, nofollow');
 
-  const adminPage = await fetch(`${baseUrl}/admin`, { redirect: 'manual' });
+  const adminPage = await request('/admin');
   assert.equal(adminPage.status, 302);
   assert.equal(adminPage.headers.get('location'), '/admin-login');
-  const adminLoginPage = await fetch(`${baseUrl}/admin-login`);
+  const adminLoginPage = await request('/admin-login');
   assert.equal(adminLoginPage.status, 200);
 
-  const legalPage = await fetch(`${baseUrl}/legal`);
+  const legalPage = await request('/legal');
   assert.equal(legalPage.status, 200);
   assert.match(await legalPage.text(), /運営・法務情報/);
 
-  const logo = await fetch(`${baseUrl}/assets/logos/logo-horizontal.svg`);
+  const logo = await request('/assets/logos/logo-horizontal.svg');
   assert.equal(logo.status, 200);
   assert.match(logo.headers.get('content-type'), /image\/svg\+xml/);
 
-  const appScript = await fetch(`${baseUrl}/assets/app.js`);
+  const appScript = await request('/assets/app.js');
   const appSource = await appScript.text();
   assert.match(appSource, /authFragment\.get\('access_token'\)/);
   assert.match(appSource, /\/api\/v2\/onboarding/);
 
-  const paymentSuccess = await fetch(`${baseUrl}/payment/success`);
+  const paymentSuccess = await request('/payment/success');
   assert.equal(paymentSuccess.status, 200);
   assert.equal(paymentSuccess.headers.get('x-robots-tag'), 'noindex, nofollow');
-  const paymentCancel = await fetch(`${baseUrl}/payment/cancel`);
+  const paymentCancel = await request('/payment/cancel');
   assert.equal(paymentCancel.status, 200);
   assert.equal(paymentCancel.headers.get('x-robots-tag'), 'noindex, nofollow');
 
-  const robots = await fetch(`${baseUrl}/robots.txt`);
+  const robots = await request('/robots.txt');
   assert.equal(robots.status, 200);
   assert.match(await robots.text(), /Disallow: \/admin/);
 
-  const sitemap = await fetch(`${baseUrl}/sitemap.xml`);
+  const sitemap = await request('/sitemap.xml');
   assert.equal(sitemap.status, 200);
   assert.match(sitemap.headers.get('content-type'), /application\/xml/);
 });
 
 test('homepage presents formal prices and tax conditions while retaining the required trust answers', async () => {
-  const response = await fetch(`${baseUrl}/`);
+  const response = await request('/');
   const html = await response.text();
   assert.match(html, new RegExp(businessConfig.pricing.mini.monthlyAmount.toLocaleString('ja-JP')));
   assert.match(html, new RegExp(businessConfig.pricing.operations.monthlyAmount.toLocaleString('ja-JP')));
@@ -71,35 +102,36 @@ test('homepage presents formal prices and tax conditions while retaining the req
   assert.match(html, new RegExp(businessConfig.pricing.websiteProduction.startingAmount.toLocaleString('ja-JP')));
   assert.match(html, /広告費（税別）の20%に消費税を加えた額/);
   assert.match(html, /最低料金：<\/strong>月額5,500円（税込）/);
-  assert.match(html, /無料登録後、何ができますか/);
+  assert.match(html, /現在、相談できますか？/);
   assert.match(html, /勝手に料金が発生しませんか/);
   assert.match(html, /データはどう扱われますか/);
 });
 
-test('homepage pricing section does not link visitors to the raw pricing API and CTAs resolve to real auth destinations', async () => {
-  const response = await fetch(`${baseUrl}/`);
+test('homepage pricing section does not link visitors to the raw pricing API while intake is closed', async () => {
+  const response = await request('/');
   const html = await response.text();
   assert.doesNotMatch(html, /href="\/api\/public\/pricing"/);
-  assert.match(html, /data-auth-open="register"/);
+  assert.doesNotMatch(html, /data-auth-open="register"/);
   assert.match(html, /data-auth-open="login"/);
-  const jpg = await fetch(`${baseUrl}/assets/photos/og-hero.jpg`);
+  assert.match(html, /href="\/legal#operator">新規受付は準備中/);
+  const jpg = await request('/assets/photos/og-hero.jpg');
   assert.equal(jpg.status, 200);
   assert.match(jpg.headers.get('content-type'), /image\/jpeg/);
   assert.match(jpg.headers.get('cache-control'), /public/);
 });
 
 test('homepage hero image has explicit dimensions and eager high-priority loading to avoid layout shift', async () => {
-  const response = await fetch(`${baseUrl}/`);
+  const response = await request('/');
   const html = await response.text();
   assert.match(html, /class="hero-media"[^>]*width="2400"[^>]*height="1350"/);
   assert.match(html, /class="hero-media"[^>]*fetchpriority="high"/);
-  const avif = await fetch(`${baseUrl}/assets/v2/photos/akinael-hero-desktop-v2.avif`);
+  const avif = await request('/assets/v2/photos/akinael-hero-desktop-v2.avif');
   assert.equal(avif.status, 200);
   assert.match(avif.headers.get('content-type'), /image\/avif/);
 });
 
 test('registration form requires explicit consent to the terms and privacy policy', async () => {
-  const response = await fetch(`${baseUrl}/`);
+  const response = await request('/');
   const html = await response.text();
   assert.match(html, /<input type="checkbox" name="consent"[^>]*required[^>]*data-auth-consent>/);
   assert.doesNotMatch(html, /data-auth-consent[^>]* checked/);
@@ -108,7 +140,7 @@ test('registration form requires explicit consent to the terms and privacy polic
 });
 
 test('login mode disables the registration-only consent requirement', async () => {
-  const response = await fetch(`${baseUrl}/assets/app.js`);
+  const response = await request('/assets/app.js');
   const source = await response.text();
   assert.match(source, /authConsentInput\.disabled = mode !== 'register'/);
   assert.match(source, /authConsentInput\.required = mode === 'register'/);
@@ -116,14 +148,14 @@ test('login mode disables the registration-only consent requirement', async () =
 
 test('frontend pages cache-bust the customer login fix', async () => {
   for (const path of ['/', '/mypage']) {
-    const response = await fetch(`${baseUrl}${path}`, { redirect: 'manual' });
+    const response = await request(path);
     const html = await response.text();
     assert.match(html, /\/assets\/app\.js\?v=20260830-login-fix/);
   }
 });
 
 test('public pricing uses the formal plan and approval policy', async () => {
-  const response = await fetch(`${baseUrl}/api/public/pricing`);
+  const response = await request('/api/public/pricing');
   const config = await response.json();
   assert.equal(response.status, 200);
   assert.equal(config.pricing.trial.amount, 0);
@@ -354,7 +386,7 @@ test('approved HTML artifact can be published without creating another hosting s
   const publishedResponse = await request(`/api/admin/projects/${project.id}/deploy`, { method: 'POST', token: admin.token, body: {} });
   const published = await publishedResponse.json();
   assert.equal(publishedResponse.status, 201);
-  const response = await fetch(`${baseUrl}${published.url}`);
+  const response = await request(published.url);
   assert.equal(response.status, 200);
   assert.match(await response.text(), /公開テスト/);
 });
@@ -371,7 +403,7 @@ test('custom domain is assigned at publish time and serves the approved artifact
   const published = await publishedResponse.json();
   assert.equal(publishedResponse.status, 201);
   assert.equal(published.customDomain, 'shop.example.com');
-  const response = await fetch(`${baseUrl}${published.url}`);
+  const response = await request(published.url);
   assert.equal(response.status, 200);
   assert.match(await response.text(), /独自ドメイン/);
 });

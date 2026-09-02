@@ -14,23 +14,16 @@ npm start
 
 新規登録・相談受付は既定で閉じています。正式な運営者情報、外部向け問い合わせ体制、個人情報取扱いの公開可否について人間・法務の承認が完了した場合に限り、`CUSTOMER_INTAKE_ENABLED=true` を本番環境へ明示設定してください。旧 `/api/*` は廃止済みで、`/api/v2/*` 以外のAPIは利用できません。
 
-主要API:
+主要API（すべて `/api/v2`）:
 
-- 認証: `/api/auth/register`, `/api/auth/login`
-- 顧客案件: `/api/projects`, `/api/projects/:id`, `/api/projects/:id/messages`（顧客の送信にはAIが同一レスポンス内で即時応答する）, `/api/projects/:id/tasks`, `/api/projects/:id/artifacts`, `/api/projects/:id/files`, `/api/projects/:id/notifications`
-- 管理者: `/api/admin/projects`, `/api/admin/notifications`, `/api/admin/audit-logs`
-- AI進行: `/api/admin/projects/:id/workflow`
-- 品質検査: `/api/admin/projects/:id/quality-checks`
-- 承認: `/api/admin/projects/:id/approvals`（作成・一覧）, `/api/admin/approvals/:id/decision`
-- 決済アダプター: `/api/admin/projects/:id/payments`（作成）, `/api/projects/:id/payments`（顧客・管理者とも自案件分を閲覧可）
-- 決済Checkout実行: `/api/admin/payments/:id/checkout`（課金承認後のみ）。Checkout完了後の遷移先は `/payment/success`・`/payment/cancel`
-- AIタスク実行: `/api/admin/tasks/:id/execute`
-- 制作ワークスペース: 案件ごとに専用ワークスペースを作成し、1本のLLM接続を9つの専門ロールへ分担します。顧客ヒアリング、制作ディレクション、調査・戦略、情報設計・UX、コンテンツ編集、ビジュアルデザイン、実装、SEO・アクセシビリティ、品質保証の順で、依存する前工程が完了するまで後工程は実行できません。
-- 公開料金・返金ポリシー: `/api/public/pricing`
-- 公開ページの窓口AIチャット（未ログイン、会話は保存しない）: `/api/public/chat`
-- 顧客サイト公開: `/api/admin/projects/:id/deploy`（公開承認後のみ）
-- 管理者設定: `/api/admin/settings`（GET / PUT）
-- 外部サービス接続状態: `/api/admin/system-status`
+- 認証: `POST /api/v2/auth/register`, `POST /api/v2/auth/login`, `POST /api/v2/auth/logout`, `GET /api/v2/auth/me`
+- オンボーディング: `POST /api/v2/onboarding`
+- 顧客案件: `GET` / `POST /api/v2/projects`, `GET /api/v2/projects/:id`
+- 案件リクエスト: `GET` / `POST /api/v2/projects/:id/requests`
+- 案件メッセージ: `GET` / `POST /api/v2/projects/:id/messages`
+- 制作状況: `GET /api/v2/projects/:id/production`
+
+旧 `/api/*` エンドポイント（公開チャット・管理APIを含む）は完全に廃止され、常に `410 legacy_api_retired` を返します。未認証の相談内容をLLMへ送信する公開チャットは提供しません。
 
 公開、課金、返金、データ削除などの不可逆操作は、決済APIや外部公開APIを直接呼ばず、承認レコードを作成するところで止まります。AIワークフローも `model` を記録するアダプター境界までで、モデルの認証情報や推論結果をコードへ固定していません。
 

@@ -98,6 +98,39 @@ const reconcileReviewWithQa = (review, { qaFailed = false, taskMode = null } = {
   };
 };
 
+const RELEASE_GATE_REQUIRED = [
+  'market_ux_research', 'design_reference_research', 'copy_language_research',
+  'direction_synthesis', 'ux_architecture', 'copy_direction', 'design_direction',
+  'build', 'seo_a11y_review', 'visual_review', 'copy_review', 'technical_review'
+];
+const RELEASE_GATE_REVIEW_TASKS = new Set(['seo_a11y_review', 'visual_review', 'copy_review', 'technical_review']);
+
+const evaluateReleaseGate = (context) => {
+  const tasks = new Map((context.priorTasks || []).map((task) => [task.task_key, task]));
+  const missing = RELEASE_GATE_REQUIRED.filter((key) => !tasks.has(key) || tasks.get(key).status !== 'completed');
+  const failedReviews = RELEASE_GATE_REQUIRED.filter((key) => {
+    if (!RELEASE_GATE_REVIEW_TASKS.has(key)) return false;
+    return tasks.get(key)?.result?.review?.status !== 'PASS';
+  });
+  const missingEvidence = RELEASE_GATE_REQUIRED.filter((key) => {
+    const result = tasks.get(key)?.result || {};
+    return !result.artifact_id && !result.run_id;
+  });
+  const findings = [
+    ...missing.map((key) => ({ severity: 'major', location: key, problem: '前段タスクがcompletedではありません。', expected: '依存タスクをcompletedにすること。' })),
+    ...failedReviews.map((key) => ({ severity: 'major', location: key, problem: '最新のレビュー結果がPASSではありません。', expected: '最新レビューをPASSにすること。' })),
+    ...missingEvidence.map((key) => ({ severity: 'major', location: key, problem: '実行artifactまたはRun証跡がありません。', expected: 'artifact_idまたはrun_idを保存すること。' }))
+  ];
+  if (findings.length > 0) {
+    return { status: 'FAIL', findings, summary: '前段タスクの最新status・レビュー結果・実行証跡がDEPLOY READY条件を満たしていません。' };
+  }
+  return {
+    status: 'PASS',
+    findings: [],
+    summary: 'Research・Direction・Build・QA・Visual・Copy・Technicalの最新結果と実行証跡を確認し、DEPLOY READYです。'
+  };
+};
+
 const parseResultFile = (text) => {
   if (!text) return null;
   try { return JSON.parse(text); } catch { return { final_message: text }; }
@@ -203,6 +236,19 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
   };
 
   const executeInternal = async (context) => {
+    if (context.task.mode === 'release_gate') {
+      const review = evaluateReleaseGate(context);
+      const output = JSON.stringify({ status: review.status, findings: review.findings, summary: review.summary });
+      const artifact = await saveTextArtifact(context, output, { review, deterministic: true });
+      if (review.status === 'FAIL') {
+        return finishFailure(context.task.id, review.summary || 'release gate failed', { artifact_id: artifact?.id || null, review });
+      }
+      return store.finishTask({
+        taskId: context.task.id,
+        success: true,
+        result: { artifact_id: artifact?.id || null, review, evidence: RELEASE_GATE_REQUIRED }
+      });
+    }
     const prompt = buildTaskPrompt(context);
     const research = context.task.mode === 'research';
     const lightweight = LIGHTWEIGHT_INTERNAL_MODES.has(context.task.mode);

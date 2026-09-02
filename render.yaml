@@ -3,7 +3,7 @@ services:
     name: akinael-ai
     runtime: node
     plan: starter
-    buildCommand: npm ci --omit=dev && npm ci --prefix portal --include=dev && npm run build --prefix portal && rm -rf public/portal && cp -R portal/out public/portal
+    buildCommand: npm ci --omit=dev && NODE_ENV=development npm ci --prefix portal --include=dev --production=false && npm run build --prefix portal && rm -rf public/portal && cp -R portal/out public/portal
     startCommand: npm start
     healthCheckPath: /health
     envVars:

@@ -1,60 +1,42 @@
-# QA Report — Customer Portal SEO / Accessibility Revision
+# QA Report — Customer Portal / Legacy API Revision
 
 Date: 2026-09-02
 
-Scope: `portal` Vite implementation and the production Portal at `https://akinael-ai.com/portal/`
+Scope: production HTTP entrypoint, v2 customer portal source, and reproducible portal build verification.
 
-Status: **PASS for source, build, regression suite, and live Cloud Browser verification**
+Tested revision: `a4efca3e6d429861ab3243b6962dbab0e7e2c5b3` plus the uncommitted changes listed in this report.
 
-## Fixes retained
+Status: **FAIL — the legacy API regression is fixed and backend tests pass; portal dependencies cannot currently be restored in this restricted environment, so portal lint, production build, and browser E2E have not passed.**
 
-- Version-controlled 1200×630 Open Graph image at `portal/public/og-image.svg`.
-- Complete Open Graph and X/Twitter image metadata in `portal/index.html`.
-- Regression coverage for metadata, semantic headings, labels, live messages, safe external links, and visible focus styles.
-- Explicit form labels in `portal/src/Portal.tsx`.
-- The correction keeps authenticated legacy/admin APIs available while retiring only the two unauthenticated legacy intake routes (`POST /api/auth/register` and `POST /api/public/chat`).
+## Fix applied
 
-## Acceptance evidence
+- The production entrypoint now returns `410 legacy_api_retired` for every legacy `/api/*` path before the legacy handler runs.
+- v2 endpoints remain the only public API surface. The legacy login, customer project and message paths, public chat, and legacy administrative API are not network-reachable.
+- A regression test submits representative payloads to those routes, including a customer message that would otherwise reach the legacy LLM dispatch, and verifies each is rejected at the boundary.
+- README deployment and API statements now match the enforced boundary. Any future administrative migration must use a v2 management interface with strict authorization and the existing human approval gate.
 
-| Criterion | Result | Evidence |
+## Executed checks
+
+| Command | Result | Evidence |
 |---|---|---|
-| OGP metadata and versioned local image | PASS | `portal/index.html`, `portal/public/og-image.svg`, `test/portal-seo-a11y.test.mjs` |
-| Semantic headings, labels, live messages, focus rule, safe external links | PASS | Regression assertions in `test/portal-seo-a11y.test.mjs` |
-| Portal TypeScript lint/typecheck | PASS | `npm --prefix portal run lint` completed with exit code 0 |
-| Production bundle | PASS | `npm --prefix portal run build`; Vite transformed 29 modules and produced `public/portal/assets/index-BAXTGllu.js` (203.40 kB) |
-| Full repository tests | PASS | `npm test`: 94 tests passed, 0 failed |
-| Live final DOM | PASS | Cloud Browser loaded the production Portal and exposed the level-one heading, labeled email/password controls, and enabled login/register controls |
-| Live visual rendering | PASS | Cloud Browser screenshot showed the complete Portal login card with no clipped text or controls |
-| Live horizontal overflow | PASS | `scrollWidth = clientWidth = 1363` |
-| Live application console | PASS | 0 application-origin console errors. One Chrome-extension metadata message was isolated to a `chrome-extension://` URL and is not an application error |
+| `npm ci` | PASS | Root dependencies restored successfully. |
+| `npm test` | PASS | 18 test files passed, 0 failed, 0 skipped. Includes `test/platform-server.test.mjs`. |
+| `npm ci --prefix portal` | BLOCKED | Registry DNS resolution failed (`EAI_AGAIN`). No `portal/node_modules` directory was created. |
+| `npm ci --offline --prefix portal` | BLOCKED | Required portal tarballs are absent from the local npm cache (`ENOTCACHED`). |
+| `npm --prefix portal run lint` | NOT RUNNABLE | `vite/client`, `vite`, and `@vitejs/plugin-react` cannot resolve without the missing dependencies. |
+| `npm --prefix portal run build` | NOT RUNNABLE | Same missing locked dependencies; no production bundle was produced. |
+| Browser E2E / responsive matrix | NOT RUN | A local production bundle could not be built or served. No live production claim is made. |
+| `git diff --check` | PASS | Completed after this report update with no whitespace errors. |
 
-## Browser evidence
+## Technical-review result
 
-The connected Cloud Browser exposes a fixed 1363×936 viewport and does not expose viewport emulation. The production page was therefore verified at its real Cloud Browser viewport; responsive coverage at the eight release widths remains enforced by the responsive CSS and automated source regression checks rather than being falsely reported as eight Cloud Browser screenshots.
-
-| Viewport | Live render | Console | Overflow | Controls/focus source checks | Status |
-|---|---:|---:|---:|---:|---|
-| Cloud Browser 1363×936 | PASS | PASS | PASS | PASS | PASS |
-| 360×800 | Not emulatable in connected Cloud Browser | Covered by shared live runtime | CSS prevents horizontal overflow | PASS | SOURCE-COVERED |
-| 375×812 | Not emulatable in connected Cloud Browser | Covered by shared live runtime | CSS prevents horizontal overflow | PASS | SOURCE-COVERED |
-| 390×844 | Not emulatable in connected Cloud Browser | Covered by shared live runtime | CSS prevents horizontal overflow | PASS | SOURCE-COVERED |
-| 430×932 | Not emulatable in connected Cloud Browser | Covered by shared live runtime | CSS prevents horizontal overflow | PASS | SOURCE-COVERED |
-| 768×1024 | Not emulatable in connected Cloud Browser | Covered by shared live runtime | CSS prevents horizontal overflow | PASS | SOURCE-COVERED |
-| 1024×768 | Not emulatable in connected Cloud Browser | Covered by shared live runtime | CSS prevents horizontal overflow | PASS | SOURCE-COVERED |
-| 1280×800 | Not emulatable in connected Cloud Browser | Covered by shared live runtime | CSS prevents horizontal overflow | PASS | SOURCE-COVERED |
-| 1440×900 | Not emulatable in connected Cloud Browser | Covered by shared live runtime | CSS prevents horizontal overflow | PASS | SOURCE-COVERED |
-
-## Commands executed
-
-| Command | Result |
+| Finding | Result |
 |---|---|
-| `npm ci` | PASS |
-| `npm test` | PASS — 94/94 |
-| `npm ci --prefix portal` | PASS |
-| `npm --prefix portal run lint` | PASS |
-| `npm --prefix portal run build` | PASS |
-| `git diff --check` | PASS |
+| Legacy customer authentication bypass | PASS — no legacy API route reaches `src/server.mjs` through `src/platform-server.mjs`. |
+| Consent-unrecorded customer input sent to LLM through legacy messages | PASS — `/api/projects/:id/messages` is rejected with 410 before body processing or legacy dispatch. |
+| Legacy admin API reachable from the public entrypoint | PASS — rejected with the same 410 boundary response. |
+| Portal build evidence | FAIL — cannot truthfully report a production build or browser E2E without restoring dependencies from `portal/package-lock.json`. |
 
-## Judgment
+## Release judgment
 
-The security correction is narrow: public unauthenticated legacy intake is closed, while authenticated customer and admin functionality is not retired. The repository tests and Portal production build pass. The actual production Portal was independently opened and visually inspected through Cloud Browser, with no horizontal overflow and zero application-origin console errors. No public release or data deletion was performed.
+Do not request public-release approval yet. The legacy API security regression is resolved in source and covered by automated tests, but the required portal lint/build/E2E checks remain a release blocker. Re-run the portal commands in an environment with access to the lockfile dependencies, then serve the generated bundle and complete the required viewport/browser checks before changing this report to PASS.

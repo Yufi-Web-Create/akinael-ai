@@ -50,8 +50,8 @@ const MIME_TYPES = {
 };
 
 const serveStatic = async (response, pathname) => {
-  const pages = { '/': 'index.html', '/mypage': 'mypage.html', '/admin': 'admin.html', '/admin-login': 'admin-login.html', '/legal': 'legal.html', '/payment/success': 'payment-success.html', '/payment/cancel': 'payment-cancel.html', '/robots.txt': 'robots.txt', '/sitemap.xml': 'sitemap.xml' };
-  const relativePath = pages[pathname] || (pathname.startsWith('/assets/') ? pathname.slice(1) : null);
+  const pages = { '/': 'index.html', '/portal': 'portal/index.html', '/portal/': 'portal/index.html', '/mypage': 'mypage.html', '/admin': 'admin.html', '/admin-login': 'admin-login.html', '/legal': 'legal.html', '/payment/success': 'payment-success.html', '/payment/cancel': 'payment-cancel.html', '/robots.txt': 'robots.txt', '/sitemap.xml': 'sitemap.xml' };
+  const relativePath = pages[pathname] || (pathname.startsWith('/portal/') ? `portal/${pathname.slice('/portal/'.length)}` : (pathname.startsWith('/assets/') ? pathname.slice(1) : null));
   if (!relativePath || relativePath.includes('..')) return false;
   try {
     const filePath = join(PUBLIC_ROOT, relativePath);

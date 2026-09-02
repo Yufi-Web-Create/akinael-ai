@@ -138,7 +138,7 @@ export const createExecutionStore = ({ env = process.env, fetchImpl = fetch } = 
 
   const listRunningExternalTasks = async (limit = 25) => {
     const rows = await admin.request('/rest/v1/tasks', {
-      query: `status=eq.running&select=id,workflow_run_id,task_key,title,mode,metadata,attempts,max_attempts,updated_at&order=updated_at.asc&limit=${Math.max(1, Math.min(Number(limit) || 25, 100))}`
+      query: `status=eq.running&select=id,workflow_run_id,task_key,title,mode,metadata,attempts,max_attempts,started_at,updated_at&order=updated_at.asc&limit=${Math.max(1, Math.min(Number(limit) || 25, 100))}`
     });
     return (Array.isArray(rows) ? rows : []).filter((item) => item.metadata?.external_executor);
   };

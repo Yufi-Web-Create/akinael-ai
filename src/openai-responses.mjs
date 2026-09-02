@@ -85,6 +85,7 @@ export const createResponsesExecutor = ({ env = process.env, fetchImpl = fetch }
   const lightweightModel = configured(env.LIGHTWEIGHT_AGENT_MODEL, 'gpt-5.6-luna');
   const researchModel = configured(env.RESEARCH_MODEL, lightweightModel);
   const generalModel = configured(env.GENERAL_AGENT_MODEL, 'gpt-5.6-terra');
+  const maxOutputTokens = Math.max(256, Number(env.OPENAI_MAX_OUTPUT_TOKENS || 4000));
 
   const run = async ({ prompt, research = false, lightweight = false, reasoningEffort = 'medium' }) => {
     if (!apiKey) {
@@ -94,7 +95,8 @@ export const createResponsesExecutor = ({ env = process.env, fetchImpl = fetch }
     const payload = {
       model: research ? researchModel : lightweight ? lightweightModel : generalModel,
       input: prompt,
-      reasoning: { effort: reasoningEffort }
+      reasoning: { effort: reasoningEffort },
+      max_output_tokens: maxOutputTokens
     };
     if (research) {
       payload.tools = [{ type: 'web_search', search_context_size: 'medium' }];
@@ -126,6 +128,7 @@ export const createResponsesExecutor = ({ env = process.env, fetchImpl = fetch }
     researchModel,
     generalModel,
     lightweightModel,
+    maxOutputTokens,
     run
   };
 };

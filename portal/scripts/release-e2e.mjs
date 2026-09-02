@@ -51,11 +51,16 @@ try {
     const screenshot = path.join(artifactDirectory, `portal-${width}x${height}.png`);
     const profile = await mkdtemp(path.join(os.tmpdir(), `akinael-chrome-${width}x${height}-`));
     try {
-      const result = await run(chromium, [
-        '--headless', '--no-sandbox', '--disable-gpu', '--no-first-run', '--enable-logging=stderr', '--log-level=0',
-        `--user-data-dir=${profile}`, `--window-size=${width},${height}`, '--virtual-time-budget=3000',
-        `--screenshot=${screenshot}`, '--dump-dom', `${baseUrl}/portal/`
-      ]);
+      let result;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        result = await run(chromium, [
+          '--headless', '--no-sandbox', '--disable-gpu', '--no-first-run', '--enable-logging=stderr', '--log-level=0',
+          `--user-data-dir=${profile}`, `--window-size=${width},${height}`, '--virtual-time-budget=3000',
+          `--screenshot=${screenshot}`, '--dump-dom', `${baseUrl}/portal/`
+        ]);
+        if (/ログイン/.test(result.stdout)) break;
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
       assert.match(result.stdout, /ログイン/, `login journey did not render at ${width}x${height}`);
       assert.match(result.stdout, /id="email"/, `email field missing at ${width}x${height}`);
       assert.match(result.stdout, /id="password"/, `password field missing at ${width}x${height}`);

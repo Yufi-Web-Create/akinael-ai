@@ -87,3 +87,35 @@ The real-browser review remains blocked by the same sandbox Crashpad startup res
 | `test/server.test.mjs` / `test/platform-server.test.mjs` | BLOCKED — the sandbox forbids a local listener; their test setup cannot bind `127.0.0.1`. |
 
 The browser matrix remains **BLOCKED**, not PASS. Chromium headless exits during Crashpad startup with `setsockopt: Operation not permitted`, before opening the page. No screenshot or console result is claimed. Run the server-backed tests and eight-viewport browser matrix in a browser-capable environment before release approval.
+
+## Copy-review revision — `expanded_copy_review`
+
+**Scope:** `public/index.html`, `public/assets/styles.css`, `test/public-a11y.test.mjs`
+
+| Independent-review finding | Resolution |
+|---|---|
+| Hero copy and registration CTA did not explain the actual post-registration path | The hero now identifies the audience and service as a Web-production/customer-acquisition consultation point for small shops without a Web manager. Every visible registration CTA says `無料登録して相談をはじめる`; the hero, final CTA, FAQ, and flow state the required sequence: free registration → email confirmation → login → enter the consultation. |
+| Continued updates/improvement conditions were dispersed | The service, flow, and eligible monthly-plan cards now state that continued work occurs only within the contract’s pre-confirmed scope, response count, production volume, and fee. |
+| Trial and Web-site prototype wording differed by location | The hero, flow, trial card, final CTA, FAQ, JSON-LD, and showcase consistently state that the Web-site prototype is considered after the consultation is reviewed and is offered only when support is possible; its scope and production volume are then provided. |
+| Advertising tax relationship was hard to compare | The advertising section now uses three visible, separate items: ad spend is tax-exclusive and paid separately to the platform; the management fee is 20% of tax-exclusive ad spend plus consumption tax; its minimum is ¥5,500/month including tax. |
+
+### Acceptance evidence
+
+| Check | Result |
+|---|---|
+| `node --test test/public-a11y.test.mjs` | PASS — authentication/FAQ semantic checks, FAQ JSON-LD parity, and strengthened final-copy regression conditions. |
+| `node --test test/public-visual-regression.test.mjs` | PASS — landing-page rendering guard remains covered. |
+| `git diff --check` | PASS — no whitespace errors. |
+| `npm test` | BLOCKED by sandbox listener policy: all tests reached before `test/platform-server.test.mjs` passed; that file fails before assertions because the sandbox rejects local `listen` with `EPERM`. |
+| Real-browser viewport matrix | BLOCKED by sandbox browser policy: Chromium aborts during Crashpad startup (`setsockopt: Operation not permitted`) before opening a page or producing screenshots. |
+
+### Judgment rationale
+
+- All four major findings are resolved in the rendered source, including the structured FAQ data that must mirror the visible FAQ.
+- The dedicated regression assertions now protect the exact registration sequence, prototype condition, continuing-work preconditions, and the three-part advertising fee/tax relation.
+- No prices, service claims, or contractual conditions were invented; the wording follows the formal entries in `src/business-config.mjs`.
+
+### Unresolved items / next handoff
+
+- The release gate is **not yet PASS**: run the complete Node suite and the required eight-viewport browser matrix in an environment that permits local listeners and browser IPC. Capture screenshots and console output there before requesting public-release approval.
+- No deployment, DNS, billing, external submission, or other irreversible operation was performed.

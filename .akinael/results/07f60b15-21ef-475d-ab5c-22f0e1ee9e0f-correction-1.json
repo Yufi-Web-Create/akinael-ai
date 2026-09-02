@@ -2,8 +2,8 @@
   "task_id": "07f60b15-21ef-475d-ab5c-22f0e1ee9e0f",
   "stage": "correction",
   "cycle": 1,
-  "final_message": "レビュー指摘のコピーを修正しました。\n\n- ヒーローと「できること」を、相談整理から制作・検査・更新改善までの具体的な提供内容へ変更\n- 料金を正式設定どおり税込で掲載（お試し0円、月額3,980円／7,980円／17,800円、Web制作19,800円〜）\n- 各プランの対象範囲、個別見積条件、Instagram広告運用費・外部費用条件を明記\n- 更新・継続改善の提供範囲を「しっかり運用」「発展運用」と一致させた\n- 画面上のFAQとFAQ JSON-LDを同一内容に更新\n- 料金設定との乖離を検出する回帰テストを追加\n\n変更: [public/index.html](/home/runner/work/akinael-ai/akinael-ai/public/index.html)、[test/public-a11y.test.mjs](/home/runner/work/akinael-ai/akinael-ai/test/public-a11y.test.mjs)\n\n検証は公開ページのテスト2件、JSON-LD構文、diffチェックがすべてPASSです。\n\n未解決事項: この環境ではローカルポート待受が禁止されており、ChromiumもCrashpadの権限制約で起動できません。そのため実ブラウザのviewport確認は未実施です。全体テストでも同じ理由で `platform-server.test.mjs` が `listen EPERM` となります。",
+  "final_message": "レビュー指摘の4件を修正しました。\n\n- 登録 → メール確認 → ログイン → 相談入力 → 試作可否確認、の順序を全CTA・フロー・FAQで統一\n- 継続改善を「契約内容・対応回数・制作量・料金を事前確定した範囲」に限定\n- 広告費・運用費・最低料金の税区分を3項目で明示\n- FAQのJSON-LDも画面文言と同期\n\n変更: [index.html](/home/runner/work/akinael-ai/akinael-ai/public/index.html)、[styles.css](/home/runner/work/akinael-ai/akinael-ai/public/assets/styles.css)、[コピー回帰テスト](/home/runner/work/akinael-ai/akinael-ai/test/public-a11y.test.mjs)、[QA_REPORT.md](/home/runner/work/akinael-ai/akinael-ai/QA_REPORT.md)\n\n判断理由: 正式な料金・運用設定に基づき、試作を無条件提供とは表現せず、相談内容の確認と対応可否を必須条件として明示しました。\n\n検証: 関連4テストはすべてPASS、`git diff --check` もPASSです。\n\n未解決事項: このサンドボックスはローカル待受を拒否し、Chromiumも起動時に制限されるため、全体テストと実ブラウザ8 viewport確認は未実施です。公開前にブラウザ実行可能な環境で再検証が必要です。",
   "qa_conclusion": "failure",
   "codex_conclusion": "success",
-  "generated_at": "2026-09-02T17:14:16.932Z"
+  "generated_at": "2026-09-02T17:33:47.088Z"
 }

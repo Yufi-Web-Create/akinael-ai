@@ -76,11 +76,11 @@ test('homepage presents formal prices and tax conditions while retaining the req
   assert.match(html, /データはどう扱われますか/);
 });
 
-test('homepage pricing section does not link visitors to the raw pricing API and CTAs resolve to real auth destinations', async () => {
+test('homepage pricing section does not link visitors to the raw pricing API and retains an existing-customer login', async () => {
   const response = await fetch(`${baseUrl}/`);
   const html = await response.text();
   assert.doesNotMatch(html, /href="\/api\/public\/pricing"/);
-  assert.match(html, /data-auth-open="register"/);
+  assert.match(html, /href="\/legal#privacy"/);
   assert.match(html, /data-auth-open="login"/);
   const jpg = await fetch(`${baseUrl}/assets/photos/og-hero.jpg`);
   assert.equal(jpg.status, 200);
@@ -98,20 +98,20 @@ test('homepage hero image has explicit dimensions and eager high-priority loadin
   assert.match(avif.headers.get('content-type'), /image\/avif/);
 });
 
-test('registration form requires explicit consent to the terms and privacy policy', async () => {
+test('new registration and public consultation inputs are not rendered while legal documents are incomplete', async () => {
   const response = await fetch(`${baseUrl}/`);
   const html = await response.text();
-  assert.match(html, /<input type="checkbox" name="consent"[^>]*required[^>]*data-auth-consent>/);
-  assert.doesNotMatch(html, /data-auth-consent[^>]* checked/);
-  assert.match(html, /href="\/legal#terms"/);
+  assert.doesNotMatch(html, /data-auth-tab="register"/);
+  assert.doesNotMatch(html, /data-public-chat-form/);
+  assert.match(html, /新規の登録・相談受付は、正式な利用規約とプライバシーポリシーの公開まで停止しています。/);
   assert.match(html, /href="\/legal#privacy"/);
 });
 
-test('login mode disables the registration-only consent requirement', async () => {
+test('frontend only exposes the existing-customer login mode', async () => {
   const response = await fetch(`${baseUrl}/assets/app.js`);
   const source = await response.text();
-  assert.match(source, /authConsentInput\.disabled = mode !== 'register'/);
-  assert.match(source, /authConsentInput\.required = mode === 'register'/);
+  assert.match(source, /const authCopy = \{\s*login:/);
+  assert.match(source, /let authMode = 'login'/);
 });
 
 test('frontend pages cache-bust the customer login fix', async () => {

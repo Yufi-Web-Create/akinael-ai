@@ -153,6 +153,7 @@ const notifyAdminByEmail = async (admin, subject, message) => {
 };
 
 const CHAT_GUARDRAILS = '料金・順位・成果を保証する表現は使わないでください。契約条件や個別見積り、公開・課金・返金・データ削除など不可逆な操作の最終判断は必ず人間の担当者が行う旨を伝え、断定できない事項は「担当者に確認します」と答えてください。簡潔な日本語で答えてください。';
+const PERSONAL_DATA_COLLECTION_MESSAGE = 'new registration and consultation intake are unavailable until the terms and privacy policy are published';
 const PRODUCTION_TEAM = [
   { role: 'customer_intake', label: '顧客ヒアリングAI', focus: '顧客の相談内容、店舗情報、目的、制約を整理する', deliverable: 'ヒアリング整理票', dependencies: [] },
   { role: 'project_director', label: '制作ディレクターAI', focus: '案件の方針、優先順位、受け入れ条件を定義する', deliverable: '制作方針・受け入れ条件', dependencies: ['customer_intake'] },
@@ -251,6 +252,7 @@ export const createApp = () => http.createServer(async (request, response) => {
     if (method === 'GET' && url.pathname === '/health') return json(response, 200, { status: 'ok' });
     if (method === 'GET' && url.pathname === '/api/public/pricing') return json(response, 200, publicPricing);
     if (method === 'POST' && url.pathname === '/api/public/chat') {
+      return error(response, 503, PERSONAL_DATA_COLLECTION_MESSAGE);
       const body = await readBody(request);
       if (typeof body.message !== 'string' || !body.message.trim() || body.message.length > 2000) return error(response, 400, 'message must be a non-empty string of at most 2000 characters');
       const history = Array.isArray(body.history) ? body.history.slice(-8) : [];

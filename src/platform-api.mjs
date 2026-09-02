@@ -1,8 +1,11 @@
 import { createPlatformStore, PlatformStoreError } from './platform-store.mjs';
 import { createProductionRouter } from './production-router.mjs';
-import { createSupabaseAuth, SupabaseAuthError } from './supabase-admin.mjs';
+import { createSupabaseAuth, SupabaseAuthError, verifySupabaseAccessToken } from './supabase-admin.mjs';
 
 const MAX_BODY_BYTES = 64 * 1024;
+// Do not collect account or consultation data until the legal documents and
+// durable consent record specified by the release gate are in place.
+const PERSONAL_DATA_COLLECTION_MESSAGE = 'new registration and consultation intake are unavailable until the terms and privacy policy are published';
 
 const writeJson = (response, status, payload, extraHeaders = {}) => {
   response.writeHead(status, {
@@ -45,6 +48,15 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
   const productionRouter = createProductionRouter({ env, fetchImpl });
   const auth = createSupabaseAuth({ env, fetchImpl });
 
+  const requireConfirmedEmail = async (accessToken) => {
+    const user = await verifySupabaseAccessToken(accessToken, { env, fetchImpl });
+    if (!user?.id) throw new PlatformStoreError('authentication required', { status: 401, code: 'authentication_required' });
+    if (!user.email_confirmed_at) {
+      throw new PlatformStoreError('email confirmation is required', { status: 403, code: 'email_confirmation_required' });
+    }
+    return user;
+  };
+
   const handle = async (request, response) => {
     const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
     if (!url.pathname.startsWith('/api/v2/')) return false;
@@ -54,20 +66,11 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
     const parts = url.pathname.split('/').filter(Boolean);
 
     try {
+      if (!['/api/v2/auth/register', '/api/v2/auth/login', '/api/v2/auth/logout'].includes(url.pathname)) {
+        await requireConfirmedEmail(token);
+      }
       if (method === 'POST' && url.pathname === '/api/v2/auth/register') {
-        const body = await readJsonBody(request);
-        const email = String(body.email || '').trim().toLowerCase();
-        const password = String(body.password || '');
-        if (!/^\S+@\S+\.\S+$/.test(email) || password.length < 12) {
-          throw new PlatformStoreError('valid email and password of at least 12 characters are required', { status: 400, code: 'validation_error' });
-        }
-        const result = await auth.signUp(email, password);
-        const accessToken = result?.access_token || result?.session?.access_token || null;
-        if (!accessToken) {
-          return writeJson(response, 202, { confirmationRequired: true }), true;
-        }
-        await store.provisionCustomer(accessToken, { displayName: email.split('@')[0] });
-        return writeJson(response, 201, { token: accessToken }), true;
+        throw new PlatformStoreError(PERSONAL_DATA_COLLECTION_MESSAGE, { status: 503, code: 'consultation_intake_closed' });
       }
 
       if (method === 'POST' && url.pathname === '/api/v2/auth/login') {
@@ -80,8 +83,7 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
         const result = await auth.signIn(email, password);
         const accessToken = result?.access_token || null;
         if (!accessToken) throw new SupabaseAuthError('invalid credentials', { status: 401, code: 'invalid_credentials' });
-        const me = await store.getMe(accessToken);
-        if (me.onboardingRequired) await store.provisionCustomer(accessToken, { displayName: email.split('@')[0] });
+        await requireConfirmedEmail(accessToken);
         return writeJson(response, 200, { token: accessToken }), true;
       }
 
@@ -95,8 +97,7 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
       }
 
       if (method === 'POST' && url.pathname === '/api/v2/onboarding') {
-        const body = await readJsonBody(request);
-        return writeJson(response, 200, await store.provisionCustomer(token, body)), true;
+        throw new PlatformStoreError(PERSONAL_DATA_COLLECTION_MESSAGE, { status: 503, code: 'consultation_intake_closed' });
       }
 
       if (method === 'GET' && url.pathname === '/api/v2/projects') {
@@ -104,6 +105,7 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
       }
 
       if (method === 'POST' && url.pathname === '/api/v2/projects') {
+        throw new PlatformStoreError(PERSONAL_DATA_COLLECTION_MESSAGE, { status: 503, code: 'consultation_intake_closed' });
         const body = await readJsonBody(request);
         return writeJson(response, 201, await store.createProject(token, body)), true;
       }
@@ -113,6 +115,7 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
           return writeJson(response, 200, await store.listRequests(token, parts[3])), true;
         }
         if (method === 'POST') {
+          throw new PlatformStoreError(PERSONAL_DATA_COLLECTION_MESSAGE, { status: 503, code: 'consultation_intake_closed' });
           const body = await readJsonBody(request);
           const created = await store.createRequest(token, parts[3], body);
           try {
@@ -131,6 +134,7 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
           return writeJson(response, 200, await store.listMessages(token, parts[3], { requestId: url.searchParams.get('requestId') })), true;
         }
         if (method === 'POST') {
+          throw new PlatformStoreError(PERSONAL_DATA_COLLECTION_MESSAGE, { status: 503, code: 'consultation_intake_closed' });
           const body = await readJsonBody(request);
           return writeJson(response, 201, await store.addMessage(token, parts[3], body)), true;
         }

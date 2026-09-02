@@ -119,3 +119,39 @@ The browser matrix remains **BLOCKED**, not PASS. Chromium headless exits during
 
 - The release gate is **not yet PASS**: run the complete Node suite and the required eight-viewport browser matrix in an environment that permits local listeners and browser IPC. Capture screenshots and console output there before requesting public-release approval.
 - No deployment, DNS, billing, external submission, or other irreversible operation was performed.
+
+## Technical-review revision — `expanded_technical_review`
+
+**Scope:** `src/platform-api.mjs`, `src/platform-server.mjs`, `src/server.mjs`, `public/index.html`, `public/legal.html`, `public/assets/app.js`, and related regression tests.
+
+| Independent-review finding | Resolution |
+|---|---|
+| New registration and consultation accepted personal data while the terms and privacy policy were still placeholders; browser-only consent could be bypassed. | Removed all new-registration and public-consultation inputs from the rendered page. The production entry server rejects legacy and v2 registration, public chat, project creation, request, message, and onboarding write endpoints with `503 consultation_intake_closed` before a body is read or a provider is called. |
+| A signup/login access token could be used without verifying email confirmation. | Every authenticated v2 route calls Supabase `/auth/v1/user` server-side and requires `email_confirmed_at`. An unconfirmed email receives `403 email_confirmation_required`; login returns no token and no customer provisioning occurs. |
+| Published text implied that a formal privacy policy governed active intake. | The legal page and all primary CTAs now state that new intake is stopped until formal terms, privacy policy, and consent-record design are ready. Existing-customer login remains available. |
+
+### Automated checks
+
+| Command | Result |
+|---|---|
+| `node --test test/public-a11y.test.mjs test/public-visual-regression.test.mjs test/customer-web-template.test.mjs test/portal-seo-a11y.test.mjs test/supabase-admin.test.mjs test/platform-store.test.mjs test/platform-requests.test.mjs test/production-pipelines.test.mjs test/production-router.test.mjs` | PASS — 9 files, 0 failures |
+| `node --check src/platform-api.mjs src/platform-server.mjs src/server.mjs public/assets/app.js` | PASS |
+| `git diff --check` | PASS |
+| `npm --prefix portal run lint` / `npm --prefix portal run build` | BLOCKED — `portal/node_modules` is absent. `npm --prefix portal ci` could not complete in this restricted environment, so Vite and its type definitions are unavailable. |
+| `npm test`, `test/server.test.mjs`, `test/platform-server.test.mjs` | BLOCKED — sandbox policy rejects local `listen` with `EPERM` before server-backed assertions run. |
+
+### Browser verification
+
+The required real-browser matrix remains **BLOCKED**, not PASS. This environment cannot start Chromium (Crashpad fails with `setsockopt: Operation not permitted`) and cannot bind a local test server. No screenshots or console results are claimed.
+
+### Judgment rationale
+
+- Suspending collection is the safe release-gate response while formal legal documents and consent persistence have not been supplied; it avoids inventing legal content or retaining unverifiable consent.
+- Server-side endpoint rejection prevents API callers from bypassing the removed UI.
+- Confirmation checks are enforced against the Supabase user record, rather than relying on the presence of an access token.
+
+### Unresolved items / next handoff
+
+- Before reopening intake, provide approved terms and privacy policy, define a versioned and durable consent record (user, document versions, timestamp, source), and implement the accompanying server-side validation and migration.
+- In a browser-capable environment, install portal dependencies from the lockfile, run the full suite, and verify all required viewports with screenshots and console capture.
+- Release approval remains unavailable until those gates pass. No deployment, DNS, billing, or external submission was performed.

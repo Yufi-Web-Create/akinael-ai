@@ -1,0 +1,9 @@
+{
+  "task_id": "8ca28beb-0502-4ba3-a0ca-fb69afbc5950",
+  "stage": "review",
+  "cycle": 2,
+  "final_message": "独立レビューは FAIL です。公開停止のAPI保護は確認できましたが、ポータル配信・既存顧客導線・新規登録UIに公開阻害があります。\n\n- `npm test` は `test/platform-server.test.mjs` が実行環境の `listen` 制限で失敗し、全件PASSを確認できませんでした。\n- `portal` は依存関係不在のため lint/build 未実行です。\n- 秘密情報らしき値の追跡対象スキャンでは検出なしでした。\n\n{\"status\":\"FAIL\",\"findings\":[{\"severity\":\"critical\",\"location\":\"src/server.mjs:53\",\"problem\":\"`/portal` は `public/portal/index.html` を配信する設定ですが、そのディレクトリ・ビルド成果物は存在せず、実装はリポジトリ直下の `portal/` にあります。したがって `/portal/` と OGP画像URLは404となり、ポータルは公開できません。\",\"expected\":\"Viteの本番ビルド成果物を実際に配信する公開ディレクトリへ配置するか、サーバーの静的配信先を成果物に合わせ、`/portal/`・JS/CSS・`/portal/og-image.svg` の到達テストを追加する。\"},{\"severity\":\"major\",\"location\":\"portal/src/Portal.tsx:5,14\",\"problem\":\"利用規約・プライバシーポリシー未公開を理由に登録受付を停止しているのに、ポータルは「新規登録はこちら」で登録モードへ切り替え、メールアドレスとパスワードを送信しようとします。APIが503を返しても、利用者に入力・送信を促すUIが残っています。\",\"expected\":\"受付再開まで新規登録・プロフィール作成・案件作成・相談送信のUIを非表示または明確な受付停止表示にし、既存顧客ログインだけを提供する。\"},{\"severity\":\"major\",\"location\":\"public/assets/app.js:199-207 と src/platform-api.mjs:126-128\",\"problem\":\"プロフィール未作成の既存認証済みユーザーは、マイページ読み込み時に自動で `/api/v2/onboarding` へPOSTします。しかし同APIは常に503のため、catchでトークンを削除してログイン画面へ戻され、既存顧客が利用できません。\",\"expected\":\"受付停止中はオンボーディングを自動実行しない。既存顧客向けの安全な読み取り専用導線または、法務条件を満たした明示的なオンボーディング導線を用意し、回帰テストで確認する。\"}],\"summary\":\"APIの受付停止保護はあるが、ポータルの配信設定不備と停止方針に反するUI・既存顧客回帰により、技術リリースゲートを通過できない。\"}",
+  "qa_conclusion": "failure",
+  "codex_conclusion": "success",
+  "generated_at": "2026-09-02T17:51:25.051Z"
+}

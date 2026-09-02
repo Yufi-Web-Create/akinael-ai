@@ -3,7 +3,7 @@ services:
     name: akinael-ai
     runtime: node
     plan: starter
-    buildCommand: npm ci --omit=dev && npm ci --prefix portal --include=dev --production=false && npm run build --prefix portal && rm -rf public/portal && cp -R portal/dist public/portal
+    buildCommand: npm ci --omit=dev && cd portal && npm install --include=dev && npm run build && cd .. && rm -rf public/portal && cp -R portal/dist public/portal
     startCommand: npm start
     healthCheckPath: /health
     envVars:
@@ -98,21 +98,3 @@ services:
       - key: GENERAL_AGENT_MODEL
         value: gpt-5.6-terra
       - key: GITHUB_API_URL
-        value: https://api.github.com
-      - key: GITHUB_EXECUTOR_REPO
-        value: Yufi-Web-Create/akinael-ai
-      - key: GITHUB_EXECUTOR_REF
-        value: main
-      - key: GITHUB_AGENT_WORKFLOW
-        value: akinael-agent.yml
-      - key: GITHUB_APP_ID
-        value: '4762113'
-      # This is the only new secret the worker needs in Render.
-      - key: GITHUB_APP_PRIVATE_KEY
-        sync: false
-      - key: GITHUB_REPO_OWNER
-        value: akinael-ai-clients
-      - key: GITHUB_REPO_OWNER_TYPE
-        value: org
-      - key: GITHUB_CUSTOMER_REPO_PREFIX
-        value: client

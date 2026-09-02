@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - 'feat/**'
+      - 'akinael/**'
   pull_request:
     branches: [main]
 

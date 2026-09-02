@@ -59,12 +59,12 @@ export const createProviders = (env = process.env) => ({
     }
   },
   storage: {
-    name: configured(env.OBJECT_STORAGE_PROVIDER, secret(env.SUPABASE_URL || env.SUPABASE_PROJECT_URL) && secret(env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_KEY) ? 'supabase-storage' : secret(env.R2_BUCKET) ? 'cloudflare-r2' : 'local'),
-    mode: secret(env.SUPABASE_URL || env.SUPABASE_PROJECT_URL) && secret(env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_KEY) ? 'connected' : secret(env.R2_ACCOUNT_ID) && secret(env.R2_ACCESS_KEY_ID) && secret(env.R2_SECRET_ACCESS_KEY) && secret(env.R2_BUCKET) ? 'connected' : 'local',
+    name: configured(env.OBJECT_STORAGE_PROVIDER, secret(env.SUPABASE_URL || env.SUPABASE_PROJECT_URL) && secret(env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_KEY || env.SUPABASE_SECRET_KEY) ? 'supabase-storage' : secret(env.R2_BUCKET) ? 'cloudflare-r2' : 'local'),
+    mode: secret(env.SUPABASE_URL || env.SUPABASE_PROJECT_URL) && secret(env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_KEY || env.SUPABASE_SECRET_KEY) ? 'connected' : secret(env.R2_ACCOUNT_ID) && secret(env.R2_ACCESS_KEY_ID) && secret(env.R2_SECRET_ACCESS_KEY) && secret(env.R2_BUCKET) ? 'connected' : 'local',
     private: true,
     putObject: async ({ key, body, contentType }) => {
       const supabaseUrl = secret(env.SUPABASE_URL || env.SUPABASE_PROJECT_URL);
-      const serviceKey = secret(env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_KEY);
+      const serviceKey = secret(env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_KEY || env.SUPABASE_SECRET_KEY);
       const bucket = configured(env.SUPABASE_ASSET_BUCKET, 'akinael-assets');
       if (supabaseUrl && serviceKey) {
         const uploadUrl = `${supabaseUrl.replace(/\/+$/, '')}/storage/v1/object/${encodeURIComponent(bucket)}/${String(key).split('/').map(encodeURIComponent).join('/')}`;

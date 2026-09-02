@@ -259,7 +259,7 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
 
   const executeInternal = async (context) => {
     if (context.task.task_key === 'asset_create') return executeImageTask(context);
-    if (context.task.task_key === 'visual_review' && context.task.mode === 'visual_review') {
+    if (context.task.task_key === 'visual_review') {
       const assetTask = (context.priorTasks || []).find((task) => task.task_key === 'asset_create');
       const asset = assetTask?.result || {};
       const valid = asset.asset_type === 'image' && asset.format === 'png' && Number(asset.width) > 0

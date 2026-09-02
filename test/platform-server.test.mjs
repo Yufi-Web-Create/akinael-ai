@@ -67,12 +67,11 @@ test('v2 auth endpoint rejects missing bearer token without falling through to l
   assert.equal(body.error.code, 'authentication_required');
 });
 
-test('production entrypoint retires every legacy API route before its handler can process data', async () => {
+test('production entrypoint retires only legacy public intake routes before they can process data', async () => {
   const server = createApp({ env, fetchImpl: async () => { throw new Error('legacy routes must not invoke providers'); } });
   for (const [path, body] of [
       ['/api/auth/register', { email: 'owner@example.com', password: 'a-secure-password' }],
-      ['/api/public/chat', { message: '相談内容' }],
-      ['/api/admin/projects', undefined]
+      ['/api/public/chat', { message: '相談内容' }]
     ]) {
     const result = await request(server, {
       path,
@@ -81,8 +80,15 @@ test('production entrypoint retires every legacy API route before its handler ca
       body: body ? JSON.stringify(body) : undefined
     });
     assert.equal(result.status, 410, path);
-    assert.equal((await result.json()).error.code, 'legacy_api_retired', path);
+    assert.equal((await result.json()).error.code, 'legacy_intake_retired', path);
   }
+});
+
+test('production entrypoint preserves authenticated legacy administration during migration', async () => {
+  const server = createApp({ env, fetchImpl: async () => { throw new Error('Supabase should not be called'); } });
+  const result = await request(server, { path: '/api/admin/projects' });
+  assert.equal(result.status, 401);
+  assert.notEqual((await result.json()).error?.code, 'legacy_intake_retired');
 });
 
 test('v2 auth endpoint verifies Supabase user and returns onboarding state', async () => {

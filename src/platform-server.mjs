@@ -2,6 +2,10 @@ import { createApp as createLegacyApp } from './server.mjs';
 import { createPlatformApi } from './platform-api.mjs';
 
 const PORT = Number(process.env.PORT || 3000);
+const isRetiredPublicIntakeRoute = (request, pathname) => request.method === 'POST' && (
+  pathname === '/api/auth/register' ||
+  pathname === '/api/public/chat'
+);
 
 export const createApp = ({ env = process.env, fetchImpl = fetch } = {}) => {
   const server = createLegacyApp();
@@ -13,17 +17,17 @@ export const createApp = ({ env = process.env, fetchImpl = fetch } = {}) => {
     try {
       const handled = await platformApi.handle(request, response);
       if (handled) return;
-      // The legacy server owns historical in-memory auth and project routes.  It
-      // must never be reachable from the production entrypoint: those routes do
-      // not have the Supabase identity, consent-recording, or authorization
-      // guarantees enforced by the v2 API.
-      if (new URL(request.url, `http://${request.headers.host || 'localhost'}`).pathname.startsWith('/api/')) {
+      // Retire only the unauthenticated legacy intake routes that can bypass the
+      // v2 consent record. Authenticated legacy administration remains available
+      // until its UI and API are migrated together.
+      const pathname = new URL(request.url, `http://${request.headers.host || 'localhost'}`).pathname;
+      if (isRetiredPublicIntakeRoute(request, pathname)) {
         response.writeHead(410, {
           'content-type': 'application/json; charset=utf-8',
           'cache-control': 'no-store',
           'x-content-type-options': 'nosniff'
         });
-        return response.end(JSON.stringify({ error: { code: 'legacy_api_retired', message: 'this API version is no longer available' } }));
+        return response.end(JSON.stringify({ error: { code: 'legacy_intake_retired', message: 'use the consent-protected customer portal' } }));
       }
       return await legacyHandler(request, response);
     } catch {

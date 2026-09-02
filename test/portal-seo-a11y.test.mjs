@@ -48,7 +48,7 @@ test('portal build output matches the production static directory', async () => 
     readFile(new URL('../src/server.mjs', import.meta.url), 'utf8')
   ]);
   assert.match(viteConfig, /outDir:\s*["']\.\.\/public\/portal["']/);
-  assert.match(renderConfig, /cd portal && npm install --include=dev && npm run build/);
+  assert.match(renderConfig, /npm --prefix portal ci && npm --prefix portal run build/);
   assert.match(serverSource, /const PUBLIC_ROOT = [\s\S]*\.\.\/public\//);
   assert.match(serverSource, /'\/portal\/': 'portal\/index\.html'/);
 });

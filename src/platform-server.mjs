@@ -13,6 +13,18 @@ export const createApp = ({ env = process.env, fetchImpl = fetch } = {}) => {
     try {
       const handled = await platformApi.handle(request, response);
       if (handled) return;
+      // The legacy server owns historical in-memory auth and project routes.  It
+      // must never be reachable from the production entrypoint: those routes do
+      // not have the Supabase identity, consent-recording, or authorization
+      // guarantees enforced by the v2 API.
+      if (new URL(request.url, `http://${request.headers.host || 'localhost'}`).pathname.startsWith('/api/')) {
+        response.writeHead(410, {
+          'content-type': 'application/json; charset=utf-8',
+          'cache-control': 'no-store',
+          'x-content-type-options': 'nosniff'
+        });
+        return response.end(JSON.stringify({ error: { code: 'legacy_api_retired', message: 'this API version is no longer available' } }));
+      }
       return await legacyHandler(request, response);
     } catch {
       if (response.headersSent) return response.end();

@@ -9,6 +9,8 @@ const env = {
   AKINAEL_TENANT_NAME: 'akinael'
 };
 
+const intakeOpenEnv = { ...env, CUSTOMER_INTAKE_ENABLED: 'true' };
+
 const listen = async (server) => {
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address();
@@ -37,6 +39,28 @@ test('v2 auth endpoint rejects missing bearer token without falling through to l
     const body = await result.json();
     assert.equal(result.status, 401);
     assert.equal(body.error.code, 'authentication_required');
+  } finally {
+    await close(server);
+  }
+});
+
+test('production entrypoint retires every legacy API route before its handler can process data', async () => {
+  const server = createApp({ env, fetchImpl: async () => { throw new Error('legacy routes must not invoke providers'); } });
+  const baseUrl = await listen(server);
+  try {
+    for (const [path, body] of [
+      ['/api/auth/register', { email: 'owner@example.com', password: 'a-secure-password' }],
+      ['/api/public/chat', { message: '相談内容' }],
+      ['/api/admin/projects', undefined]
+    ]) {
+      const result = await fetch(`${baseUrl}${path}`, {
+        method: body ? 'POST' : 'GET',
+        headers: body ? { 'content-type': 'application/json' } : undefined,
+        body: body ? JSON.stringify(body) : undefined
+      });
+      assert.equal(result.status, 410, path);
+      assert.equal((await result.json()).error.code, 'legacy_api_retired', path);
+    }
   } finally {
     await close(server);
   }
@@ -74,7 +98,7 @@ test('v2 auth endpoint verifies Supabase user and returns onboarding state', asy
 
 test('v2 registration rejects direct API calls without legal consent', async () => {
   let called = false;
-  const server = createApp({ env, fetchImpl: async () => { called = true; throw new Error('Supabase must not be called'); } });
+  const server = createApp({ env: intakeOpenEnv, fetchImpl: async () => { called = true; throw new Error('Supabase must not be called'); } });
   const baseUrl = await listen(server);
   try {
     const result = await fetch(`${baseUrl}/api/v2/auth/register`, {
@@ -84,6 +108,24 @@ test('v2 registration rejects direct API calls without legal consent', async () 
     });
     assert.equal(result.status, 400);
     assert.equal((await result.json()).error.code, 'legal_consent_required');
+    assert.equal(called, false);
+  } finally {
+    await close(server);
+  }
+});
+
+test('v2 registration is closed by default and does not send personal data to Supabase', async () => {
+  let called = false;
+  const server = createApp({ env, fetchImpl: async () => { called = true; throw new Error('Supabase must not be called'); } });
+  const baseUrl = await listen(server);
+  try {
+    const result = await fetch(`${baseUrl}/api/v2/auth/register`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'owner@example.com', password: 'a-secure-password', consent: true })
+    });
+    assert.equal(result.status, 503);
+    assert.equal((await result.json()).error.code, 'customer_intake_closed');
     assert.equal(called, false);
   } finally {
     await close(server);
@@ -121,7 +163,7 @@ test('v2 registration creates a Supabase user, persists document versions and pr
     throw new Error(`unexpected Supabase request: ${value}`);
   };
 
-  const server = createApp({ env, fetchImpl: supabaseFetch });
+  const server = createApp({ env: intakeOpenEnv, fetchImpl: supabaseFetch });
   const baseUrl = await listen(server);
   try {
     const result = await fetch(`${baseUrl}/api/v2/auth/register`, {

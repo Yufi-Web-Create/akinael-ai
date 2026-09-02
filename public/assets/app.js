@@ -42,45 +42,6 @@ if (confirmedAccessToken) {
   history.replaceState(null, '', `${location.pathname}${location.search}`);
 }
 
-{
-  const publicChatPanel = one('[data-public-chat-panel]');
-  const publicChatToggle = one('[data-public-chat-toggle]');
-  if (publicChatPanel && publicChatToggle) {
-    const publicChatEscape = (value) => value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character]);
-    const publicChatMessages = one('[data-public-chat-messages]');
-    const publicChatForm = one('[data-public-chat-form]');
-    let publicChatHistory = [];
-    const setPublicChatOpen = (open) => {
-      publicChatPanel.hidden = !open;
-      publicChatToggle.setAttribute('aria-expanded', String(open));
-    };
-    publicChatToggle.addEventListener('click', () => setPublicChatOpen(publicChatPanel.hidden));
-    one('[data-public-chat-close]')?.addEventListener('click', () => setPublicChatOpen(false));
-    publicChatForm?.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const input = one('input', publicChatForm);
-      const message = input.value.trim();
-      if (!message) return;
-      input.value = '';
-      publicChatMessages.insertAdjacentHTML('beforeend', `<article class="message customer"><div><p>${publicChatEscape(message)}</p></div></article>`);
-      publicChatMessages.insertAdjacentHTML('beforeend', '<article class="message assistant typing" data-public-chat-typing><img src="/assets/illustrations/ai-assistant-avatar.png" alt=""><div><i></i><i></i><i></i></div></article>');
-      publicChatMessages.scrollTop = publicChatMessages.scrollHeight;
-      try {
-        const response = await fetch('/api/public/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message, history: publicChatHistory.slice(-8) }) });
-        if (!response.ok) throw new Error();
-        const body = await response.json();
-        publicChatHistory = [...publicChatHistory, { role: 'user', content: message }, { role: 'assistant', content: body.reply }].slice(-8);
-        one('[data-public-chat-typing]')?.remove();
-        publicChatMessages.insertAdjacentHTML('beforeend', `<article class="message assistant"><img src="/assets/illustrations/ai-assistant-avatar.png" alt=""><div><p>${publicChatEscape(body.reply)}</p></div></article>`);
-      } catch {
-        one('[data-public-chat-typing]')?.remove();
-        publicChatMessages.insertAdjacentHTML('beforeend', '<article class="message assistant"><img src="/assets/illustrations/ai-assistant-avatar.png" alt=""><div><p>現在AIに接続できません。時間をおいて再度お試しいただくか、会員登録後にマイページからご相談ください。</p></div></article>');
-      }
-      publicChatMessages.scrollTop = publicChatMessages.scrollHeight;
-    });
-  }
-}
-
 const authDialog = one('[data-auth-dialog]');
 if (authDialog) {
   const authForm = one('[data-auth-form]');
@@ -97,16 +58,18 @@ if (authDialog) {
   const authConsentInput = one('[data-auth-consent]');
   const authPasswordToggle = one('[data-auth-password-toggle]');
   const authCopy = {
-    register: { title: '無料相談をはじめる', subtitle: 'メールアドレスとパスワードでアカウントを作成します。', submit: 'アカウントを作成して相談をはじめる', switchLabel: 'すでにアカウントをお持ちですか？', switchAction: 'ログインはこちら', switchTo: 'login', autocomplete: 'new-password' },
-    login: { title: 'マイページへログイン', subtitle: '登録済みのメールアドレスとパスワードを入力してください。', submit: 'ログインする', switchLabel: 'はじめてのご利用ですか？', switchAction: '新規登録はこちら', switchTo: 'register', autocomplete: 'current-password' }
+    register: { title: '新規受付は準備中です', subtitle: '現在、新規登録と相談受付を停止しています。', submit: '受付準備中', switchLabel: 'すでにアカウントをお持ちですか？', switchAction: 'ログインはこちら', switchTo: 'login', autocomplete: 'new-password' },
+    login: { title: 'マイページへログイン', subtitle: '登録済みのメールアドレスとパスワードを入力してください。', submit: 'ログインする', switchLabel: '新規受付は現在停止しています。', switchAction: '運営・法務情報を見る', switchTo: 'login', autocomplete: 'current-password' }
   };
   const authErrors = {
     'valid email and password of at least 12 characters are required': 'メールアドレスと12文字以上のパスワードを入力してください。',
     'email is already registered': 'このメールアドレスは既に登録されています。ログインをお試しください。',
-    'invalid credentials': 'メールアドレスまたはパスワードが正しくありません。'
+    'invalid credentials': 'メールアドレスまたはパスワードが正しくありません。',
+    'customer registration is temporarily unavailable': '現在、新規登録と相談受付を停止しています。'
   };
   let authMode = 'register';
   const applyAuthMode = (mode) => {
+    if (mode === 'register') mode = 'login';
     authMode = mode;
     const copy = authCopy[mode];
     authTitle.textContent = copy.title;
@@ -141,7 +104,7 @@ if (authDialog) {
   });
   const openAuthDialog = (mode) => {
     if (localStorage.getItem(customerTokenKey)) { location.href = '/mypage'; return; }
-    applyAuthMode(mode);
+    applyAuthMode(mode === 'register' ? 'login' : mode);
     authForm.reset();
     authDialog.showModal();
   };
@@ -158,14 +121,17 @@ if (authDialog) {
     applyAuthMode(nextTab.dataset.authTab);
     nextTab.focus();
   }));
-  authSwitchButton.addEventListener('click', () => applyAuthMode(authCopy[authMode].switchTo));
+  authSwitchButton.addEventListener('click', () => {
+    if (authMode === 'login') { location.href = '/legal#operator'; return; }
+    applyAuthMode(authCopy[authMode].switchTo);
+  });
   all('[data-auth-close]').forEach((button) => button.addEventListener('click', () => authDialog.close()));
   authForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (authSubmit.disabled) return;
     authSubmit.disabled = true;
     authStatus.textContent = authMode === 'register' ? 'アカウントを作成しています…' : '認証しています…';
-    const { consent, ...values } = Object.fromEntries(new FormData(authForm).entries());
+    const values = Object.fromEntries(new FormData(authForm).entries());
     try {
       const response = await fetch(`/api/v2/auth/${authMode}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(values) });
       const result = await response.json();

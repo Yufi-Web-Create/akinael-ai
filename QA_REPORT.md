@@ -119,3 +119,34 @@ The browser matrix remains **BLOCKED**, not PASS. Chromium headless exits during
 
 - The release gate is **not yet PASS**: run the complete Node suite and the required eight-viewport browser matrix in an environment that permits local listeners and browser IPC. Capture screenshots and console output there before requesting public-release approval.
 - No deployment, DNS, billing, external submission, or other irreversible operation was performed.
+
+## Technical-review remediation — `expanded_technical_review`
+
+**Scope:** `src/platform-server.mjs`, `src/platform-api.mjs`, public and portal intake UI, `render.yaml`
+
+| Finding | Resolution |
+|---|---|
+| Legacy API bypassed consent and authentication controls | The production entrypoint now returns `410 legacy_api_retired` for every `/api/*` request not handled by `/api/v2/*`, before the legacy handler can read or persist a request. Regression coverage includes registration, public chat, and admin legacy paths. |
+| Public intake was enabled while operator/contact information is pending | Customer registration is default-deny (`503 customer_intake_closed`) and makes no Supabase request. It can only be opened by the explicit human-controlled `CUSTOMER_INTAKE_ENABLED=true` production setting. Public chat and registration CTAs have been removed; existing customers retain a login path. |
+| Client omitted the checked legal-consent field | The legacy landing-page client now serializes `consent`; the v2 server independently requires and records terms/privacy versions and acceptance time when registration is explicitly enabled. |
+| Portal dependency install was not lockfile-reproducible | The Render build command now uses `npm --prefix portal ci`, followed by the portal production build. |
+
+| Check | Result |
+|---|---|
+| `git diff --check` | PASS |
+| `node --test` excluding listener-bound `test/server.test.mjs` and `test/platform-server.test.mjs` | PASS — 16 files, 0 failures |
+| Focused static SEO/A11y tests | PASS — `test/public-a11y.test.mjs`, `test/portal-seo-a11y.test.mjs` |
+| Server integration tests, including new legacy-bypass cases | BLOCKED — sandbox denies `listen(127.0.0.1)` with `EPERM` before assertions. |
+| `npm --prefix portal ci` / portal lint / production build | BLOCKED — this sandbox has no registry access and lacks a complete npm cache (`ENOTCACHED` for `yallist`); `npm ci` removed the incomplete local dependency tree before it could restore it. |
+| Eight-viewport real-browser E2E | BLOCKED — this sandbox forbids both the required local listener and Chromium startup, as recorded above. |
+
+### Judgment rationale
+
+- The consent bypass is closed at the production routing boundary, so it cannot be restored by a client-side fallback or a legacy endpoint.
+- Default-deny intake prevents the service from collecting new registration or consultation data until the unresolved human/legal conditions are decided.
+- The remaining blocked checks are environmental execution limits, not PASS results. The release gate remains **FAIL/BLOCKED** until the server integration suite, clean portal build, and browser matrix are executed in a network- and browser-capable CI/preview environment.
+
+### Unresolved items / next handoff
+
+- Human/legal owner: publish confirmed operator name, address, and customer contact channel; decide whether personal-data intake may open. Only then set `CUSTOMER_INTAKE_ENABLED=true` through the production environment controls.
+- CI/preview owner: run `npm ci`, `npm --prefix portal ci`, `npm test`, and the eight required browser viewports; retain screenshots and browser-console output. Do not request release approval until all three blocked items pass.

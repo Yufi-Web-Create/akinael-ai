@@ -1,0 +1,9 @@
+{
+  "task_id": "8ca28beb-0502-4ba3-a0ca-fb69afbc5950",
+  "stage": "correction",
+  "cycle": 0,
+  "final_message": "重大な同意迂回を修正しました。\n\n- 旧`/api/*`はプロダクション入口で一律`410 legacy_api_retired`。旧登録・公開チャット・管理APIへフォールバックしません。\n- 新規登録は既定で`503 customer_intake_closed`。明示的な人間承認後に`CUSTOMER_INTAKE_ENABLED=true`を設定した場合のみ有効です。\n- 公開ページ・ポータルから新規受付と公開AIチャットを外し、既存顧客のログインのみ残しました。\n- 同意チェック値をクライアントから送る不具合も修正しました。\n- Renderのポータルビルドをロックファイル固定の`npm --prefix portal ci`へ変更しました。\n- 回帰テストと引き渡し事項を[QA_REPORT.md](/home/runner/work/akinael-ai/akinael-ai/QA_REPORT.md)に記録しました。\n\n検証結果:\n\n- 静的・非リスナーNodeテスト: 16ファイル PASS\n- 公開ページ/ポータルSEO・A11y・表示回帰テスト: PASS\n- `git diff --check`、変更JSの構文検査: PASS\n- `npm test`: sandboxがローカル待受を禁止するため、`platform-server`結合テストで`EPERM`。新規の結合テストはCIで実行が必要です。\n- ポータル`npm ci`・production build、実ブラウザE2E: この環境はnpmレジストリとブラウザ起動が制限されており未完了です。\n\n未解決事項は、人間・法務による運営者情報と問い合わせ体制の確定、およびブラウザ可能なCI/プレビュー環境での全結合・8 viewport E2E実行です。したがって、公開承認のリリースゲートはまだPASSではありません。",
+  "qa_conclusion": "failure",
+  "codex_conclusion": "success",
+  "generated_at": "2026-09-02T23:07:46.966Z"
+}

@@ -12,6 +12,8 @@ npm start
 
 実サービス接続は環境変数で有効化します。LLMは `LLM_API_KEY`（OpenAI互換エンドポイント）、決済は `STRIPE_SECRET_KEY`、メール通知は `RESEND_API_KEY` と `MAIL_FROM` を設定してください。キーがないサービスはモックまたは承認待ちで動作し、キー自体を保存・返却しません。設定例は `.env.example` にあります。
 
+新規登録・相談受付は既定で閉じています。正式な運営者情報、外部向け問い合わせ体制、個人情報取扱いの公開可否について人間・法務の承認が完了した場合に限り、`CUSTOMER_INTAKE_ENABLED=true` を本番環境へ明示設定してください。旧 `/api/*` は廃止済みで、`/api/v2/*` 以外のAPIは利用できません。
+
 主要API:
 
 - 認証: `/api/auth/register`, `/api/auth/login`

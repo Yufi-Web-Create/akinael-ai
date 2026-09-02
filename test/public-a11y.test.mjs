@@ -8,13 +8,13 @@ const [html, script] = await Promise.all([
   readFile(new URL('../public/assets/app.js', import.meta.url), 'utf8')
 ]);
 
-test('public landing page exposes complete tab semantics for authentication', () => {
-  assert.match(html, /id="auth-register-tab"[^>]*role="tab"[^>]*aria-selected="true"[^>]*aria-controls="auth-panel"/);
-  assert.match(html, /id="auth-login-tab"[^>]*role="tab"[^>]*aria-selected="false"[^>]*aria-controls="auth-panel"/);
-  assert.match(html, /id="auth-panel" role="tabpanel" aria-labelledby="auth-register-tab" tabindex="0"/);
+test('public landing page exposes an accessible login dialog while new intake is closed', () => {
+  assert.doesNotMatch(html, /auth-register-tab|data-auth-open="register"|data-public-chat/);
+  assert.match(html, /id="auth-login-tab"[^>]*role="tab"[^>]*aria-selected="true"[^>]*aria-controls="auth-panel"/);
+  assert.match(html, /id="auth-panel" role="tabpanel" aria-labelledby="auth-login-tab" tabindex="0"/);
   assert.match(script, /button\.setAttribute\('aria-selected', String\(selected\)\)/);
   assert.match(script, /authPanel\.setAttribute\('aria-labelledby', button\.id\)/);
-  assert.match(script, /\['ArrowLeft', 'ArrowRight', 'Home', 'End'\]/);
+  assert.match(html, /新規登録と相談受付を停止しています。/);
 });
 
 test('public landing page retains required SEO and keyboard-accessible landmarks', () => {
@@ -56,15 +56,15 @@ test('FAQPage JSON-LD exactly matches every FAQ rendered in the final DOM', () =
   assert.deepEqual(structuredFaqs, renderedFaqs);
 });
 
-test('landing-page copy states the service, registration step, and formal pricing conditions accurately', () => {
+test('landing-page copy states the service, closed intake, and formal pricing conditions accurately', () => {
   const { trial, mini, operations, advanced, instagramAds, websiteProduction } = businessConfig.pricing;
 
   assert.match(html, /Web担当者がいない[\s\S]*Web制作・集客改善の相談窓口/);
   assert.match(html, /Webサイト制作、文章・SNS、予約導線の見直し、公開前の検査、契約内容に応じた公開後の更新・改善を支援します。/);
   assert.match(html, /相談内容を整理して、[\s\S]*必要な[\s\S]*制作・改善[\s\S]*を進めます。/);
-  assert.match(html, /無料登録して相談をはじめる/);
-  assert.match(html, /無料登録後、メール確認とログインを済ませてから、相談内容を入力できます。/);
-  assert.match(html, /無料登録・メール確認・ログイン[\s\S]*チャットで相談を入力[\s\S]*相談内容を確認し、対応可否をご案内/);
+  assert.match(html, /現在、新規登録と相談受付を停止しています。/);
+  assert.match(html, /運営者情報とお問い合わせ体制の確定後に、受付再開の可否をお知らせします。/);
+  assert.doesNotMatch(html, /無料登録して相談をはじめる|無料登録後、メール確認とログインを済ませてから、相談内容を入力できます。|AIに相談する/);
   assert.match(html, new RegExp(`${trial.amount}円`));
   assert.match(html, new RegExp(`月額\\s*${mini.monthlyAmount.toLocaleString('ja-JP')}円[\\s\\S]*税込`));
   assert.match(html, new RegExp(`月額\\s*${operations.monthlyAmount.toLocaleString('ja-JP')}円[\\s\\S]*税込`));
@@ -75,8 +75,6 @@ test('landing-page copy states the service, registration step, and formal pricin
   assert.match(html, new RegExp(`<strong>最低料金：<\\/strong>月額${instagramAds.minimumMonthlyFee.toLocaleString('ja-JP')}円（税込）です。`));
   assert.match(html, /月額プランの解約・返金条件は契約時に明示します。/);
   assert.match(html, /継続的な更新・改善は、契約内容、対応回数、制作量、料金を事前に確定した範囲で行います。/);
-  assert.match(html, /無料登録後、メール確認とログインを済ませてから、0円のお試しで簡易相談、集客案、SNS投稿案、簡易リサーチを利用できます。/);
-  assert.match(html, /Webサイト簡易試作は、相談内容を確認し、対応可能な場合に対象範囲と制作量をご案内します。/);
   assert.doesNotMatch(html, /無料の試作を確認してから契約を検討できます。|まず試作を見る。|相談の先に、<br>試作が残ります。/);
   assert.doesNotMatch(html, /料金、税表示、契約条件は現在最終確認中です。|確定前の金額を正式料金として掲載しません。|商いの願いを|無料でAIに相談する|公開後も一緒に改善/);
 });

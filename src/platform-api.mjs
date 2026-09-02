@@ -6,6 +6,11 @@ const MAX_BODY_BYTES = 64 * 1024;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 export const LEGAL_DOCUMENTS = Object.freeze({ termsVersion: '2026-09-02', privacyVersion: '2026-09-02' });
 
+// Opening collection of customer data is a human/legal release decision. Keep
+// the public intake closed unless production is explicitly configured after
+// the operator and contact channel have been approved.
+export const isCustomerIntakeOpen = (env = process.env) => env.CUSTOMER_INTAKE_ENABLED === 'true';
+
 const writeJson = (response, status, payload, extraHeaders = {}) => {
   response.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
@@ -103,6 +108,9 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
         if (method !== 'GET' && enforceLimit(writeRateLimit(`${confirmedUser.id}:${url.pathname}`), response)) return true;
       }
       if (method === 'POST' && url.pathname === '/api/v2/auth/register') {
+        if (!isCustomerIntakeOpen(env)) {
+          throw new PlatformStoreError('customer registration is temporarily unavailable', { status: 503, code: 'customer_intake_closed' });
+        }
         const body = await readJsonBody(request);
         const email = String(body.email || '').trim().toLowerCase();
         const password = String(body.password || '');

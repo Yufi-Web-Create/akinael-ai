@@ -24,7 +24,6 @@ export default function Portal() {
   const [businessName, setBusinessName] = useState("");
   const [projectName, setProjectName] = useState("");
   const [draft, setDraft] = useState("");
-  const [register, setRegister] = useState(false);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -68,10 +67,10 @@ export default function Portal() {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch(`${core}/api/v2/auth/${register ? "register" : "login"}`, {
+      const response = await fetch(`${core}/api/v2/auth/login`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, password, ...(register ? { consent } : {}) })
+        body: JSON.stringify({ email, password })
       });
       const data = await response.json();
       if (!response.ok) throw Error(data?.error?.message || "認証に失敗しました");
@@ -160,18 +159,17 @@ export default function Portal() {
 
   const project = projects[0];
   return <main>
-    <header><div><span className="eyebrow">CUSTOMER PORTAL</span><h1>相談の続きから、<br />制作の今を確認できます。</h1></div>{token ? <button onClick={logout}>ログアウト</button> : <span className="status">お客様専用</span>}</header>
+    <header><div><span className="eyebrow">CUSTOMER PORTAL</span><h1>相談の続きから、<br />制作の今を確認できます。</h1></div>{token ? <button type="button" onClick={logout}>ログアウト</button> : <span className="status">お客様専用</span>}</header>
     {error && <section className="card error" role="alert"><p>{error}</p></section>}
     {notice && <section className="card notice" role="status"><p>{notice}</p></section>}
     {!token ? <section className="card auth">
-      <span className="eyebrow">AUTHENTICATION</span><h2>{register ? "アカウント登録" : "ログイン"}</h2>
+      <span className="eyebrow">AUTHENTICATION</span><h2>ログイン</h2>
       <form onSubmit={authenticate}>
         <label className="fieldLabel" htmlFor="email">メールアドレス</label><input id="email" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required />
-        <label className="fieldLabel" htmlFor="password">パスワード</label><input id="password" type="password" autoComplete={register ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} minLength={12} required />
-        {register && <label><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} required /> <a href="/legal#terms" target="_blank" rel="noreferrer">利用規約</a>と<a href="/legal#privacy" target="_blank" rel="noreferrer">プライバシーポリシー</a>に同意します</label>}
-        <button disabled={busy} type="submit">{busy ? "処理中…" : register ? "登録する" : "ログイン"}</button>
+        <label className="fieldLabel" htmlFor="password">パスワード</label><input id="password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={12} required />
+        <button disabled={busy} type="submit">{busy ? "処理中…" : "ログイン"}</button>
       </form>
-      <button className="linkButton" type="button" onClick={() => setRegister(!register)}>{register ? "ログインはこちら" : "新規登録はこちら"}</button>
+      <p className="muted">新規登録と相談受付は現在停止しています。</p>
     </section> : me?.onboardingRequired ? <section className="card auth">
       <span className="eyebrow">ONBOARDING</span><h2>プロフィールを登録</h2>
       <form onSubmit={onboard}>

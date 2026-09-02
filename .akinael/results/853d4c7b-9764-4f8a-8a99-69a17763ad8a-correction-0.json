@@ -1,0 +1,9 @@
+{
+  "task_id": "853d4c7b-9764-4f8a-8a99-69a17763ad8a",
+  "stage": "correction",
+  "cycle": 0,
+  "final_message": "修正しました。\n\n- 認証タブに `aria-selected`、`aria-controls`、対応する `tabpanel` を追加\n- タブ切替時のARIA状態同期と、矢印・Home・Endキー操作を実装\n- SEO／A11yの重要要素とタブ仕様を検証する回帰テストを追加\n\n変更ファイル:\n\n- [public/index.html](/home/runner/work/akinael-ai/akinael-ai/public/index.html:217)\n- [public/assets/app.js](/home/runner/work/akinael-ai/akinael-ai/public/assets/app.js:84)\n- [test/public-a11y.test.mjs](/home/runner/work/akinael-ai/akinael-ai/test/public-a11y.test.mjs:1)\n\n検証結果:\n\n- `node --check public/assets/app.js`: PASS\n- `node --test test/public-a11y.test.mjs`: PASS\n- 主要既存テスト群: PASS\n- `index.html` が参照するローカルアセット12件: すべて存在を確認\n- `git diff --check`: PASS\n\n判断理由: 指摘されたタブは、見た目の切替だけで選択状態・パネルの関連付けが支援技術へ伝わらない状態だったため、WAI-ARIAのタブパターンに沿って補完しました。\n\n未解決事項:\n\n- 実ブラウザ全viewport検査は、このサンドボックスでブラウザが起動できず未実施です（ChromiumのCrashpad制限、Firefox headlessのsegmentation fault）。\n- `test/platform-server.test.mjs` はローカル待受が禁止される環境制約（`listen EPERM`）でFAILします。実装由来ではなく、同じ理由でサーバー起動型の検査もこの環境では実行不能です。\n- `portal` のproduction buildは依存関係未導入で、レジストリ通信制限により `npm ci` を完了できません。",
+  "qa_conclusion": "success",
+  "codex_conclusion": "success",
+  "generated_at": "2026-09-02T13:59:34.198Z"
+}

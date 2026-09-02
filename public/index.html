@@ -215,29 +215,31 @@
       <p data-auth-subtitle>メールアドレスとパスワードでアカウントを作成します。</p>
     </div>
     <div class="auth-tabs" role="tablist">
-      <button type="button" class="active" data-auth-tab="register" role="tab">新規登録</button>
-      <button type="button" data-auth-tab="login" role="tab">ログイン</button>
+      <button id="auth-register-tab" type="button" class="active" data-auth-tab="register" role="tab" aria-selected="true" aria-controls="auth-panel">新規登録</button>
+      <button id="auth-login-tab" type="button" data-auth-tab="login" role="tab" aria-selected="false" aria-controls="auth-panel" tabindex="-1">ログイン</button>
     </div>
-    <p class="field-hint">＊は必須項目です</p>
-    <form data-auth-form>
-      <label><span>メールアドレス<span aria-hidden="true">＊</span></span><input name="email" type="email" inputmode="email" autocomplete="username" required></label>
-      <label><span>パスワード<span aria-hidden="true">＊</span></span>
-        <span class="password-field">
-          <input name="password" type="password" autocomplete="new-password" minlength="12" required data-auth-password>
-          <button type="button" class="password-toggle" data-auth-password-toggle aria-label="パスワードを表示" aria-pressed="false">表示</button>
-        </span>
-      </label>
-      <p class="field-hint" data-auth-hint>パスワードは12文字以上で設定してください。</p>
-      <label class="check-row" data-auth-consent-wrap>
-        <input type="checkbox" name="consent" required data-auth-consent>
-        <span><a href="/legal#terms" target="_blank" rel="noopener">利用規約</a>と<a href="/legal#privacy" target="_blank" rel="noopener">プライバシーポリシー</a>に同意します＊</span>
-      </label>
-      <p class="settings-status" data-auth-status role="status"></p>
-      <div class="settings-actions">
-        <button type="button" class="utility" data-auth-close>キャンセル</button>
-        <button type="submit" class="primary-action" data-auth-submit>アカウントを作成して相談をはじめる</button>
-      </div>
-    </form>
+    <div id="auth-panel" role="tabpanel" aria-labelledby="auth-register-tab" tabindex="0">
+      <p class="field-hint">＊は必須項目です</p>
+      <form data-auth-form>
+        <label><span>メールアドレス<span aria-hidden="true">＊</span></span><input name="email" type="email" inputmode="email" autocomplete="username" required></label>
+        <label><span>パスワード<span aria-hidden="true">＊</span></span>
+          <span class="password-field">
+            <input name="password" type="password" autocomplete="new-password" minlength="12" required data-auth-password>
+            <button type="button" class="password-toggle" data-auth-password-toggle aria-label="パスワードを表示" aria-pressed="false">表示</button>
+          </span>
+        </label>
+        <p class="field-hint" data-auth-hint>パスワードは12文字以上で設定してください。</p>
+        <label class="check-row" data-auth-consent-wrap>
+          <input type="checkbox" name="consent" required data-auth-consent>
+          <span><a href="/legal#terms" target="_blank" rel="noopener">利用規約</a>と<a href="/legal#privacy" target="_blank" rel="noopener">プライバシーポリシー</a>に同意します＊</span>
+        </label>
+        <p class="settings-status" data-auth-status role="status"></p>
+        <div class="settings-actions">
+          <button type="button" class="utility" data-auth-close>キャンセル</button>
+          <button type="submit" class="primary-action" data-auth-submit>アカウントを作成して相談をはじめる</button>
+        </div>
+      </form>
+    </div>
     <p class="auth-switch" data-auth-switch-wrap><span data-auth-switch-label>すでにアカウントをお持ちですか？</span> <button type="button" data-auth-switch>ログインはこちら</button></p>
   </dialog>
 

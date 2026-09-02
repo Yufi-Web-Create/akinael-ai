@@ -91,6 +91,7 @@ if (authDialog) {
   const authHint = one('[data-auth-hint]');
   const authSwitchLabel = one('[data-auth-switch-label]');
   const authSwitchButton = one('[data-auth-switch]');
+  const authPanel = one('#auth-panel');
   const authPasswordField = one('input[name="password"]', authForm);
   const authConsentWrap = one('[data-auth-consent-wrap]');
   const authConsentInput = one('[data-auth-consent]');
@@ -122,7 +123,13 @@ if (authDialog) {
       authConsentInput.required = mode === 'register';
     }
     if (authPasswordToggle) { authPasswordField.type = 'password'; authPasswordToggle.textContent = '表示'; authPasswordToggle.setAttribute('aria-label', 'パスワードを表示'); authPasswordToggle.setAttribute('aria-pressed', 'false'); }
-    all('[data-auth-tab]').forEach((button) => button.classList.toggle('active', button.dataset.authTab === mode));
+    all('[data-auth-tab]').forEach((button) => {
+      const selected = button.dataset.authTab === mode;
+      button.classList.toggle('active', selected);
+      button.setAttribute('aria-selected', String(selected));
+      button.tabIndex = selected ? 0 : -1;
+      if (selected && authPanel) authPanel.setAttribute('aria-labelledby', button.id);
+    });
     authStatus.textContent = '';
   };
   authPasswordToggle?.addEventListener('click', () => {
@@ -143,6 +150,14 @@ if (authDialog) {
     openAuthDialog(trigger.dataset.authOpen || 'register');
   }));
   all('[data-auth-tab]').forEach((button) => button.addEventListener('click', () => applyAuthMode(button.dataset.authTab)));
+  all('[data-auth-tab]').forEach((button, index, tabs) => button.addEventListener('keydown', (event) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+    const nextTab = tabs[nextIndex];
+    applyAuthMode(nextTab.dataset.authTab);
+    nextTab.focus();
+  }));
   authSwitchButton.addEventListener('click', () => applyAuthMode(authCopy[authMode].switchTo));
   all('[data-auth-close]').forEach((button) => button.addEventListener('click', () => authDialog.close()));
   authForm.addEventListener('submit', async (event) => {

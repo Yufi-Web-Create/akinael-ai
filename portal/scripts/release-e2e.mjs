@@ -49,15 +49,20 @@ try {
 
   for (const [width, height] of viewports) {
     const screenshot = path.join(artifactDirectory, `portal-${width}x${height}.png`);
-    const result = await run(chromium, [
-      '--headless', '--no-sandbox', '--disable-gpu', '--enable-logging=stderr', '--log-level=0',
-      `--window-size=${width},${height}`, '--virtual-time-budget=5000', `--screenshot=${screenshot}`,
-      '--dump-dom', `${baseUrl}/portal/`
-    ]);
-    assert.match(result.stdout, /ログイン/, `login journey did not render at ${width}x${height}`);
-    assert.match(result.stdout, /id="email"/, `email field missing at ${width}x${height}`);
-    assert.match(result.stdout, /id="password"/, `password field missing at ${width}x${height}`);
-    assert.doesNotMatch(result.stderr, /CONSOLE.*(?:ERROR|SEVERE)/i, `browser console error at ${width}x${height}`);
+    const profile = await mkdtemp(path.join(os.tmpdir(), `akinael-chrome-${width}x${height}-`));
+    try {
+      const result = await run(chromium, [
+        '--headless', '--no-sandbox', '--disable-gpu', '--no-first-run', '--enable-logging=stderr', '--log-level=0',
+        `--user-data-dir=${profile}`, `--window-size=${width},${height}`, '--virtual-time-budget=3000',
+        `--screenshot=${screenshot}`, '--dump-dom', `${baseUrl}/portal/`
+      ]);
+      assert.match(result.stdout, /ログイン/, `login journey did not render at ${width}x${height}`);
+      assert.match(result.stdout, /id="email"/, `email field missing at ${width}x${height}`);
+      assert.match(result.stdout, /id="password"/, `password field missing at ${width}x${height}`);
+      assert.doesNotMatch(result.stderr, /CONSOLE.*(?:ERROR|SEVERE)/i, `browser console error at ${width}x${height}`);
+    } finally {
+      await rm(profile, { recursive: true, force: true });
+    }
   }
   console.log(`Portal browser E2E passed for ${viewports.length} viewports. Screenshots: ${artifactDirectory}`);
 } finally {

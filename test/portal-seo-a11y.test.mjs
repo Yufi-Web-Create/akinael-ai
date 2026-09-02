@@ -40,3 +40,15 @@ test('customer portal keeps semantic headings, associated labels, live messages,
   assert.match(portal, /target="_blank"/);
   assert.match(styles, /:focus-visible/);
 });
+
+test('portal build output matches the production static directory', async () => {
+  const [viteConfig, renderConfig, serverSource] = await Promise.all([
+    readFile(new URL('../portal/vite.config.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../render.yaml', import.meta.url), 'utf8'),
+    readFile(new URL('../src/server.mjs', import.meta.url), 'utf8')
+  ]);
+  assert.match(viteConfig, /outDir:\s*["']\.\.\/public\/portal["']/);
+  assert.match(renderConfig, /cd portal && npm install --include=dev && npm run build/);
+  assert.match(serverSource, /const PUBLIC_ROOT = [\s\S]*\.\.\/public\//);
+  assert.match(serverSource, /'\/portal\/': 'portal\/index\.html'/);
+});

@@ -54,8 +54,9 @@ export const createSupabaseAuth = ({ env = process.env, fetchImpl = fetch } = {}
   };
 
   return {
-    signUp: (email, password) => request('/auth/v1/signup', { body: { email, password } }),
+    signUp: (email, password, data = undefined) => request('/auth/v1/signup', { body: { email, password, ...(data ? { data } : {}) } }),
     signIn: (email, password) => request('/auth/v1/token?grant_type=password', { body: { email, password } }),
+    updateUser: (accessToken, data) => request('/auth/v1/user', { method: 'PUT', accessToken, body: { data } }),
     signOut: (accessToken) => request('/auth/v1/logout', { accessToken })
   };
 };

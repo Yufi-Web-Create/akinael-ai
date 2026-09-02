@@ -3,7 +3,7 @@ services:
     name: akinael-ai
     runtime: node
     plan: starter
-    buildCommand: npm ci --omit=dev && cd portal && npm install --include=dev && npm run build && cd .. && rm -rf public/portal && cp -R portal/dist public/portal
+    buildCommand: npm ci --omit=dev && cd portal && npm install --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /health
     envVars:

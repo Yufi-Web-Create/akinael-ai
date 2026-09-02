@@ -1,9 +1,0 @@
-{
-  "task_id": "8ca28beb-0502-4ba3-a0ca-fb69afbc5950",
-  "stage": "correction",
-  "cycle": 0,
-  "final_message": "レビュー指摘を修正しました。新規登録・相談の個人情報受付をサーバー側で停止し、未確認メールの利用も拒否します。\n\n- 新規登録、公開チャット、案件・相談・メッセージ送信を `503 consultation_intake_closed` で遮断\n- レガシーAPI経由の迂回も遮断\n- v2の認証済み操作は Supabase の `email_confirmed_at` を必須化\n- UI・法務ページを「新規受付停止中」の表記へ整合\n- 回帰テストとQA記録を更新\n\n主な変更: [platform-api.mjs](/home/runner/work/akinael-ai/akinael-ai/src/platform-api.mjs), [platform-server.mjs](/home/runner/work/akinael-ai/akinael-ai/src/platform-server.mjs), [index.html](/home/runner/work/akinael-ai/akinael-ai/public/index.html), [QA_REPORT.md](/home/runner/work/akinael-ai/akinael-ai/QA_REPORT.md)\n\n判断理由: 正式な利用規約・プライバシーポリシーと、文書バージョン・同意日時を保存する同意記録が未整備のため、同意チェックだけで個人情報を受け付けるのは不十分です。推測で法務文書を作らず、受付を閉じる対応を選びました。\n\n検証:\n- 静的チェック・対象8テストファイル: PASS\n- `git diff --check`: PASS\n- `npm test`、サーバー統合テスト、実ブラウザ確認: 環境がローカルlistenとChromium起動を禁止しておりBLOCKED\n- ポータルbuild: 依存パッケージ未導入かつ導入不能でBLOCKED\n\n未解決事項:\n- 受付再開前に、承認済みの法務文書と永続的な同意記録設計・DB実装が必要です。\n- ブラウザ実行可能な環境で全テストと8 viewportの画面確認を行うまで、リリースゲートは未通過です。",
-  "qa_conclusion": "failure",
-  "codex_conclusion": "success",
-  "generated_at": "2026-09-02T17:44:30.153Z"
-}

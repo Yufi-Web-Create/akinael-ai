@@ -70,17 +70,17 @@ test('homepage presents formal prices and tax conditions while retaining the req
   assert.match(html, new RegExp(businessConfig.pricing.advanced.monthlyAmount.toLocaleString('ja-JP')));
   assert.match(html, new RegExp(businessConfig.pricing.websiteProduction.startingAmount.toLocaleString('ja-JP')));
   assert.match(html, /広告費（税別）の20%に消費税を加えた額/);
-  assert.match(html, /月額最低料金は5,500円（税込）/);
-  assert.match(html, /新規受付の再開後、何ができますか/);
+  assert.match(html, /最低料金：<\/strong>月額5,500円（税込）/);
+  assert.match(html, /無料登録後、何ができますか/);
   assert.match(html, /勝手に料金が発生しませんか/);
   assert.match(html, /データはどう扱われますか/);
 });
 
-test('homepage pricing section does not link visitors to the raw pricing API and retains an existing-customer login', async () => {
+test('homepage pricing section does not link visitors to the raw pricing API and CTAs resolve to real auth destinations', async () => {
   const response = await fetch(`${baseUrl}/`);
   const html = await response.text();
   assert.doesNotMatch(html, /href="\/api\/public\/pricing"/);
-  assert.match(html, /href="\/legal#privacy"/);
+  assert.match(html, /data-auth-open="register"/);
   assert.match(html, /data-auth-open="login"/);
   const jpg = await fetch(`${baseUrl}/assets/photos/og-hero.jpg`);
   assert.equal(jpg.status, 200);
@@ -98,20 +98,20 @@ test('homepage hero image has explicit dimensions and eager high-priority loadin
   assert.match(avif.headers.get('content-type'), /image\/avif/);
 });
 
-test('new registration and public consultation inputs are not rendered while legal documents are incomplete', async () => {
+test('registration form requires explicit consent to the terms and privacy policy', async () => {
   const response = await fetch(`${baseUrl}/`);
   const html = await response.text();
-  assert.doesNotMatch(html, /data-auth-tab="register"/);
-  assert.doesNotMatch(html, /data-public-chat-form/);
-  assert.match(html, /新規の登録・相談受付は、正式な利用規約とプライバシーポリシーの公開まで停止しています。/);
+  assert.match(html, /<input type="checkbox" name="consent"[^>]*required[^>]*data-auth-consent>/);
+  assert.doesNotMatch(html, /data-auth-consent[^>]* checked/);
+  assert.match(html, /href="\/legal#terms"/);
   assert.match(html, /href="\/legal#privacy"/);
 });
 
-test('frontend only exposes the existing-customer login mode', async () => {
+test('login mode disables the registration-only consent requirement', async () => {
   const response = await fetch(`${baseUrl}/assets/app.js`);
   const source = await response.text();
-  assert.match(source, /const authCopy = \{\s*login:/);
-  assert.match(source, /let authMode = 'login'/);
+  assert.match(source, /authConsentInput\.disabled = mode !== 'register'/);
+  assert.match(source, /authConsentInput\.required = mode === 'register'/);
 });
 
 test('frontend pages cache-bust the customer login fix', async () => {

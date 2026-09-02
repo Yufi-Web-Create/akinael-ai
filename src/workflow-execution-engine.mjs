@@ -191,6 +191,14 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
     const sha256 = createHash('sha256').update(generated.body).digest('hex');
     const storageKey = `${context.workflow.tenant_id}/${context.workflow.project_id}/assets/${context.task.id}.png`;
     const stored = await providers.storage.putObject({ key: storageKey, body: generated.body, contentType: generated.contentType });
+    let repositoryAsset = null;
+    if (context.repository?.repository_full_name && github.mode === 'connected') {
+      const branch = branchFor(context.workflow.id);
+      await github.createBranch({ repositoryFullName: context.repository.repository_full_name, branchName: branch, fromBranch: context.repository.default_branch || 'main' });
+      const path = `public/assets/generated/${context.task.id}.png`;
+      await github.putRepositoryFile({ repositoryFullName: context.repository.repository_full_name, path, contentBase64: generated.body.toString('base64'), branch, message: 'Add generated image asset' });
+      repositoryAsset = { repository: context.repository.repository_full_name, branch, path };
+    }
     const artifact = await store.saveArtifact({
       context,
       kind: 'asset_image',
@@ -199,7 +207,7 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
       contentText: JSON.stringify({ asset_type: 'image', format: 'png', width, height, byte_length: generated.body.length, sha256, storage_key: storageKey }),
       metadata: { task_id: context.task.id, task_key: context.task.task_key, provider: generated.model, storage_provider: stored.provider, content_type: generated.contentType, width, height, byte_length: generated.body.length, sha256, visual_evidence: 'generated_png_validated' }
     });
-    return store.finishTask({ taskId: context.task.id, success: true, result: { artifact_id: artifact?.id || null, asset_type: 'image', format: 'png', width, height, byte_length: generated.body.length, sha256, storage_key: storageKey, storage_provider: stored.provider, model: generated.model } });
+    return store.finishTask({ taskId: context.task.id, success: true, result: { artifact_id: artifact?.id || null, asset_type: 'image', format: 'png', width, height, byte_length: generated.body.length, sha256, storage_key: storageKey, storage_provider: stored.provider, repository_asset: repositoryAsset, model: generated.model } });
   };
 
   const dispatchExternal = async (context, { prompt, stage = 'execute', cycle = 0, reviewResult = null } = {}) => {

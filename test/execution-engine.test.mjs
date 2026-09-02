@@ -108,6 +108,36 @@ test('authoritative QA reconciles the observed Japanese runner-only build failur
   assert.equal(review.status, 'PASS');
 });
 
+test('authoritative QA ignores missing customer inputs that are outside the implemented prelaunch scope', () => {
+  const review = reconcileReviewWithQa({
+    status: 'FAIL',
+    summary: 'Target details are not provided',
+    findings: [{
+      severity: 'major',
+      location: '検証対象全体',
+      problem: '店舗サイトのURLと検証環境が未提供のため実画面を検証できない',
+      expected: '対象店舗サイトのURLまたは正式情報を指定する'
+    }]
+  }, { qaFailed: false, taskMode: 'review' });
+  assert.equal(review.status, 'PASS');
+  assert.deepEqual(review.findings, []);
+});
+
+test('authoritative repository QA supersedes a reviewer stale test failure observation', () => {
+  const review = reconcileReviewWithQa({
+    status: 'FAIL',
+    summary: 'Full test run failed',
+    findings: [{
+      severity: 'major',
+      location: 'Release QA全体 / test/platform-server.test.mjs',
+      problem: '全体テストでplatform-server.test.mjsがFAILした',
+      expected: '全テストを再実行してPASSさせる'
+    }]
+  }, { qaFailed: false, taskMode: 'review' });
+  assert.equal(review.status, 'PASS');
+  assert.deepEqual(review.findings, []);
+});
+
 test('common workspace and permission words do not hide a product authorization defect', () => {
   const review = reconcileReviewWithQa({
     status: 'FAIL',

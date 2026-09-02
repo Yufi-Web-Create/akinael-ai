@@ -6,10 +6,11 @@ type Production = { workflows?: Array<{ status?: string }>; tasks?: Array<{ stat
 type Item = { id: string; title?: string; body?: string; content?: string; status?: string; author_type?: string };
 const core = import.meta.env.VITE_CORE_API_URL || "https://akinael-ai.com";
 const tokenKey = "customer-token";
+type AuthHeaders = Record<string, string>;
 
 export default function Portal() {
   const [token, setToken] = useState<string | null>(null), [me, setMe] = useState<{ onboardingRequired?: boolean } | null>(null), [projects, setProjects] = useState<Project[]>([]), [production, setProduction] = useState<Production | null>(null), [approvals, setApprovals] = useState<Approval[]>([]), [requests, setRequests] = useState<Item[]>([]), [messages, setMessages] = useState<Item[]>([]), [email, setEmail] = useState(""), [password, setPassword] = useState(""), [displayName, setDisplayName] = useState(""), [businessName, setBusinessName] = useState(""), [projectName, setProjectName] = useState(""), [draft, setDraft] = useState(""), [register, setRegister] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
-  const headers = useCallback((value = token) => value ? { authorization: `Bearer ${value}` } : {}, [token]);
+  const headers = useCallback((value = token): AuthHeaders => value ? { authorization: `Bearer ${value}` } : {}, [token]);
   const refresh = useCallback(async (value = token) => {
     if (!value) return;
     const h = { authorization: `Bearer ${value}` }, meResponse = await fetch(`${core}/api/v2/auth/me`, { headers: h });

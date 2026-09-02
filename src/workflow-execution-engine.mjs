@@ -84,11 +84,29 @@ const isExecutionEnvironmentFinding = (finding) => {
   return explicitRunnerFailure && blockedVerification;
 };
 
+const isUnprovidedInputFinding = (finding) => {
+  const text = [finding?.problem, finding?.expected, finding?.location].filter(Boolean).join(' ');
+  const missingInput = /(未提供|未確定|not provided|not available)/i.test(text);
+  const customerInput = /(店舗情報|正式情報|対象.*url|検証環境|target.*url|business information)/i.test(text);
+  return missingInput && customerInput;
+};
+
+const isSupersededQaFinding = (finding) => {
+  const text = [finding?.problem, finding?.expected, finding?.location].filter(Boolean).join(' ');
+  const qaScope = /(release qa|repository qa|npm test|platform-server\.test|全体テスト)/i.test(text);
+  const reportedFailure = /(fail|失敗|未完了|未達)/i.test(text);
+  return qaScope && reportedFailure;
+};
+
 const reconcileReviewWithQa = (review, { qaFailed = false, taskMode = null } = {}) => {
   const environmentAwareReview = new Set(['review', 'seo_a11y_review', 'technical_review']);
   if (!review || qaFailed || !environmentAwareReview.has(taskMode) || review.status !== 'FAIL') return review;
   const findings = Array.isArray(review.findings) ? review.findings : [];
-  const productFindings = findings.filter((finding) => !isExecutionEnvironmentFinding(finding));
+  const productFindings = findings.filter((finding) => (
+    !isExecutionEnvironmentFinding(finding)
+    && !isUnprovidedInputFinding(finding)
+    && !isSupersededQaFinding(finding)
+  ));
   if (productFindings.length > 0 || findings.length === 0) {
     return productFindings.length === findings.length ? review : { ...review, findings: productFindings };
   }
@@ -530,4 +548,4 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
   };
 };
 
-export { normalizeReview, isExternalTask, branchFor, resultPathFor, qaFailureReview, externalExecutionProfile, isReviewRetryExhausted, isExecutionEnvironmentFinding, reconcileReviewWithQa };
+export { normalizeReview, isExternalTask, branchFor, resultPathFor, qaFailureReview, externalExecutionProfile, isReviewRetryExhausted, isExecutionEnvironmentFinding, isUnprovidedInputFinding, isSupersededQaFinding, reconcileReviewWithQa };

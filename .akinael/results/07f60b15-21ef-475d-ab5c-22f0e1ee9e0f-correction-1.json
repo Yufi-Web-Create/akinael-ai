@@ -2,8 +2,8 @@
   "task_id": "07f60b15-21ef-475d-ab5c-22f0e1ee9e0f",
   "stage": "correction",
   "cycle": 1,
-  "final_message": "レビュー指摘4件を修正しました。\n\n- ロゴを対象顧客・提供内容が分かる表現へ更新\n- 「24時間受付」を、実機能に限定した「いつでも入力できます」へ変更\n- FAQの未確認実績表現を削除し、対象顧客の説明へ更新\n- 承認が必要な判断対象を「契約・課金・公開」などと明示\n- FAQ構造化データと画面文言も一致させました\n\n変更: [public/index.html](/home/runner/work/akinael-ai/akinael-ai/public/index.html)、[logo-horizontal.svg](/home/runner/work/akinael-ai/akinael-ai/public/assets/logos/logo-horizontal.svg)、[QA_REPORT.md](/home/runner/work/akinael-ai/akinael-ai/QA_REPORT.md)\n\n検証は、公開ページ関連4テスト、コピー／FAQ JSON-LD整合性、`git diff --check` がすべてPASSです。全体`npm test`は14ファイルPASSでしたが、1ファイルはサンドボックスがローカル待受を禁止するため実行不能でした。\n\n判断理由: 正式な事業コンセプトにある対象顧客・提供範囲・承認ゲートだけを根拠にし、実績や未確認の運用条件を含まない表現に統一しました。\n\n未解決事項: ChromiumがサンドボックスのCrashpad制約で起動できず、実ブラウザ画面確認と全viewportスクリーンショットは未実施です。これは今回のコピー修正ではなく、既存の環境制約としてQAレポートに記録しています。",
-  "qa_conclusion": "success",
+  "final_message": "レビュー指摘のコピーを修正しました。\n\n- ヒーローと「できること」を、相談整理から制作・検査・更新改善までの具体的な提供内容へ変更\n- 料金を正式設定どおり税込で掲載（お試し0円、月額3,980円／7,980円／17,800円、Web制作19,800円〜）\n- 各プランの対象範囲、個別見積条件、Instagram広告運用費・外部費用条件を明記\n- 更新・継続改善の提供範囲を「しっかり運用」「発展運用」と一致させた\n- 画面上のFAQとFAQ JSON-LDを同一内容に更新\n- 料金設定との乖離を検出する回帰テストを追加\n\n変更: [public/index.html](/home/runner/work/akinael-ai/akinael-ai/public/index.html)、[test/public-a11y.test.mjs](/home/runner/work/akinael-ai/akinael-ai/test/public-a11y.test.mjs)\n\n検証は公開ページのテスト2件、JSON-LD構文、diffチェックがすべてPASSです。\n\n未解決事項: この環境ではローカルポート待受が禁止されており、ChromiumもCrashpadの権限制約で起動できません。そのため実ブラウザのviewport確認は未実施です。全体テストでも同じ理由で `platform-server.test.mjs` が `listen EPERM` となります。",
+  "qa_conclusion": "failure",
   "codex_conclusion": "success",
-  "generated_at": "2026-09-02T15:31:21.593Z"
+  "generated_at": "2026-09-02T17:14:16.932Z"
 }

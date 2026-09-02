@@ -64,3 +64,26 @@ The real-browser review remains blocked by the same sandbox Crashpad startup res
 - The implementation cause of the reported blank sections is removed, and a focused automated regression guard now covers it.
 - The sandbox prevents both a local server binding and browser startup, so its failure must remain distinct from the corrected page defect.
 - No deployment, DNS change, charge, or other irreversible action was performed.
+
+## Copy-review revision — final copy conditions
+
+**Scope:** `public/index.html`, `public/assets/logos/logo-horizontal.svg`, `test/public-a11y.test.mjs`, `test/server.test.mjs`
+
+| Review finding | Resolution |
+|---|---|
+| Abstract hero copy | Replaced with a direct statement of the audience and service: small shops without a Web manager can consult about customer acquisition, SNS, and Web improvement. |
+| Unsupported ongoing-improvement promise | Replaced with a conditional statement: scope, frequency, and fee are confirmed in the contract before updates or continuing improvement proceed. |
+| Prices without approved tax treatment | Removed all public price claims. The pricing section and FAQ now state that fees, tax display, and contract terms are under final confirmation and will not be published as formal prices beforehand. |
+| CTA does not match the authentication flow | Updated every registration CTA to `無料登録して相談を始める` and states the required email confirmation and login step adjacent to the CTA. |
+| Ambiguous free-trial scope | Replaced unconditional trial claims with a statement that the scope of a trial or paid work is confirmed after reviewing the request. |
+| Public chat and my-page roles conflated | Separates the public-page guidance from project-specific consultation and status viewing in the registered my page. |
+
+| Command | Result |
+|---|---|
+| `node --test test/public-a11y.test.mjs` | PASS — 3 tests, including FAQ JSON-LD and final-copy regression coverage |
+| All non-listener Node tests (15 files) | PASS — 0 failures |
+| `node --check test/server.test.mjs` | PASS |
+| `git diff --check` | PASS |
+| `test/server.test.mjs` / `test/platform-server.test.mjs` | BLOCKED — the sandbox forbids a local listener; their test setup cannot bind `127.0.0.1`. |
+
+The browser matrix remains **BLOCKED**, not PASS. Chromium headless exits during Crashpad startup with `setsockopt: Operation not permitted`, before opening the page. No screenshot or console result is claimed. Run the server-backed tests and eight-viewport browser matrix in a browser-capable environment before release approval.

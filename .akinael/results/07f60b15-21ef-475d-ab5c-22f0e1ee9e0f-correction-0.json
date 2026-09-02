@@ -2,8 +2,8 @@
   "task_id": "07f60b15-21ef-475d-ab5c-22f0e1ee9e0f",
   "stage": "correction",
   "cycle": 0,
-  "final_message": "コピー指摘を修正しました。\n\n- 英語装飾を「公開前確認」に置換\n- ヒーロー説明を「店舗情報、主要ページ、問い合わせ・予約導線を確認してから公開します。」へ具体化\n- 旧文言が戻らないことと新文言が表示されることを、生成先Playwrightテスト・ブートストラップテストで回帰保護\n\n変更: [customer-web-starter.mjs](/home/runner/work/akinael-ai/akinael-ai/src/customer-web-starter.mjs)、[repository-bootstrap.test.mjs](/home/runner/work/akinael-ai/akinael-ai/test/repository-bootstrap.test.mjs)\n\n検証:\n- `node --test test/customer-web-template.test.mjs test/repository-bootstrap.test.mjs` — PASS\n- `git diff --check` — PASS\n- `npm test` — 関連14件はPASS。`platform-server.test.mjs` のみ、環境がローカル待受を禁止する `listen EPERM` で失敗（変更と無関係）。\n\n判断理由:\n- 意味のない英語ラベルを、ページ目的を明示する日本語へ変更しました。\n- 抽象的な「迷わず使える導線」を、実際の確認対象へ置き換えました。\n- 未確認の店舗情報・料金・実績を掲載しない方針は維持しています。\n\n未解決事項:\n- Chromium が環境制約でCrashpad起動時に停止し、実ブラウザの8 viewport・スクリーンショット取得は未実施です。したがって、実画面確認を要求するレビューゲートはこの環境ではまだPASSにできません。ブラウザ実行可能なCI／プレビュー環境で生成後の `npm run qa` と8 viewportのPlaywright確認が必要です。",
+  "final_message": "レビュー指摘を実装へ反映しました。\n\n- ヒーローを対象顧客・提供内容が分かるコピーへ変更\n- CTAを「無料登録して相談を始める」に統一し、メール確認・ログインを明記\n- 継続改善を無条件の約束にせず、契約条件の確認後に進める表現へ変更\n- 未確定の料金・税表示を公開LPから撤去し、「最終確認中」と明示\n- FAQ JSON-LDも画面文言と一致させ、回帰テストを追加\n- ロゴの抽象的な説明文も具体化\n\n変更: [public/index.html](/home/runner/work/akinael-ai/akinael-ai/public/index.html)、[logo-horizontal.svg](/home/runner/work/akinael-ai/akinael-ai/public/assets/logos/logo-horizontal.svg)、[QA_REPORT.md](/home/runner/work/akinael-ai/akinael-ai/QA_REPORT.md)\n\n検証は、コピー・FAQ整合性・表示回帰テストがPASS、非リスナーのNodeテスト15件もPASS、`git diff --check`もPASSです。\n\n判断理由: 正式料金・税区分が未確定という事業資料を優先し、誤認されうる価格・継続提供の断定を除きました。\n\n未解決事項: サンドボックス制約でローカル待受テストとChromium実ブラウザ起動ができず、8 viewportの実画面確認は未実施です。ブラウザ実行可能な環境での確認後にリリース判定が必要です。",
   "qa_conclusion": "success",
   "codex_conclusion": "success",
-  "generated_at": "2026-09-02T15:26:56.620Z"
+  "generated_at": "2026-09-02T17:08:40.067Z"
 }

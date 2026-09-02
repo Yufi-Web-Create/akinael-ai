@@ -54,3 +54,14 @@ test('FAQPage JSON-LD exactly matches every FAQ rendered in the final DOM', () =
   }));
   assert.deepEqual(structuredFaqs, renderedFaqs);
 });
+
+test('landing-page copy states the service, registration step, and unapproved pricing conditions accurately', () => {
+  assert.match(html, /Web担当者がいない[\s\S]*集客・SNS・Web改善相談/);
+  assert.match(html, /無料登録して相談を始める/);
+  assert.match(html, /無料登録後、メール確認とログインを済ませてから相談を入力できます。/);
+  assert.match(html, /料金、税表示、契約条件は現在最終確認中です。/);
+  assert.match(html, /確定前の金額を正式料金として掲載しません。/);
+  assert.match(html, /更新や継続改善を希望する場合は、対象範囲、頻度、料金を確認し、契約内容に合意してから進めます。/);
+  assert.doesNotMatch(html, /商いの願いを|無料でAIに相談する|公開後も一緒に改善|上記が正式な料金です/);
+  assert.doesNotMatch(html, /3,980円|7,980円|17,800円|19,800円|5,500円/);
+});

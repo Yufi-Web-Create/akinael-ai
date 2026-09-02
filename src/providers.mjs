@@ -68,7 +68,7 @@ export const createProviders = (env = process.env) => ({
       const bucket = configured(env.SUPABASE_ASSET_BUCKET, 'akinael-assets');
       if (supabaseUrl && serviceKey) {
         const uploadUrl = `${supabaseUrl.replace(/\/+$/, '')}/storage/v1/object/${encodeURIComponent(bucket)}/${String(key).split('/').map(encodeURIComponent).join('/')}`;
-        const response = await fetch(uploadUrl, { method: 'POST', headers: { authorization: `Bearer ${serviceKey}`, apikey: serviceKey, 'content-type': contentType, 'x-upsert': 'false' }, body });
+        const response = await fetch(uploadUrl, { method: 'POST', headers: { authorization: `Bearer ${serviceKey}`, apikey: serviceKey, 'content-type': contentType, 'x-upsert': 'true' }, body });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.message || payload.error || `Supabase Storage upload failed: ${response.status}`);
         return { provider: 'supabase-storage', bucket, key };

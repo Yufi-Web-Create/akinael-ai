@@ -60,10 +60,10 @@ test('landing-page copy states the service, registration step, and formal pricin
   const { trial, mini, operations, advanced, instagramAds, websiteProduction } = businessConfig.pricing;
 
   assert.match(html, /Web担当者がいない[\s\S]*Web制作・集客改善を支援/);
-  assert.match(html, /Webサイト制作、文章・SNS、予約導線の見直し、公開前の検査、公開後の更新・改善を支援します。/);
+  assert.match(html, /Webサイト制作、文章・SNS、予約導線の見直し、公開前の検査、契約内容に応じた公開後の更新・改善を支援します。/);
   assert.match(html, /相談内容を整理して、[\s\S]*必要な[\s\S]*制作・改善[\s\S]*を進めます。/);
   assert.match(html, /無料登録へ進む/);
-  assert.match(html, /無料登録後、メール確認とログインを済ませてから相談を入力できます。/);
+  assert.match(html, /無料登録後、メール確認とログインを済ませると、0円のお試し相談を入力できます。/);
   assert.match(html, new RegExp(`${trial.amount}円`));
   assert.match(html, new RegExp(`月額\\s*${mini.monthlyAmount.toLocaleString('ja-JP')}円[\\s\\S]*税込`));
   assert.match(html, new RegExp(`月額\\s*${operations.monthlyAmount.toLocaleString('ja-JP')}円[\\s\\S]*税込`));
@@ -71,8 +71,12 @@ test('landing-page copy states the service, registration step, and formal pricin
   assert.match(html, new RegExp(`${websiteProduction.startingAmount.toLocaleString('ja-JP')}円〜[\\s\\S]*税込`));
   assert.match(html, new RegExp(`広告費（税別）の${instagramAds.feeRate * 100}%に消費税を加えた額`));
   assert.match(html, new RegExp(`月額最低料金は${instagramAds.minimumMonthlyFee.toLocaleString('ja-JP')}円（税込）`));
-  assert.match(html, /広告費は別途お客さまのご負担です。その他の外部サービス料金、顧客専用SaaSなどの顧客固有費用も原則としてお客さまのご負担です。/);
+  assert.match(html, /広告費は運用費に含まれず、広告媒体への支払いとして別途お客さまのご負担です。その他の外部サービス料金、顧客専用SaaSなどの顧客固有費用も原則としてお客さまのご負担です。/);
   assert.match(html, /月額プランの解約・返金条件は契約時に明示します。/);
   assert.match(html, /対応回数と制作量は契約前に明示します。/);
+  assert.match(html, /無料登録後、メール確認とログインを済ませると、0円のお試し相談を入力できます。/);
+  assert.match(html, /Webサイト簡易試作は、相談内容を確認し、対応可能な場合に対象範囲と制作量をご案内します。/);
+  assert.match(html, /広告費は運用費に含まれず、広告媒体への支払いとして別途お客さまのご負担です。/);
+  assert.doesNotMatch(html, /無料の試作を確認してから契約を検討できます。|まず試作を見る。|相談の先に、<br>試作が残ります。/);
   assert.doesNotMatch(html, /料金、税表示、契約条件は現在最終確認中です。|確定前の金額を正式料金として掲載しません。|商いの願いを|無料でAIに相談する|公開後も一緒に改善/);
 });

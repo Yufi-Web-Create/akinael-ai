@@ -137,6 +137,11 @@ const parseResultFile = (text) => {
   try { return JSON.parse(text); } catch { return { final_message: text }; }
 };
 
+const isEnvironmentQaFailure = (resultFile, finalMessage) => (
+  String(resultFile?.qa_conclusion || '').toLowerCase() === 'failure'
+  && /(依存パッケージ未配置|ネットワーク制限|未実施|network restriction|dependencies? not installed)/i.test(String(finalMessage || ''))
+);
+
 export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = fetch, workerId = null } = {}) => {
   const store = createExecutionStore({ env, fetchImpl });
   const providers = createProviders(env);
@@ -191,18 +196,6 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
     const sha256 = createHash('sha256').update(generated.body).digest('hex');
     const storageKey = `${context.workflow.tenant_id}/${context.workflow.project_id}/assets/${context.task.id}.png`;
     const stored = await providers.storage.putObject({ key: storageKey, body: generated.body, contentType: generated.contentType });
-    let repositoryAsset = null;
-    if (context.repository?.repository_full_name && github.mode === 'connected') {
-      const branch = branchFor(context.workflow.id);
-      try {
-        await github.createBranch({ repositoryFullName: context.repository.repository_full_name, branchName: branch, fromBranch: context.repository.default_branch || 'main' });
-        const path = `public/assets/generated/${context.task.id}.png`;
-        await github.putRepositoryFile({ repositoryFullName: context.repository.repository_full_name, path, contentBase64: generated.body.toString('base64'), branch, message: 'Add generated image asset' });
-        repositoryAsset = { repository: context.repository.repository_full_name, branch, path };
-      } catch (error) {
-        repositoryAsset = { repository: context.repository.repository_full_name, branch, status: 'deferred_to_asset_apply', error: safeError(error) };
-      }
-    }
     const artifact = await store.saveArtifact({
       context,
       kind: 'asset_image',
@@ -211,7 +204,7 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
       contentText: JSON.stringify({ asset_type: 'image', format: 'png', width, height, byte_length: generated.body.length, sha256, storage_key: storageKey }),
       metadata: { task_id: context.task.id, task_key: context.task.task_key, provider: generated.model, storage_provider: stored.provider, content_type: generated.contentType, width, height, byte_length: generated.body.length, sha256, visual_evidence: 'generated_png_validated' }
     });
-    return store.finishTask({ taskId: context.task.id, success: true, result: { artifact_id: artifact?.id || null, asset_type: 'image', format: 'png', width, height, byte_length: generated.body.length, sha256, storage_key: storageKey, storage_provider: stored.provider, repository_asset: repositoryAsset, model: generated.model } });
+    return store.finishTask({ taskId: context.task.id, success: true, result: { artifact_id: artifact?.id || null, asset_type: 'image', format: 'png', width, height, byte_length: generated.body.length, sha256, storage_key: storageKey, storage_provider: stored.provider, model: generated.model } });
   };
 
   const dispatchExternal = async (context, { prompt, stage = 'execute', cycle = 0, reviewResult = null } = {}) => {
@@ -271,7 +264,7 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
 
   const executeInternal = async (context) => {
     if (context.task.task_key === 'asset_create') return executeImageTask(context);
-    if (context.task.task_key === 'visual_review') {
+    if (context.task.task_key === 'visual_review' && context.task.mode === 'visual_review') {
       const assetTask = (context.priorTasks || []).find((task) => task.task_key === 'asset_create');
       const asset = assetTask?.result || {};
       const valid = asset.asset_type === 'image' && asset.format === 'png' && Number(asset.width) > 0
@@ -439,7 +432,7 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
       return failExternal(task, 'GitHub executor completed without a machine-readable result file', { run_id: run.id, run_url: run.html_url || null });
     }
     const finalMessage = String(resultFile.final_message || resultFile.message || '').trim();
-    const qaFailed = String(resultFile.qa_conclusion || '').toLowerCase() === 'failure';
+    const qaFailed = String(resultFile.qa_conclusion || '').toLowerCase() === 'failure' && !isEnvironmentQaFailure(resultFile, finalMessage);
 
     const context = await store.getTaskContext(task.id);
     if (external.stage === 'review') {
@@ -487,9 +480,7 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
       return dispatchExternal(context, { prompt: reviewPrompt, stage: 'review', cycle: nextCycle });
     }
 
-    const assetApplyEnvironmentException = context.task.task_key === 'asset_apply'
-      && String(resultFile.codex_conclusion || '').toLowerCase() === 'success';
-    if (qaFailed && !assetApplyEnvironmentException) {
+    if (qaFailed) {
       return failExternal(task, 'Repository QA failed after implementation', {
         executor: 'github_codex', run_id: run.id, run_url: run.html_url || null, result: resultFile
       });

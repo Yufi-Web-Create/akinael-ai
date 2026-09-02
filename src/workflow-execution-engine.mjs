@@ -183,7 +183,7 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
   });
 
   const executeImageTask = async (context) => {
-    const prompt = buildTaskPrompt(context);
+    const prompt = buildTaskPrompt(context).slice(0, 31_500);
     const generated = await providers.images.generate({ prompt, size: env.OPENAI_IMAGE_SIZE || '1536x1024', quality: env.OPENAI_IMAGE_QUALITY || 'low' });
     if (!generated.body?.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) throw new Error('image generation did not return a PNG');
     const width = generated.body.readUInt32BE(16);

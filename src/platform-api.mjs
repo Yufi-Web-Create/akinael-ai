@@ -1,6 +1,6 @@
 import { createPlatformStore, PlatformStoreError } from './platform-store.mjs';
 import { createProductionRouter } from './production-router.mjs';
-import { createSupabaseAuth, SupabaseAuthError } from './supabase-admin.mjs';
+import { createSupabaseAdmin, createSupabaseAuth, SupabaseAuthError } from './supabase-admin.mjs';
 
 const MAX_BODY_BYTES = 64 * 1024;
 
@@ -34,6 +34,8 @@ const readJsonBody = (request) => new Promise((resolve, reject) => {
   request.on('error', reject);
 });
 
+const htmlEscape = (value) => String(value ?? '').replace(/[&<>\"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#39;' }[char]));
+
 export const extractAccessToken = (request) => {
   const header = request.headers.authorization || '';
   const match = /^Bearer\s+(.+)$/i.exec(header);
@@ -44,9 +46,21 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
   const store = createPlatformStore({ env, fetchImpl });
   const productionRouter = createProductionRouter({ env, fetchImpl });
   const auth = createSupabaseAuth({ env, fetchImpl });
+  const admin = createSupabaseAdmin({ env, fetchImpl });
 
   const handle = async (request, response) => {
     const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+    if (url.pathname.startsWith('/preview/')) {
+      const previewParts = url.pathname.split('/').filter(Boolean);
+      if (request.method !== 'GET' || previewParts.length !== 3) return writeJson(response, 404, { error: { code: 'not_found', message: 'not found' } }), true;
+      const [projectId, artifactId] = previewParts.slice(1);
+      const rows = await admin.request('/rest/v1/artifacts', { query: `id=eq.${encodeURIComponent(artifactId)}&project_id=eq.${encodeURIComponent(projectId)}&select=id,title,kind,content_text,metadata&limit=1` });
+      const artifact = Array.isArray(rows) ? rows[0] : null;
+      if (!artifact) return writeJson(response, 404, { error: { code: 'preview_not_found', message: 'preview not found' } }), true;
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+      response.end(`<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${htmlEscape(artifact.title || 'Akinael AI Preview')}</title><style>body{margin:0;background:#f7f3ea;color:#17302e;font-family:system-ui,-apple-system,sans-serif}main{max-width:960px;margin:0 auto;padding:40px 22px}header{background:#164e4a;color:#fff;border-radius:20px;padding:28px;margin-bottom:24px}pre{white-space:pre-wrap;background:#fff;border:1px solid #d9ded8;border-radius:16px;padding:24px;line-height:1.7;overflow:auto}small{opacity:.8}</style></head><body><main><header><small>AKINAEL AI / E2E PREVIEW</small><h1>${htmlEscape(artifact.title || '制作物プレビュー')}</h1><p>Workflowで生成された実プレビューです。</p></header><pre>${htmlEscape(artifact.content_text || 'Preview content is not available.')}</pre></main></body></html>`);
+      return true;
+    }
     if (!url.pathname.startsWith('/api/v2/')) return false;
 
     const method = request.method || 'GET';
@@ -58,8 +72,8 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
         const body = await readJsonBody(request);
         const email = String(body.email || '').trim().toLowerCase();
         const password = String(body.password || '');
-        if (!/^\S+@\S+\.\S+$/.test(email) || password.length < 12) {
-          throw new PlatformStoreError('valid email and password of at least 12 characters are required', { status: 400, code: 'validation_error' });
+        if (!/^\S+@\S+\.\S+$/.test(email) || password.length < 6) {
+          throw new PlatformStoreError('valid email and password of at least 6 characters are required', { status: 400, code: 'validation_error' });
         }
         const result = await auth.signUp(email, password);
         const accessToken = result?.access_token || result?.session?.access_token || null;
@@ -138,6 +152,15 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
 
       if (method === 'GET' && parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects' && parts[4] === 'production') {
         return writeJson(response, 200, await store.getProductionStatus(token, parts[3])), true;
+      }
+
+      if (method === 'GET' && parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects' && parts[4] === 'approvals') {
+        return writeJson(response, 200, await store.listApprovals(token, parts[3])), true;
+      }
+
+      if (method === 'POST' && parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects' && parts[4] === 'approvals') {
+        const body = await readJsonBody(request);
+        return writeJson(response, 201, await store.createCustomerApproval(token, parts[3], body)), true;
       }
 
       if (method === 'GET' && parts.length === 4 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects') {

@@ -22,6 +22,22 @@ export const createProviders = (env = process.env) => ({
       return { role, model: body.model, output: body.choices?.[0]?.message?.content || '', usage: body.usage || {} };
     }
   },
+  images: {
+    name: configured(env.IMAGE_PROVIDER, 'openai-images'),
+    mode: secret(env.OPENAI_API_KEY) ? 'connected' : 'not_configured',
+    generate: async ({ prompt, size = '1536x1024', quality = 'low' }) => {
+      const apiKey = secret(env.OPENAI_API_KEY);
+      if (!apiKey) throw new Error('OPENAI_API_KEY is not configured for image generation');
+      const body = await requestJson(env.OPENAI_IMAGES_URL || 'https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ model: configured(env.OPENAI_IMAGE_MODEL, 'gpt-image-1'), prompt, size, quality, output_format: 'png' })
+      });
+      const encoded = body.data?.[0]?.b64_json;
+      if (!encoded) throw new Error('image generation returned no image data');
+      return { body: Buffer.from(encoded, 'base64'), contentType: 'image/png', model: body.model || configured(env.OPENAI_IMAGE_MODEL, 'gpt-image-1') };
+    }
+  },
   payment: {
     name: configured(env.PAYMENT_PROVIDER, 'manual-adapter'),
     mode: secret(env.STRIPE_SECRET_KEY) ? 'connected' : 'approval-only',

@@ -81,7 +81,8 @@ const IMAGE = {
     task({ key: 'visual_reference_research', role: 'visual_designer', title: '参考表現を調査しビジュアル原則を抽出する', phase: 'research', dependsOn: ['image_intake'], mode: 'research' }),
     task({ key: 'visual_direction', role: 'visual_designer', title: '生成・制作のビジュアル方向を定義する', phase: 'direction', dependsOn: ['visual_reference_research'], mode: 'direct' }),
     task({ key: 'asset_create', role: 'visual_designer', title: '画像アセットを制作する', phase: 'build', dependsOn: ['visual_direction'], mode: 'create' }),
-    task({ key: 'visual_review', role: 'quality_assurance', title: '用途適合・可読性・破綻・権利リスクを確認する', phase: 'review', dependsOn: ['asset_create'], mode: 'visual_review' })
+    task({ key: 'asset_apply', role: 'frontend_engineer', title: '生成画像をCustomer repositoryへ組み込みサイトで使用する', phase: 'build', dependsOn: ['asset_create'], mode: 'build', metadata: { generated_asset_required: true } }),
+    task({ key: 'visual_review', role: 'quality_assurance', title: '用途適合・可読性・破綻・権利リスクを確認する', phase: 'review', dependsOn: ['asset_apply'], mode: 'visual_review' })
   ]
 };
 

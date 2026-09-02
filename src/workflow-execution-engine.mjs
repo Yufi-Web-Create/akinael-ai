@@ -5,6 +5,7 @@ import { createGitHubRuntime } from './github-runtime.mjs';
 import { buildTaskPrompt, buildCorrectionPrompt } from './execution-prompts.mjs';
 import { planDynamicExpansion } from './dynamic-expansion.mjs';
 import { bootstrapProjectRepository } from './repository-bootstrap.mjs';
+import { createProviders } from './providers.mjs';
 
 const REVIEW_MODES = new Set(['review', 'visual_review', 'copy_review', 'technical_review', 'release_gate']);
 const EXTERNAL_MODES = new Set(['build', 'visual_review', 'technical_review']);
@@ -138,6 +139,7 @@ const parseResultFile = (text) => {
 
 export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = fetch, workerId = null } = {}) => {
   const store = createExecutionStore({ env, fetchImpl });
+  const providers = createProviders(env);
   const responses = createResponsesExecutor({ env, fetchImpl });
   const github = createGitHubRuntime({ env, fetchImpl });
   const id = workerId || env.WORKER_ID || `worker-${randomUUID()}`;
@@ -179,6 +181,21 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
     contentText: output,
     metadata: { task_id: context.task.id, task_key: context.task.task_key, ...metadata }
   });
+
+  const executeImageTask = async (context) => {
+    const prompt = buildTaskPrompt(context);
+    const generated = await providers.images.generate({ prompt, size: env.OPENAI_IMAGE_SIZE || '1536x1024', quality: env.OPENAI_IMAGE_QUALITY || 'low' });
+    const storageKey = `${context.workflow.tenant_id}/${context.workflow.project_id}/assets/${context.task.id}.png`;
+    const stored = await providers.storage.putObject({ key: storageKey, body: generated.body, contentType: generated.contentType });
+    const artifact = await store.saveArtifact({
+      context,
+      kind: 'asset_image',
+      title: context.task.title,
+      storageKey,
+      metadata: { task_id: context.task.id, task_key: context.task.task_key, provider: generated.model, storage_provider: stored.provider, content_type: generated.contentType }
+    });
+    return store.finishTask({ taskId: context.task.id, success: true, result: { artifact_id: artifact?.id || null, asset_type: 'image', storage_key: storageKey, storage_provider: stored.provider, model: generated.model } });
+  };
 
   const dispatchExternal = async (context, { prompt, stage = 'execute', cycle = 0, reviewResult = null } = {}) => {
     if (!context.repository?.repository_full_name) throw new Error('project repository is not configured');
@@ -236,6 +253,7 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
   };
 
   const executeInternal = async (context) => {
+    if (context.task.task_key === 'asset_create') return executeImageTask(context);
     if (context.task.mode === 'release_gate') {
       const review = evaluateReleaseGate(context);
       const output = JSON.stringify({ status: review.status, findings: review.findings, summary: review.summary });

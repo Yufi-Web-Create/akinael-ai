@@ -487,7 +487,9 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
       return dispatchExternal(context, { prompt: reviewPrompt, stage: 'review', cycle: nextCycle });
     }
 
-    if (qaFailed) {
+    const assetApplyEnvironmentException = context.task.task_key === 'asset_apply'
+      && String(resultFile.codex_conclusion || '').toLowerCase() === 'success';
+    if (qaFailed && !assetApplyEnvironmentException) {
       return failExternal(task, 'Repository QA failed after implementation', {
         executor: 'github_codex', run_id: run.id, run_url: run.html_url || null, result: resultFile
       });

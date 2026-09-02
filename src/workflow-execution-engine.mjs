@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { createExecutionStore } from './execution-store.mjs';
 import { createResponsesExecutor, extractLooseJson, classifyOpenAIError } from './openai-responses.mjs';
 import { createGitHubRuntime } from './github-runtime.mjs';
@@ -185,6 +185,10 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
   const executeImageTask = async (context) => {
     const prompt = buildTaskPrompt(context);
     const generated = await providers.images.generate({ prompt, size: env.OPENAI_IMAGE_SIZE || '1536x1024', quality: env.OPENAI_IMAGE_QUALITY || 'low' });
+    if (!generated.body?.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) throw new Error('image generation did not return a PNG');
+    const width = generated.body.readUInt32BE(16);
+    const height = generated.body.readUInt32BE(20);
+    const sha256 = createHash('sha256').update(generated.body).digest('hex');
     const storageKey = `${context.workflow.tenant_id}/${context.workflow.project_id}/assets/${context.task.id}.png`;
     const stored = await providers.storage.putObject({ key: storageKey, body: generated.body, contentType: generated.contentType });
     const artifact = await store.saveArtifact({
@@ -192,9 +196,10 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
       kind: 'asset_image',
       title: context.task.title,
       storageKey,
-      metadata: { task_id: context.task.id, task_key: context.task.task_key, provider: generated.model, storage_provider: stored.provider, content_type: generated.contentType }
+      contentText: JSON.stringify({ asset_type: 'image', format: 'png', width, height, byte_length: generated.body.length, sha256, storage_key: storageKey }),
+      metadata: { task_id: context.task.id, task_key: context.task.task_key, provider: generated.model, storage_provider: stored.provider, content_type: generated.contentType, width, height, byte_length: generated.body.length, sha256, visual_evidence: 'generated_png_validated' }
     });
-    return store.finishTask({ taskId: context.task.id, success: true, result: { artifact_id: artifact?.id || null, asset_type: 'image', storage_key: storageKey, storage_provider: stored.provider, model: generated.model } });
+    return store.finishTask({ taskId: context.task.id, success: true, result: { artifact_id: artifact?.id || null, asset_type: 'image', format: 'png', width, height, byte_length: generated.body.length, sha256, storage_key: storageKey, storage_provider: stored.provider, model: generated.model } });
   };
 
   const dispatchExternal = async (context, { prompt, stage = 'execute', cycle = 0, reviewResult = null } = {}) => {

@@ -32,3 +32,25 @@ test('public landing page retains required SEO and keyboard-accessible landmarks
   assert.match(html, /aria-label="パスワードを表示" aria-pressed="false"/);
   assert.match(script, /authPasswordToggle\.setAttribute\('aria-pressed', String\(!showing\)\)/);
 });
+
+test('FAQPage JSON-LD exactly matches every FAQ rendered in the final DOM', () => {
+  const faqSection = html.match(/<section class="faq section" id="faq">([\s\S]*?)<\/section>/)?.[1];
+  assert.ok(faqSection, 'FAQ section must exist');
+
+  const renderedFaqs = [...faqSection.matchAll(/<details><summary>([\s\S]*?)<\/summary><p>([\s\S]*?)<\/p><\/details>/g)]
+    .map(([, question, answer]) => ({
+      question: question.replace(/<span aria-hidden="true">[\s\S]*?<\/span>/g, '').replace(/<[^>]+>/g, '').trim(),
+      answer: answer.replace(/<[^>]+>/g, '').trim()
+    }));
+
+  const jsonLdBlocks = [...html.matchAll(/<script type="application\/ld\+json">\s*([\s\S]*?)\s*<\/script>/g)]
+    .map(([, block]) => JSON.parse(block));
+  const faqPage = jsonLdBlocks.find((block) => block['@type'] === 'FAQPage');
+  assert.ok(faqPage, 'FAQPage JSON-LD must exist');
+
+  const structuredFaqs = faqPage.mainEntity.map((entry) => ({
+    question: entry.name,
+    answer: entry.acceptedAnswer?.text
+  }));
+  assert.deepEqual(structuredFaqs, renderedFaqs);
+});

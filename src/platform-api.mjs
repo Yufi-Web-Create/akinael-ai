@@ -3,6 +3,8 @@ import { createProductionRouter } from './production-router.mjs';
 import { createSupabaseAuth, SupabaseAuthError, verifySupabaseAccessToken } from './supabase-admin.mjs';
 
 const MAX_BODY_BYTES = 64 * 1024;
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_MAX = 30;
 // Do not collect account or consultation data until the legal documents and
 // durable consent record specified by the release gate are in place.
 const PERSONAL_DATA_COLLECTION_MESSAGE = 'new registration and consultation intake are unavailable until the terms and privacy policy are published';
@@ -15,6 +17,25 @@ const writeJson = (response, status, payload, extraHeaders = {}) => {
     ...extraHeaders
   });
   response.end(JSON.stringify(payload));
+};
+
+// Use the TCP peer address instead of a client-controlled forwarding header.
+// Deployments behind a proxy must preserve the peer address or enforce an
+// equivalent limit at the trusted proxy boundary.
+export const createIpRateLimiter = ({ now = () => Date.now(), windowMs = RATE_LIMIT_WINDOW_MS, max = RATE_LIMIT_MAX } = {}) => {
+  const attempts = new Map();
+  return (request) => {
+    const key = request.socket?.remoteAddress || 'unknown';
+    const currentTime = now();
+    const current = attempts.get(key);
+    if (!current || currentTime - current.startedAt >= windowMs) {
+      attempts.set(key, { startedAt: currentTime, count: 1 });
+      return null;
+    }
+    current.count += 1;
+    if (current.count <= max) return null;
+    return Math.max(1, Math.ceil((windowMs - (currentTime - current.startedAt)) / 1000));
+  };
 };
 
 const readJsonBody = (request) => new Promise((resolve, reject) => {
@@ -47,6 +68,7 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
   const store = createPlatformStore({ env, fetchImpl });
   const productionRouter = createProductionRouter({ env, fetchImpl });
   const auth = createSupabaseAuth({ env, fetchImpl });
+  const rateLimited = createIpRateLimiter();
 
   const requireConfirmedEmail = async (accessToken) => {
     const user = await verifySupabaseAccessToken(accessToken, { env, fetchImpl });
@@ -60,6 +82,11 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
   const handle = async (request, response) => {
     const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
     if (!url.pathname.startsWith('/api/v2/')) return false;
+
+    const retryAfter = rateLimited(request);
+    if (retryAfter) {
+      return writeJson(response, 429, { error: { code: 'rate_limit_exceeded', message: 'too many requests' } }, { 'retry-after': String(retryAfter) }), true;
+    }
 
     const method = request.method || 'GET';
     const token = extractAccessToken(request);

@@ -71,7 +71,7 @@ test('homepage presents formal prices and tax conditions while retaining the req
   assert.match(html, new RegExp(businessConfig.pricing.websiteProduction.startingAmount.toLocaleString('ja-JP')));
   assert.match(html, /広告費（税別）の20%に消費税を加えた額/);
   assert.match(html, /月額最低料金は5,500円（税込）/);
-  assert.match(html, /無料登録後、何ができますか/);
+  assert.match(html, /新規受付の再開後、何ができますか/);
   assert.match(html, /勝手に料金が発生しませんか/);
   assert.match(html, /データはどう扱われますか/);
 });

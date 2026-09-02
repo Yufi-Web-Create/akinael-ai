@@ -1,0 +1,9 @@
+{
+  "task_id": "8ca28beb-0502-4ba3-a0ca-fb69afbc5950",
+  "stage": "correction",
+  "cycle": 1,
+  "final_message": "レビュー指摘を反映しました。\n\n- `/api/v2/` 全体へ、IPごと毎分30件のレート制限を追加。超過時は `429` と `Retry-After` を返します。  \n  [platform-api.mjs](/home/runner/work/akinael-ai/akinael-ai/src/platform-api.mjs)\n- レート制限の単体テストと、実サーバー経由の回帰テストを追加。  \n  [platform-api.test.mjs](/home/runner/work/akinael-ai/akinael-ai/test/platform-api.test.mjs)\n- 「新規受付停止中」と矛盾していた登録・お試しの案内を、「再開後」の条件付き表現へ統一。主要コピーも対象業務が伝わる具体表現に修正。  \n  [index.html](/home/runner/work/akinael-ai/akinael-ai/public/index.html)\n\n判断理由:\n- 法務文書と同意記録が未整備のため、個人情報を受け取らない現在の停止方針を維持するのが安全です。\n- メール未確認ユーザーは既にサーバー側でログイン・利用を拒否しています。\n- API濫用対策の不足を、v2ルートの入口で補完しました。\n\n検証:\n- `node --test`（待受ポートを必要とする2ファイルを除く）: 16件 PASS\n- 新設レート制限テスト・コピー/A11yテスト: PASS\n- `node --check`、`git diff --check`: PASS\n\n未解決事項:\n- この環境はローカル待受ポートを禁止しており、`test/server.test.mjs` と `test/platform-server.test.mjs` は `listen EPERM` で実行不能です。CI等の通常環境で全体テストを再実行してください。\n- Chromiumもサンドボックス制約で起動できず、実ブラウザのviewport確認は未実施です。\n- 正式な利用規約・プライバシーポリシーおよび同意記録の永続化が整うまで、新規登録・相談受付は再開不可です。",
+  "qa_conclusion": "failure",
+  "codex_conclusion": "success",
+  "generated_at": "2026-09-02T17:48:45.143Z"
+}

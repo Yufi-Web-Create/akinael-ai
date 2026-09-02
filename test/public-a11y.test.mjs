@@ -61,7 +61,7 @@ test('landing-page copy states the service hold and formal pricing conditions ac
 
   assert.match(html, /Web担当者がいない[\s\S]*Web制作・集客改善の相談窓口/);
   assert.match(html, /Webサイト制作、文章・SNS、予約導線の見直し、公開前の検査、契約内容に応じた公開後の更新・改善を支援します。/);
-  assert.match(html, /相談内容を整理して、[\s\S]*必要な[\s\S]*制作・改善[\s\S]*を進めます。/);
+  assert.match(html, /店舗のWebサイトと[\s\S]*集客導線を確認・改善<\/span>します。/);
   assert.match(html, /新規の登録・相談受付は、利用規約とプライバシーポリシーを正式に公開するまで停止しています。/);
   assert.doesNotMatch(html, /data-auth-open="register"|data-public-chat-form/);
   assert.match(html, new RegExp(`${trial.amount}円`));
@@ -75,6 +75,7 @@ test('landing-page copy states the service hold and formal pricing conditions ac
   assert.match(html, /月額プランの解約・返金条件は契約時に明示します。/);
   assert.match(html, /継続的な更新・改善は、契約内容、対応回数、制作量、料金を事前に確定した範囲で行います。/);
   assert.match(html, /お試しは0円です。/);
+  assert.match(html, /新規受付の再開後、登録・メール確認・ログインを済ませた方は、0円のお試しで/);
   assert.match(html, /Webサイト簡易試作は、相談内容を確認し、対応可能な場合に対象範囲と制作量をご案内します。/);
   assert.doesNotMatch(html, /無料の試作を確認してから契約を検討できます。|まず試作を見る。|相談の先に、<br>試作が残ります。/);
   assert.doesNotMatch(html, /料金、税表示、契約条件は現在最終確認中です。|確定前の金額を正式料金として掲載しません。|商いの願いを|無料でAIに相談する|公開後も一緒に改善/);

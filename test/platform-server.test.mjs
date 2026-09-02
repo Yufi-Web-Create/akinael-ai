@@ -158,3 +158,22 @@ test('v2 login rejects an unconfirmed Supabase email before provisioning or retu
     await close(server);
   }
 });
+
+test('v2 API rate-limits repeated requests before authentication or downstream processing', async () => {
+  let called = false;
+  const server = createApp({ env, fetchImpl: async () => { called = true; throw new Error('request should be rate-limited before Supabase'); } });
+  const baseUrl = await listen(server);
+  try {
+    for (let index = 0; index < 30; index += 1) {
+      const result = await fetch(`${baseUrl}/api/v2/auth/me`);
+      assert.equal(result.status, 401);
+    }
+    const limited = await fetch(`${baseUrl}/api/v2/auth/me`);
+    assert.equal(limited.status, 429);
+    assert.equal(limited.headers.get('retry-after'), '60');
+    assert.equal((await limited.json()).error.code, 'rate_limit_exceeded');
+    assert.equal(called, false);
+  } finally {
+    await close(server);
+  }
+});

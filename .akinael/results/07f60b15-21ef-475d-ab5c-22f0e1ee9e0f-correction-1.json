@@ -1,0 +1,9 @@
+{
+  "task_id": "07f60b15-21ef-475d-ab5c-22f0e1ee9e0f",
+  "stage": "correction",
+  "cycle": 1,
+  "final_message": "レビュー指摘4件を修正しました。\n\n- ロゴを対象顧客・提供内容が分かる表現へ更新\n- 「24時間受付」を、実機能に限定した「いつでも入力できます」へ変更\n- FAQの未確認実績表現を削除し、対象顧客の説明へ更新\n- 承認が必要な判断対象を「契約・課金・公開」などと明示\n- FAQ構造化データと画面文言も一致させました\n\n変更: [public/index.html](/home/runner/work/akinael-ai/akinael-ai/public/index.html)、[logo-horizontal.svg](/home/runner/work/akinael-ai/akinael-ai/public/assets/logos/logo-horizontal.svg)、[QA_REPORT.md](/home/runner/work/akinael-ai/akinael-ai/QA_REPORT.md)\n\n検証は、公開ページ関連4テスト、コピー／FAQ JSON-LD整合性、`git diff --check` がすべてPASSです。全体`npm test`は14ファイルPASSでしたが、1ファイルはサンドボックスがローカル待受を禁止するため実行不能でした。\n\n判断理由: 正式な事業コンセプトにある対象顧客・提供範囲・承認ゲートだけを根拠にし、実績や未確認の運用条件を含まない表現に統一しました。\n\n未解決事項: ChromiumがサンドボックスのCrashpad制約で起動できず、実ブラウザ画面確認と全viewportスクリーンショットは未実施です。これは今回のコピー修正ではなく、既存の環境制約としてQAレポートに記録しています。",
+  "qa_conclusion": "success",
+  "codex_conclusion": "success",
+  "generated_at": "2026-09-02T15:31:21.593Z"
+}

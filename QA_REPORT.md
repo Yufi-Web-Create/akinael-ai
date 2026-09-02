@@ -39,6 +39,26 @@ The updated regression test rejects any `.reveal` or `.js .reveal` rule that set
 
 In a browser-capable preview environment, inspect the landing page at all eight required viewports. Confirm each formerly hidden section is visible in the initial full-page capture, then verify no horizontal overflow, navigation/CTA access, image crop, focus visibility, FAQ expansion, dialog containment, and floating-chat overlap. Retain the screenshots and console output before marking the visual review PASS.
 
+## Copy-review revision — `expanded_copy_review`
+
+**Scope:** `public/index.html`, `public/assets/logos/logo-horizontal.svg`
+
+| Review finding | Resolution |
+|---|---|
+| Generic logo tagline | Replaced in the header, footer, and reusable horizontal logo with `Web担当者がいない店舗の、集客・Web改善を支援。` |
+| Unsupported `24時間` reception claim | Replaced with the function-specific `相談内容はいつでも入力できます。` |
+| Unverified “frequently consulted” claim in the industry FAQ | Replaced visible FAQ and FAQ structured data with the documented target-customer definition. |
+| Ambiguous approval condition | Specified `契約、課金、公開など、承認が必要な場面` as the cases requiring customer judgment. |
+
+| Command | Result |
+|---|---|
+| `node --test test/public-a11y.test.mjs test/public-visual-regression.test.mjs test/customer-web-template.test.mjs test/portal-seo-a11y.test.mjs` | PASS — 4 files, 0 failures |
+| Copy / FAQ JSON-LD consistency check | PASS |
+| `git diff --check` | PASS |
+| `npm test` | Environment-blocked: 14 test files passed; `test/platform-server.test.mjs` cannot bind `127.0.0.1` under the sandbox policy. |
+
+The real-browser review remains blocked by the same sandbox Crashpad startup restriction recorded above. No screenshot or browser-console result is claimed for this copy-only revision.
+
 ## Judgment rationale
 
 - The implementation cause of the reported blank sections is removed, and a focused automated regression guard now covers it.

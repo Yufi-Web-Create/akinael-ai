@@ -305,7 +305,20 @@ export const createGitHubRuntime = ({ env = process.env, fetchImpl = fetch } = {
     });
   };
 
-  const createBranch = async ({ repositoryFullName, branchName, fromBranch = 'main' }) => {\n    const { owner, repo } = splitRepo(repositoryFullName);\n    const ownerToken = await tokenForRepositoryOwner(owner);\n    const tokenOverride = bootstrapToken || ownerToken || null;\n    const base = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/ref/heads/${String(fromBranch).split('/').map(encodeURIComponent).join('/')}`, { tokenOverride });\n    try {\n      return await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/refs`, { method: 'POST', tokenOverride, body: { ref: `refs/heads/${branchName}`, sha: base.object.sha } });\n    } catch (error) {\n      if (error instanceof GitHubRuntimeError && error.status === 422) return { ref: `refs/heads/${branchName}`, object: { sha: base.object.sha } };\n      throw error;\n    }\n  };\n\n  const putRepositoryFile = async ({ repositoryFullName, path, content, contentBase64 = null, branch = 'main', message = 'Initialize Akinael project' }) => {
+  const createBranch = async ({ repositoryFullName, branchName, fromBranch = 'main' }) => {
+    const { owner, repo } = splitRepo(repositoryFullName);
+    const ownerToken = await tokenForRepositoryOwner(owner);
+    const tokenOverride = bootstrapToken || ownerToken || null;
+    const base = await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/ref/heads/${String(fromBranch).split('/').map(encodeURIComponent).join('/')}`, { tokenOverride });
+    try {
+      return await request(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/refs`, { method: 'POST', tokenOverride, body: { ref: `refs/heads/${branchName}`, sha: base.object.sha } });
+    } catch (error) {
+      if (error instanceof GitHubRuntimeError && error.status === 422) return { ref: `refs/heads/${branchName}`, object: { sha: base.object.sha } };
+      throw error;
+    }
+  };
+
+  const putRepositoryFile = async ({ repositoryFullName, path, content, contentBase64 = null, branch = 'main', message = 'Initialize Akinael project' }) => {
     const { owner, repo } = splitRepo(repositoryFullName);
     const ownerToken = await tokenForRepositoryOwner(owner);
     const tokenOverride = bootstrapToken || ownerToken || null;

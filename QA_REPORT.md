@@ -1,34 +1,53 @@
-# QA Report — expanded_seo_a11y_review
+# QA Report — Landing Page Visual Review Revision
 
-**Tested revision:** `e34847b` plus the working-tree changes in this task  
-**Test date:** 2026-09-02 UTC  
-**Test target:** `public/index.html`
+Date: 2026-09-02
+Scope: `public/index.html`, `public/assets/styles.css`, and `public/assets/app.js`
+Status: **FAIL — real-browser visual evidence is blocked by this execution environment**
 
-## Fix applied
+## Finding corrected
 
-- Synced the `FAQPage` JSON-LD with all 11 rendered FAQ entries, including their order, questions, and answers.
-- Marked the FAQ expansion glyph as `aria-hidden`, so it is not announced as part of each question.
-- Added an automated assertion that parses the final FAQ DOM and the JSON-LD and requires exact equality. Future changes to either source fail the test until both are synchronized.
+The previous visual-review evidence showed lower-page sections as blank or solid blocks. The cause was the global `.reveal` rule: it set every marked section to `opacity: 0` until `IntersectionObserver` called its callback. This made readability depend on scroll-observer execution.
 
-## Automated checks
+The rule now uses motion as progressive enhancement:
 
-| Check | Result | Evidence |
-|---|---|---|
-| FAQ JSON-LD / final DOM exact match | PASS | `node --test test/public-a11y.test.mjs` |
-| Public SEO and keyboard landmark checks | PASS | `node --test test/public-a11y.test.mjs` |
-| All runnable repository tests | PASS | 12 test files / 0 failures (all except the environment-blocked server suite) |
-| Full `npm test` | Environment-blocked | `test/platform-server.test.mjs` cannot bind `127.0.0.1`: `listen EPERM` (5 failures); all other 12 files pass |
+- `.reveal` is visible by default, including when JavaScript or `IntersectionObserver` fails.
+- Only the JavaScript-enhanced `.js .reveal` state begins hidden.
+- The observer adds `.visible` once a section reaches the viewport, using a lower pre-entry margin for stable scrolling.
 
-## Browser and responsive review
+The change preserves the intended reveal animation when JavaScript works and prevents content from being hidden when it does not.
 
-The required browser matrix could not be executed in this sandbox, so no screenshots are claimed as evidence.
+## Commands and results
 
-| Required viewports | Result | Blocking environment evidence |
-|---|---|---|
-| 360x800, 375x812, 390x844, 430x932, 768x1024, 1024x768, 1280x800, 1440x900 | NOT RUN | Local server startup fails with `listen EPERM`; Chromium fails to create its headless user-data container; Firefox headless exits with a segmentation fault. |
+| Command | Result |
+|---|---|
+| `node --test test/public-a11y.test.mjs test/public-visual-regression.test.mjs test/customer-web-template.test.mjs` | PASS — 3 files / all assertions passed |
+| `git diff --check` | PASS |
+| `npm test` | BLOCKED by the sandbox's socket policy in `test/platform-server.test.mjs`; all completed application test files, including the new visual-regression test, passed before the server test could complete. |
+| Static HTTP server on `127.0.0.1:4173` | BLOCKED — `listen EPERM` |
+| Chromium headless smoke run | BLOCKED — Crashpad fails at `setsockopt: Operation not permitted`, exit 134 |
+| Firefox headless smoke run | BLOCKED — process exits with signal 11 |
 
-Required follow-up in an environment that permits local browser execution: run the eight-viewport matrix against the served page and record screenshots, horizontal-overflow checks, keyboard focus traversal, FAQ expand/collapse behavior, and console errors.
+## Required viewport matrix
 
-## Status
+No row is marked PASS without a running browser, a served page, deliberate scrolling, and retained screenshots.
 
-The FAQ structured-data finding is resolved and guarded by automated regression coverage. The release gate remains **not ready for final PASS** until the required real-browser viewport evidence is collected; this is an execution-environment limitation, not an identified implementation defect.
+| Viewport | Scroll each section into view | Screenshot | Console | Overflow / controls | Status |
+|---|---|---|---|---|---|
+| 360×800 | — | — | — | — | BLOCKED |
+| 375×812 | — | — | — | — | BLOCKED |
+| 390×844 | — | — | — | — | BLOCKED |
+| 430×932 | — | — | — | — | BLOCKED |
+| 768×1024 | — | — | — | — | BLOCKED |
+| 1024×768 | — | — | — | — | BLOCKED |
+| 1280×800 | — | — | — | — | BLOCKED |
+| 1440×900 | — | — | — | — | BLOCKED |
+
+## Handoff: required final browser check
+
+Run the landing page from an approved browser-capable preview environment. At each viewport above, scroll through every section so that `.reveal` elements gain `.visible`, then capture the resulting viewport and full-page screenshots. Record console errors, horizontal overflow, header/menu behavior, CTA reachability, image crop, focus visibility, FAQ expansion, dialog containment, and floating-chat overlap. Only mark this review PASS after all eight rows pass.
+
+## Judgment rationale
+
+- The reported blank-section failure is corrected at its implementation cause and protected by a focused regression test.
+- A static source test cannot replace actual viewport inspection, so the release gate remains FAIL rather than treating this revision as visually approved.
+- No public release, DNS change, payment operation, or other irreversible action was performed.

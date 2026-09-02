@@ -1,6 +1,10 @@
 const one = (selector, root = document) => root.querySelector(selector);
 const all = (selector, root = document) => [...root.querySelectorAll(selector)];
 
+// Reveal motion is progressive enhancement; content remains visible if this
+// script or IntersectionObserver is unavailable.
+document.documentElement.classList.add('js');
+
 const header = one('[data-header]');
 if (header) {
   const syncHeader = () => header.classList.toggle('scrolled', scrollY > 20);
@@ -30,7 +34,7 @@ if (reveals.length) {
         observer.unobserve(entry.target);
       }
     });
-  }, { threshold: 0.12 });
+  }, { threshold: 0.12, rootMargin: '0px 0px 15% 0px' });
   reveals.forEach((element) => observer.observe(element));
 }
 

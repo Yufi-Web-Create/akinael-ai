@@ -1,0 +1,9 @@
+{
+  "task_id": "8ca28beb-0502-4ba3-a0ca-fb69afbc5950",
+  "stage": "review",
+  "cycle": 1,
+  "final_message": "独立レビューの結果はFAILです。バックエンド18テストと旧API遮断の回帰テストは通過し、旧 `/api/*` はv2以外を410で拒否します。\n\nただし、管理UIは旧APIを呼び続けるため実運用不能です。また、必須のポータル本番ビルドとブラウザE2EをCIで実行・証跡化するゲートがありません。\n\n{\"status\":\"FAIL\",\"findings\":[{\"severity\":\"major\",\"location\":\"public/admin-login.html:31、public/assets/app.js:407-889\",\"problem\":\"公開されている管理UIが廃止済みの旧 `/api/*` を呼び出すが、src/platform-server.mjs はそれらを全て410で拒否する。管理者ログイン、承認記録、ワークフロー、公開承認などが実行不能。\",\"expected\":\"旧管理UIをv2の厳格な管理者認可付きAPIへ移行し、承認ゲートを維持したE2Eテストを追加するか、移行完了まで当該UIを公開しない。\"},{\"severity\":\"major\",\"location\":\".github/workflows/core-quality.yml:18-19\",\"problem\":\"通常CIはルートの npm ci と npm test のみで、portal の依存復元・lint・production buildを検証しない。現環境でも portal の本番ビルドは依存未復元により完了せず、public/portal の生成物は存在しない。\",\"expected\":\"CIに npm --prefix portal ci、npm --prefix portal run lint、npm --prefix portal run build を必須ジョブとして追加し、Render投入前に失敗を検出する。\"},{\"severity\":\"major\",\"location\":\"package.json、portal/package.json、.github/workflows/core-quality.yml\",\"problem\":\"対象ポータルの実ブラウザE2E、8 viewport確認、console error・内部リンク確認の自動実行と証跡がない。QA_STANDARDのRelease Gateを満たせない。\",\"expected\":\"ブラウザ実行可能なCI/プレビュー環境で、360x800から1440x900までの主要導線E2E、console、リンク検査、スクリーンショット保存を必須化する。\"}],\"summary\":\"旧API遮断はテスト済みだが、管理UI回帰とポータルの本番ビルド・ブラウザE2E未検証により公開判定は不可。\"}",
+  "qa_conclusion": "success",
+  "codex_conclusion": "success",
+  "generated_at": "2026-09-02T23:33:24.719Z"
+}

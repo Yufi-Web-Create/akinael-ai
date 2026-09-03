@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-test('portal release E2E covers the required viewports, rendered login journey, browser console, links, and screenshots', async () => {
+test('portal release E2E covers required viewports, authenticated cookie restoration, browser console, links, and screenshots', async () => {
   const [packageJson, script, workflow] = await Promise.all([
     readFile(new URL('../portal/package.json', import.meta.url), 'utf8'),
     readFile(new URL('../portal/scripts/release-e2e.mjs', import.meta.url), 'utf8'),
@@ -13,9 +13,13 @@ test('portal release E2E covers the required viewports, rendered login journey, 
     assert.match(script, new RegExp(viewport.replace(/[\[\]]/g, '\\$&')));
   }
   assert.match(script, /broken internal link/);
-  assert.match(script, /--screenshot=/);
+  assert.match(script, /Page\.captureScreenshot/);
   assert.match(script, /hasBrowserConsoleError/);
-  assert.match(script, /\/ログイン\//);
+  assert.match(script, /document\.querySelector\(\"#email\"\)/);
+  assert.match(script, /\/api\/v2\/auth\/login/);
+  assert.match(script, /cookie session restoration/);
+  assert.match(script, /Cookie-authenticated browser request missing/);
+  assert.match(script, /horizontal overflow/);
   assert.match(workflow, /npm --prefix portal run build/);
   assert.match(workflow, /npm --prefix portal run test:e2e/);
   assert.match(workflow, /actions\/upload-artifact@v4/);

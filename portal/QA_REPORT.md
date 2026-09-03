@@ -1,62 +1,51 @@
 # QA Report — Customer Portal / Legacy API Revision
 
-Date: 2026-09-02
+Date: 2026-09-03
 
-Tested revision: `a7883d5ebbb253206d4b9970b767b0972d30bf04`
+Tested revision: `0a82e9df046cb54d4ec9f2d353e9d37d4f09aa02` plus the uncommitted correction recorded in this worktree.
 
-Status: **FAIL — security fixes are implemented and source tests pass, but the current workspace cannot restore Portal build dependencies to repeat the production-build and browser gates**
+Status: **FAIL — source/API regression tests pass; Portal dependency restoration, production build, and Chromium E2E require a fresh CI run before this release gate can pass.**
 
-## 2026-09-02 technical review correction
+## Corrections applied
 
-- The Portal no longer stores or reads a bearer token in `localStorage`, and it no longer sends an `Authorization` header from browser JavaScript.
-- v2 registration and login now set `akinael_v2_session` as an `HttpOnly; Secure; SameSite=Lax; Path=/` cookie and return no access token in their JSON response. The Portal uses same-origin credentialed requests; session restoration is performed by `/api/v2/auth/me`.
-- The browser console gate now detects both Chromium's `ERROR:CONSOLE(...)` resource-error form (including 404s) and alternate `CONSOLE ERROR` / `CONSOLE SEVERE` forms. The 404 form has a dedicated regression test.
-- `npm test` passed: 20 test files, 0 failed. `npm --prefix portal test` passed: 3 tests, 0 failed. `npm --prefix portal run lint` passed before dependency restoration was attempted.
-- `npm --prefix portal run build` could not be completed locally because the workspace lacks the Vite packages and `npm ci --prefix portal` cannot retrieve all locked packages with the available restricted network/cache. `npm --prefix portal run test:e2e` was also attempted and stopped before Chromium launch because this sandbox prohibits binding `127.0.0.1` (`listen EPERM`). Therefore no new Chromium screenshots or browser-E2E PASS evidence is claimed here.
-- CI now runs `npm --prefix portal test` before lint, build, and the existing Chromium E2E job. A successful CI run is required before changing this report to PASS.
+- The CI workflow now executes `npm --prefix portal test` after Portal dependency restoration and before lint, build, and browser E2E.
+- The browser E2E no longer stops at the unauthenticated login screen. For every required viewport it uses Chromium DevTools to render and submit the login form, verify authenticated Portal content, reload and verify cookie-session restoration, verify authenticated Portal API paths use the session cookie and no browser `Authorization` header, and fail on horizontal overflow, runtime/console errors, broken internal links, or missing screenshot output.
+- The E2E serves only the production build directory (`public/portal`) and fails before running if the build output is absent. Its loopback fixture deliberately omits `Secure` only because the browser test runs over HTTP; the production API cookie attributes are separately covered by API regression tests.
 
-## Security and migration boundary
-
-- The production entrypoint returns `410 legacy_api_retired` for every legacy `/api/*` path before the legacy handler can process customer data.
-- v2 endpoints are the only public API surface. Supabase identity, confirmed email, tenant scope, and recorded legal consent cannot be bypassed through legacy customer routes.
-- Legacy `/admin`, `/admin-login`, and `/mypage` pages return a no-store 404. Their source remains only as a migration reference until a separately reviewed v2 Admin App exists.
-- Regression tests cover the legacy customer message path, public chat, login, management API, and management pages.
-
-## Reproducible quality evidence
-
-GitHub Actions Core Quality Run: `33696822670`
-
-Browser evidence artifact: `portal-browser-e2e`, artifact ID `9872079676`, SHA-256 `81516b13e2267a86945bbd99baf35e2c77c2c13bdc2f78bce6d48ec394c8ec9c`
+## Current local evidence
 
 | Check | Result | Evidence |
 |---|---|---|
-| Root dependency restore | PASS | `npm ci` |
-| Full repository suite | PASS | 96 passed, 0 failed, 0 skipped |
-| Portal dependency restore | PASS | `npm ci --prefix portal` |
-| Portal lint/typecheck | PASS | `npm --prefix portal run lint` |
-| Portal production build | PASS | Vite 7.1.12, 29 modules, JS bundle 203.40 kB |
-| Browser journey | PASS | Login heading and labeled email/password controls rendered in Chromium |
-| Browser console | PASS | No `CONSOLE ERROR` or `CONSOLE SEVERE` output |
-| Internal links | PASS | Every source-declared internal link returned HTTP 200 |
-| Screenshot artifact | PASS | Eight PNG files uploaded by `actions/upload-artifact@v4` |
+| Full repository suite | PASS | `npm test`: 20 passed, 0 failed, 0 skipped |
+| Portal script tests | PASS | `npm --prefix portal test`: 1 passed, 0 failed |
+| E2E contract regression | PASS | Included in `npm test` (`test/portal-browser-e2e.test.mjs`) |
+| Portal lint/typecheck | NOT RUN | Dependency restoration did not complete in this restricted workspace |
+| Portal production build | NOT RUN | Dependency restoration did not complete in this restricted workspace |
+| Chromium authenticated E2E | NOT RUN | Depends on a successful production build; local sandbox also blocks loopback listeners |
 
-## Required viewport matrix
+## Required CI evidence before a PASS judgment
 
-| Viewport | Rendered journey | Console | Screenshot | Status |
-|---|---:|---:|---:|---|
-| 360×800 | PASS | PASS | PASS | PASS |
-| 375×812 | PASS | PASS | PASS | PASS |
-| 390×844 | PASS | PASS | PASS | PASS |
-| 430×932 | PASS | PASS | PASS | PASS |
-| 768×1024 | PASS | PASS | PASS | PASS |
-| 1024×768 | PASS | PASS | PASS | PASS |
-| 1280×800 | PASS | PASS | PASS | PASS |
-| 1440×900 | PASS | PASS | PASS | PASS |
+Run the unchanged Core Quality sequence on the corrected revision:
 
-## Independent live verification
+```text
+npm ci
+npm test
+npm ci --prefix portal
+npm --prefix portal test
+npm --prefix portal run lint
+npm --prefix portal run build
+npm --prefix portal run test:e2e
+```
 
-The production Portal at `https://akinael-ai.com/portal/` was also opened in Cloud Browser. The visible login card, semantic heading, and labeled controls rendered successfully. The measured document had no horizontal overflow (`scrollWidth = clientWidth = 1363`), and application-origin console errors were zero. A Chrome-extension metadata message originated from `chrome-extension://` and is excluded from the application error count.
+The CI artifact `portal-browser-e2e` must contain eight screenshots for the required viewport matrix: 360×800, 375×812, 390×844, 430×932, 768×1024, 1024×768, 1280×800, and 1440×900.
+
+## Security and migration boundary verified by regression tests
+
+- Browser code uses same-origin credentialed requests and does not store a bearer token in `localStorage` or send browser `Authorization` headers.
+- v2 login and registration return no access token in JSON and set the `HttpOnly; Secure; SameSite=Lax; Path=/` session cookie in production API behavior.
+- `/api/*` legacy routes return `410 legacy_api_retired` before reaching legacy customer-data handling.
+- Legacy management pages return a no-store 404, preventing the retired management UI from being publicly served.
 
 ## Release judgment
 
-FAIL pending a fresh CI production build and Chromium E2E run. No public release, production DNS change, paid action, or data deletion was performed.
+The previous report's historical CI run, screenshot artifact, test count, and tested revision are not evidence for this worktree and have been removed. No public release, DNS change, paid action, or data deletion was performed. A passing CI build and authenticated Chromium run are still required for release approval.

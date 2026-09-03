@@ -2,9 +2,9 @@
 
 Date: 2026-09-03
 
-Tested revision: pending the Core Quality run triggered by the same-process cookie-restoration correction.
+Tested revision: `ea2816c59e1ffaf9e50ae7a3e26f58aae3a14465`
 
-Status: **PENDING — Core Quality runs `33723800003` and `33724082188` passed repository tests, Portal tests, lint, and production build. The E2E now performs login and a full navigation reload in one Chromium process so the session cookie is restored using real browser behavior. A fresh CI run is required.**
+Status: **PASS — Core Quality run `33725121125` completed the full release gate successfully, including authenticated Chromium E2E across all eight required viewports.**
 
 ## Corrections applied
 
@@ -19,14 +19,14 @@ Status: **PENDING — Core Quality runs `33723800003` and `33724082188` passed r
 
 | Check | Result | Evidence |
 |---|---|---|
-| Full repository suite | PASS | Core Quality run `33723800003`: 99 passed, 0 failed, 0 skipped |
-| Portal script tests | PASS | Core Quality run `33723800003`: 3 passed, 0 failed |
+| Full repository suite | PASS | Core Quality run `33725121125`: 99 passed, 0 failed, 0 skipped |
+| Portal script tests | PASS | Core Quality run `33725121125`: 3 passed, 0 failed |
 | E2E contract regression | PASS | Included in `npm test` (`test/portal-browser-e2e.test.mjs`) |
-| Portal lint/typecheck | PASS | Core Quality run `33723800003`, revision `2d957bd990ab4021ec91458eb153c2f350af559d` |
-| Portal production build | PASS | Core Quality run `33723800003`, revision `2d957bd990ab4021ec91458eb153c2f350af559d` |
-| Chromium authenticated E2E | PASS (historical) | Core Quality run `33696822670`; artifact `portal-browser-e2e` ID `9872079676`, eight screenshots, digest `sha256:81516b13e2267a86945bbd99baf35e2c77c2c13bdc2f78bce6d48ec394c8ec9c` |
+| Portal lint/typecheck | PASS | Core Quality run `33725121125`, revision `ea2816c59e1ffaf9e50ae7a3e26f58aae3a14465` |
+| Portal production build | PASS | Core Quality run `33725121125`, revision `ea2816c59e1ffaf9e50ae7a3e26f58aae3a14465` |
+| Chromium authenticated E2E | PASS | Core Quality run `33725121125`; artifact `portal-browser-e2e` ID `9881679316`, eight screenshots, digest `sha256:9e452ff6448a3980a7e43f82d4cea24700b41d762bce5632efaf62c617b2e9b2` |
 
-## Required CI evidence before a PASS judgment
+## Executed CI sequence
 
 Run the unchanged Core Quality sequence on the corrected revision:
 
@@ -51,4 +51,4 @@ The CI artifact `portal-browser-e2e` must contain eight screenshots for the requ
 
 ## Release judgment
 
-Runs `33723800003` and `33724082188` prove the complete unit-test, Portal-test, lint, and production-build gates. Their browser steps timed out before Chrome exposed a DevTools endpoint; the E2E now uses the hosted-runner Chromium CLI path that previously produced screenshots successfully, extended with authenticated form submission and a separate cookie-restoration launch. A fresh passing run on this correction is still required. No public release, DNS change, paid action, or data deletion was performed.
+Core Quality run `33725121125` passed the complete release gate on revision `ea2816c59e1ffaf9e50ae7a3e26f58aae3a14465`. It restored dependencies, passed all repository and Portal tests, passed lint/typecheck and production build, performed authenticated cookie restoration in Chromium, checked eight viewports for overflow and console errors, and uploaded all eight screenshots. The technical release judgment is PASS. No public release, DNS change, paid action, or data deletion was performed.

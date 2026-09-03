@@ -2,8 +2,8 @@
   "task_id": "8ca28beb-0502-4ba3-a0ca-fb69afbc5950",
   "stage": "review",
   "cycle": 0,
-  "final_message": "技術レビューはFAILです。\n\n`npm test`（19ファイル、失敗・skipなし）と `npm --prefix portal run lint` は通過しました。旧API・旧管理UIの遮断テストも存在します。一方、公開ゲートに必要なブラウザコンソール検査と認証トークン保護に重大な不足があります。\n\n- major: Chromeが出力する「リソース404」等のコンソールエラーをE2Eが見逃します。したがって、QAレポートの「console errorsなし」はこのテストだけでは保証できません。\n- major: SupabaseのBearerアクセストークンを`localStorage`に永続化しており、同一オリジンのXSS等で顧客セッションが取得可能です。HttpOnly・Secure・SameSite Cookie等のスクリプトから読めないセッション方式へ移行が必要です。\n\n{\"status\":\"FAIL\",\"findings\":[{\"severity\":\"major\",\"location\":\"portal/scripts/release-e2e.mjs:68\",\"problem\":\"コンソール検出正規表現が`CONSOLE`の後にERROR/SEVEREを要求するため、Chrome形式の`ERROR:CONSOLE(...) \\\"Failed to load resource...\\\"`を検出できない。必須のconsole-errorゲートを満たさず、エラーなしというQA記録も裏付けられない。\",\"expected\":\"ChromeのERROR/SEVEREログを順序に依存せず確実に失敗扱いにし、代表的な404等を使った回帰テストを追加する。\"},{\"severity\":\"major\",\"location\":\"portal/src/Portal.tsx:56,81\",\"problem\":\"認証BearerトークンをlocalStorageへ保存・再利用しており、同一オリジンで実行されたスクリプトから読み出せる。顧客案件・メッセージへアクセスできるセッションの漏えいリスクがある。\",\"expected\":\"HttpOnly・Secure・SameSite属性を持つCookieベースのセッション、またはJavaScriptから取得不能な同等のトークン保護方式へ変更する。\"}],\"summary\":\"自動テストと型検査は通過したが、ブラウザコンソール検査の欠陥とBearerトークンのlocalStorage永続化により技術公開判定はFAIL。\"}",
+  "final_message": "技術レビューはPASSです。認証・同意・旧API遮断・レート制限・秘密情報の扱いをコードと回帰テストで確認し、問題は検出されませんでした。\n\n- `npm test`: 20件 PASS、skipなし\n- Portal test / typecheck: PASS\n- CIはPortal単体テスト、production build、8 viewportのChromium E2E、スクリーンショット保存を必須化\n- 成功済みCI対象の実装コミット以降、変更はQA報告書のみ\n- ローカルのPortal build/E2Eは読み取り専用環境と依存関係未配置のため再実行不可。ただし、同一実装コミットのCI成功証跡が記録済み\n\n{\"status\":\"PASS\",\"findings\":[],\"summary\":\"コード、API、認証・同意・旧API遮断、テストおよびCIのPortal E2Eゲートを独立確認し、重大な問題は検出されなかった。\"}",
   "qa_conclusion": "success",
   "codex_conclusion": "success",
-  "generated_at": "2026-09-02T23:53:05.750Z"
+  "generated_at": "2026-09-03T06:55:53.836Z"
 }

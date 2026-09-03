@@ -108,6 +108,30 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
         return writeJson(response, 200, { token: accessToken }), true;
       }
 
+      if (method === 'POST' && url.pathname === '/api/v2/auth/password-recovery') {
+        const body = await readJsonBody(request);
+        const email = String(body.email || '').trim().toLowerCase();
+        if (!/^\S+@\S+\.\S+$/.test(email)) {
+          throw new PlatformStoreError('valid email is required', { status: 400, code: 'validation_error' });
+        }
+        const publicUrl = String(env.PUBLIC_URL || 'https://akinael-ai.com').replace(/\/+$/, '');
+        await auth.requestPasswordRecovery(email, `${publicUrl}/admin/?mode=recovery`);
+        return writeJson(response, 202, { recoveryRequested: true }), true;
+      }
+
+      if (method === 'POST' && url.pathname === '/api/v2/auth/password') {
+        const body = await readJsonBody(request);
+        const password = String(body.password || '');
+        if (!token) {
+          throw new SupabaseAuthError('authentication required', { status: 401, code: 'authentication_required' });
+        }
+        if (password.length < 12) {
+          throw new PlatformStoreError('password must be at least 12 characters', { status: 400, code: 'validation_error' });
+        }
+        await auth.updatePassword(token, password);
+        return writeJson(response, 200, { passwordUpdated: true }), true;
+      }
+
       if (method === 'POST' && url.pathname === '/api/v2/auth/logout') {
         if (token) await auth.signOut(token);
         return writeJson(response, 200, { ok: true }), true;

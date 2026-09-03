@@ -199,6 +199,57 @@ test('v2 login provisions the configured Supabase identity as an administrator',
   }
 });
 
+test('v2 password recovery sends a fixed same-origin redirect to Supabase Auth', async () => {
+  let recoveryBody;
+  const supabaseFetch = async (url, options = {}) => {
+    const value = String(url);
+    if (value.endsWith('/auth/v1/recover')) {
+      recoveryBody = JSON.parse(options.body);
+      return new Response('{}', { status: 200 });
+    }
+    throw new Error(`unexpected Supabase request: ${value}`);
+  };
+  const server = createApp({ env: { ...env, PUBLIC_URL: 'https://akinael-ai.com/' }, fetchImpl: supabaseFetch });
+  const baseUrl = await listen(server);
+  try {
+    const result = await fetch(`${baseUrl}/api/v2/auth/password-recovery`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'ADMIN@EXAMPLE.COM' })
+    });
+    assert.equal(result.status, 202);
+    assert.deepEqual(recoveryBody, { email: 'admin@example.com', redirect_to: 'https://akinael-ai.com/admin/?mode=recovery' });
+  } finally {
+    await close(server);
+  }
+});
+
+test('v2 password update forwards only an authenticated recovery token', async () => {
+  let updateRequest;
+  const supabaseFetch = async (url, options = {}) => {
+    const value = String(url);
+    if (value.endsWith('/auth/v1/user') && options.method === 'PUT') {
+      updateRequest = options;
+      return new Response(JSON.stringify({ id: 'admin-user' }), { status: 200 });
+    }
+    throw new Error(`unexpected Supabase request: ${value}`);
+  };
+  const server = createApp({ env, fetchImpl: supabaseFetch });
+  const baseUrl = await listen(server);
+  try {
+    const result = await fetch(`${baseUrl}/api/v2/auth/password`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer recovery-token' },
+      body: JSON.stringify({ password: 'a-new-secure-password' })
+    });
+    assert.equal(result.status, 200);
+    assert.equal(updateRequest.headers.authorization, 'Bearer recovery-token');
+    assert.deepEqual(JSON.parse(updateRequest.body), { password: 'a-new-secure-password' });
+  } finally {
+    await close(server);
+  }
+});
+
 test('v2 admin overview rejects customer identities', async () => {
   const supabaseFetch = async (url) => {
     const value = String(url);

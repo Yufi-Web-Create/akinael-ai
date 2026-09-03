@@ -2,14 +2,14 @@
 
 Date: 2026-09-03
 
-Tested revision: pending the Core Quality run triggered by the idempotent layout-observer correction.
+Tested revision: pending the Core Quality run triggered by the same-process cookie-restoration correction.
 
-Status: **PENDING — Core Quality runs `33723800003` and `33724082188` passed repository tests, Portal tests, lint, and production build. Hosted Chrome did not expose a DevTools endpoint, so the E2E now uses the proven headless Chromium CLI path. Its layout observer is idempotent so its own evidence attribute cannot retrigger an endless mutation loop. A fresh CI run is required.**
+Status: **PENDING — Core Quality runs `33723800003` and `33724082188` passed repository tests, Portal tests, lint, and production build. The E2E now performs login and a full navigation reload in one Chromium process so the session cookie is restored using real browser behavior. A fresh CI run is required.**
 
 ## Corrections applied
 
 - The CI workflow now executes `npm --prefix portal test` after Portal dependency restoration and before lint, build, and browser E2E.
-- The authenticated journey is driven by a test-only script injected by the loopback fixture into the production build: it fills the rendered React login form and submits it. A second Chromium process reuses the same profile and must render the protected project without the injection, proving persisted-cookie restoration.
+- The authenticated journey is driven by a test-only script injected by the loopback fixture into the production build: it fills the rendered React login form, submits it, waits for the protected project, and performs a full navigation reload. The reloaded page must render the protected project without another login submission and marks the DOM as restored, proving same-process session-cookie restoration.
 - Chromium CLI `--dump-dom`, stderr console capture, and `--screenshot` provide deterministic hosted-runner evidence without relying on a remote-debugging endpoint that hosted Chrome did not expose.
 - The layout observer writes its evidence attribute only when the overflow result changes, preventing self-triggered mutation loops during virtual-time execution.
 - For every required viewport the E2E verifies authenticated Portal content, cookie-session restoration, authenticated Portal API paths with no browser `Authorization` header, horizontal overflow, runtime/console errors, broken internal links, and screenshot output.

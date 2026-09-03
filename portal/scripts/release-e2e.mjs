@@ -46,7 +46,12 @@ const fixtureScript = `<script>
   };
   new MutationObserver(markLayout).observe(document.documentElement, { childList: true, subtree: true, attributes: true });
   addEventListener('load', markLayout);
-  if (new URLSearchParams(location.search).get('e2eLogin') !== '1') return;
+  const mode = new URLSearchParams(location.search);
+  if (mode.get('e2eRestored') === '1') {
+    document.documentElement.dataset.e2eRestored = 'true';
+    return;
+  }
+  if (mode.get('e2eLogin') !== '1') return;
   const timer = setInterval(() => {
     const email = document.querySelector('#email');
     const password = document.querySelector('#password');
@@ -59,6 +64,11 @@ const fixtureScript = `<script>
     password.dispatchEvent(new Event('input', { bubbles: true }));
     clearInterval(timer);
     form.requestSubmit();
+    const restorationTimer = setInterval(() => {
+      if (!document.body.textContent.includes('E2E verification project')) return;
+      clearInterval(restorationTimer);
+      location.replace('/portal/?e2eRestored=1');
+    }, 50);
   }, 50);
 })();
 </script>`;
@@ -107,13 +117,11 @@ try {
     const profile = await mkdtemp(path.join(os.tmpdir(), `akinael-chrome-${width}x${height}-`));
     try {
       const commonArgs = ['--headless', '--no-sandbox', '--disable-gpu', '--no-first-run', '--enable-logging=stderr', '--log-level=0', `--user-data-dir=${profile}`, `--window-size=${width},${height}`];
-      const authenticated = await run(chromium, [...commonArgs, '--virtual-time-budget=5000', '--dump-dom', `${baseUrl}/portal/?e2eLogin=1`]);
-      assert.match(authenticated.stdout, /E2E verification project/, `authenticated Portal missing at ${width}x${height}`);
-      assert.equal(hasBrowserConsoleError(authenticated.stderr), false, `browser console error during login at ${width}x${height}: ${authenticated.stderr}`);
-      const restored = await run(chromium, [...commonArgs, '--virtual-time-budget=3000', `--screenshot=${screenshot}`, '--dump-dom', `${baseUrl}/portal/`]);
-      assert.match(restored.stdout, /E2E verification project/, `cookie session restoration missing at ${width}x${height}`);
+      const restored = await run(chromium, [...commonArgs, '--virtual-time-budget=8000', `--screenshot=${screenshot}`, '--dump-dom', `${baseUrl}/portal/?e2eLogin=1`]);
+      assert.match(restored.stdout, /E2E verification project/, `authenticated Portal missing at ${width}x${height}`);
+      assert.match(restored.stdout, /data-e2e-restored="true"/, `cookie session restoration missing at ${width}x${height}`);
       assert.match(restored.stdout, /data-e2e-overflow="false"/, `horizontal overflow at ${width}x${height}`);
-      assert.equal(hasBrowserConsoleError(restored.stderr), false, `browser console error after reload at ${width}x${height}: ${restored.stderr}`);
+      assert.equal(hasBrowserConsoleError(restored.stderr), false, `browser console error at ${width}x${height}: ${restored.stderr}`);
     } finally {
       await rm(profile, { recursive: true, force: true });
     }

@@ -1,8 +1,6 @@
 import assert from 'node:assert/strict';
-import { randomBytes } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import http from 'node:http';
-import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
@@ -24,96 +22,6 @@ const json = (response, status, payload, headers = {}) => {
   response.end(JSON.stringify(payload));
 };
 
-const websocketFrame = (payload) => {
-  const body = Buffer.from(payload);
-  const header = body.length < 126 ? Buffer.from([0x81, 0x80 | body.length]) : Buffer.from([0x81, 0xfe, body.length >> 8, body.length & 0xff]);
-  const mask = randomBytes(4);
-  const maskedBody = Buffer.from(body.map((byte, index) => byte ^ mask[index % 4]));
-  return Buffer.concat([header, mask, maskedBody]);
-};
-
-const connectDevTools = (port, target) => new Promise((resolve, reject) => {
-  const socket = net.connect(port, '127.0.0.1');
-  const key = randomBytes(16).toString('base64');
-  let buffer = Buffer.alloc(0);
-  let upgraded = false;
-  let nextId = 0;
-  const pending = new Map();
-  const consoleErrors = [];
-  const command = (method, params = {}) => new Promise((commandResolve, commandReject) => {
-    const id = ++nextId;
-    pending.set(id, { resolve: commandResolve, reject: commandReject });
-    socket.write(websocketFrame(JSON.stringify({ id, method, params })));
-  });
-  const readFrames = () => {
-    while (buffer.length >= 2) {
-      const first = buffer[0];
-      let length = buffer[1] & 0x7f;
-      let offset = 2;
-      if (length === 126) {
-        if (buffer.length < 4) return;
-        length = buffer.readUInt16BE(2); offset = 4;
-      }
-      if (buffer.length < offset + length) return;
-      const message = JSON.parse(buffer.subarray(offset, offset + length).toString());
-      buffer = buffer.subarray(offset + length);
-      if (message.id) {
-        const request = pending.get(message.id);
-        if (!request) continue;
-        pending.delete(message.id);
-        message.error ? request.reject(new Error(message.error.message)) : request.resolve(message.result);
-      } else if (message.method === 'Runtime.consoleAPICalled' && ['error', 'assert'].includes(message.params.type)) {
-        consoleErrors.push(JSON.stringify(message.params.args));
-      } else if (message.method === 'Runtime.exceptionThrown') {
-        consoleErrors.push(message.params.exceptionDetails.text || 'uncaught exception');
-      }
-    }
-  };
-  socket.on('connect', () => socket.write(`GET ${target} HTTP/1.1\r\nHost: 127.0.0.1:${port}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ${key}\r\nSec-WebSocket-Version: 13\r\n\r\n`));
-  socket.on('data', (chunk) => {
-    buffer = Buffer.concat([buffer, chunk]);
-    if (!upgraded) {
-      const end = buffer.indexOf('\r\n\r\n');
-      if (end < 0) return;
-      if (!buffer.subarray(0, end).toString().includes('101 Switching Protocols')) return reject(new Error('Chrome DevTools connection was rejected'));
-      upgraded = true;
-      buffer = buffer.subarray(end + 4);
-      resolve({ command, consoleErrors, close: () => socket.end() });
-    }
-    if (upgraded) readFrames();
-  });
-  socket.on('error', reject);
-});
-
-const waitFor = async (command, expression, description) => {
-  for (let attempt = 0; attempt < 80; attempt += 1) {
-    try {
-      const value = await command('Runtime.evaluate', { expression, returnByValue: true });
-      if (value.result.value) return value.result.value;
-    } catch {
-      // Reloading the page briefly invalidates the execution context.
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  throw new Error(`Timed out waiting for ${description}`);
-};
-
-const waitForDevTools = async (profile) => {
-  for (let attempt = 0; attempt < 80; attempt += 1) {
-    try {
-      const [portText] = (await readFile(path.join(profile, 'DevToolsActivePort'), 'utf8')).trim().split(/\r?\n/);
-      const port = Number(portText);
-      if (!Number.isInteger(port) || port <= 0) throw new Error('Chrome did not publish a valid DevTools port');
-      const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
-      const target = targets.find((item) => item.type === 'page' && item.webSocketDebuggerUrl);
-      if (target) return await connectDevTools(port, new URL(target.webSocketDebuggerUrl).pathname);
-    } catch {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-  }
-  throw new Error('Timed out waiting for Chrome DevTools');
-};
-
 const listen = (server) => new Promise((resolve, reject) => {
   server.once('error', reject);
   server.listen(0, '127.0.0.1', () => {
@@ -121,6 +29,36 @@ const listen = (server) => new Promise((resolve, reject) => {
     resolve(server.address().port);
   });
 });
+const run = (command, args) => new Promise((resolve, reject) => {
+  const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+  let stdout = '';
+  let stderr = '';
+  child.stdout.on('data', (chunk) => { stdout += chunk; });
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  child.on('error', reject);
+  child.on('close', (code) => code === 0 ? resolve({ stdout, stderr }) : reject(new Error(`${command} exited ${code}\n${stderr}`)));
+});
+const fixtureScript = `<script>
+(() => {
+  const markLayout = () => document.documentElement.dataset.e2eOverflow = String(document.documentElement.scrollWidth > document.documentElement.clientWidth);
+  new MutationObserver(markLayout).observe(document.documentElement, { childList: true, subtree: true, attributes: true });
+  addEventListener('load', markLayout);
+  if (new URLSearchParams(location.search).get('e2eLogin') !== '1') return;
+  const timer = setInterval(() => {
+    const email = document.querySelector('#email');
+    const password = document.querySelector('#password');
+    const form = email?.form;
+    if (!email || !password || !form) return;
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    setValue.call(email, 'e2e@example.test');
+    email.dispatchEvent(new Event('input', { bubbles: true }));
+    setValue.call(password, 'long-enough-e2e-password');
+    password.dispatchEvent(new Event('input', { bubbles: true }));
+    clearInterval(timer);
+    form.requestSubmit();
+  }, 50);
+})();
+</script>`;
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, 'http://127.0.0.1');
   const authenticated = /akinael_v2_session=e2e-session/.test(request.headers.cookie || '');
@@ -141,7 +79,8 @@ const server = http.createServer(async (request, response) => {
   const relativePath = url.pathname === '/portal/' || url.pathname === '/portal' ? 'index.html' : url.pathname.replace(/^\/portal\//, '');
   if (!relativePath || relativePath.includes('..')) return json(response, 404, { error: { code: 'not_found' } });
   try {
-    const body = await readFile(new URL(relativePath, portalDirectory));
+    let body = await readFile(new URL(relativePath, portalDirectory));
+    if (relativePath === 'index.html') body = Buffer.from(body.toString().replace('</body>', `${fixtureScript}</body>`));
     response.writeHead(200, { 'content-type': relativePath.endsWith('.js') ? 'text/javascript; charset=utf-8' : relativePath.endsWith('.css') ? 'text/css; charset=utf-8' : 'text/html; charset=utf-8' });
     response.end(body);
   } catch {
@@ -164,28 +103,14 @@ try {
     const screenshot = path.join(artifactDirectory, `portal-${width}x${height}.png`);
     const profile = await mkdtemp(path.join(os.tmpdir(), `akinael-chrome-${width}x${height}-`));
     try {
-      const browser = spawn(chromium, ['--headless', '--no-sandbox', '--disable-gpu', '--no-first-run', '--enable-logging=stderr', '--log-level=0', `--user-data-dir=${profile}`, `--window-size=${width},${height}`, '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=0', `${baseUrl}/portal/`], { stdio: ['ignore', 'ignore', 'pipe'] });
-      let stderr = '';
-      browser.stderr.on('data', (chunk) => { stderr += chunk; });
-      try {
-        const devtools = await waitForDevTools(profile);
-        await devtools.command('Runtime.enable');
-        await devtools.command('Page.enable');
-        await waitFor(devtools.command, 'document.querySelector("#email") && document.querySelector("#password")', `login form at ${width}x${height}`);
-        await devtools.command('Runtime.evaluate', { expression: 'document.querySelector("#email").value = "e2e@example.test"; document.querySelector("#email").dispatchEvent(new Event("input", { bubbles: true })); document.querySelector("#password").value = "long-enough-e2e-password"; document.querySelector("#password").dispatchEvent(new Event("input", { bubbles: true })); document.querySelector("form").requestSubmit();' });
-        await waitFor(devtools.command, 'document.body.textContent.includes("E2E verification project")', `authenticated Portal at ${width}x${height}`);
-        await devtools.command('Page.reload', { ignoreCache: true });
-        await waitFor(devtools.command, 'document.body.textContent.includes("E2E verification project")', `cookie session restoration at ${width}x${height}`);
-        const layout = await devtools.command('Runtime.evaluate', { expression: '({ scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth })', returnByValue: true });
-        assert.ok(layout.result.value.scrollWidth <= layout.result.value.clientWidth, `horizontal overflow at ${width}x${height}`);
-        const capture = await devtools.command('Page.captureScreenshot', { format: 'png' });
-        await writeFile(screenshot, Buffer.from(capture.data, 'base64'));
-        assert.equal(devtools.consoleErrors.length, 0, `browser runtime error at ${width}x${height}: ${devtools.consoleErrors.join('\n')}`);
-        devtools.close();
-      } finally {
-        browser.kill();
-      }
-      assert.equal(hasBrowserConsoleError(stderr), false, `browser console error at ${width}x${height}: ${stderr}`);
+      const commonArgs = ['--headless', '--no-sandbox', '--disable-gpu', '--no-first-run', '--enable-logging=stderr', '--log-level=0', `--user-data-dir=${profile}`, `--window-size=${width},${height}`];
+      const authenticated = await run(chromium, [...commonArgs, '--virtual-time-budget=5000', '--dump-dom', `${baseUrl}/portal/?e2eLogin=1`]);
+      assert.match(authenticated.stdout, /E2E verification project/, `authenticated Portal missing at ${width}x${height}`);
+      assert.equal(hasBrowserConsoleError(authenticated.stderr), false, `browser console error during login at ${width}x${height}: ${authenticated.stderr}`);
+      const restored = await run(chromium, [...commonArgs, '--virtual-time-budget=3000', `--screenshot=${screenshot}`, '--dump-dom', `${baseUrl}/portal/`]);
+      assert.match(restored.stdout, /E2E verification project/, `cookie session restoration missing at ${width}x${height}`);
+      assert.match(restored.stdout, /data-e2e-overflow="false"/, `horizontal overflow at ${width}x${height}`);
+      assert.equal(hasBrowserConsoleError(restored.stderr), false, `browser console error after reload at ${width}x${height}: ${restored.stderr}`);
     } finally {
       await rm(profile, { recursive: true, force: true });
     }

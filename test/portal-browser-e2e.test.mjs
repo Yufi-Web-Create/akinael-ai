@@ -13,13 +13,15 @@ test('portal release E2E covers required viewports, authenticated cookie restora
     assert.match(script, new RegExp(viewport.replace(/[\[\]]/g, '\\$&')));
   }
   assert.match(script, /broken internal link/);
-  assert.match(script, /Page\.captureScreenshot/);
+  assert.match(script, /--screenshot=/);
+  assert.match(script, /--dump-dom/);
   assert.match(script, /hasBrowserConsoleError/);
-  assert.match(script, /document\.querySelector\(\"#email\"\)/);
+  assert.match(script, /document\.querySelector\('#email'\)/);
   assert.match(script, /\/api\/v2\/auth\/login/);
+  assert.match(script, /e2eLogin=1/);
   assert.match(script, /cookie session restoration/);
   assert.match(script, /Cookie-authenticated browser request missing/);
-  assert.match(script, /horizontal overflow/);
+  assert.match(script, /data-e2e-overflow/);
   assert.match(workflow, /npm --prefix portal run build/);
   assert.match(workflow, /npm --prefix portal run test:e2e/);
   assert.match(workflow, /actions\/upload-artifact@v4/);

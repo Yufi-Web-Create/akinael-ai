@@ -2,15 +2,16 @@
 
 Date: 2026-09-03
 
-Tested revision: pending the Core Quality run triggered by the DevTools discovery correction.
+Tested revision: pending the Core Quality run triggered by the Chromium CLI correction.
 
-Status: **PENDING — Core Quality run `33723800003` passed repository tests, Portal tests, lint, and production build, then exposed a fixed-port Chrome DevTools startup failure. The E2E now discovers Chrome's allocated port from `DevToolsActivePort`; a fresh CI run is required.**
+Status: **PENDING — Core Quality runs `33723800003` and `33724082188` passed repository tests, Portal tests, lint, and production build. Hosted Chrome did not expose a DevTools endpoint, so the E2E now uses the proven headless Chromium CLI path for authenticated submission, persisted-cookie restoration, DOM assertions, console capture, and screenshots. A fresh CI run is required.**
 
 ## Corrections applied
 
 - The CI workflow now executes `npm --prefix portal test` after Portal dependency restoration and before lint, build, and browser E2E.
-- Chromium starts with an OS-allocated remote debugging port and the E2E reads the browser-published `DevToolsActivePort` value, avoiding fixed-port startup collisions or binding differences on hosted runners.
-- The browser E2E no longer stops at the unauthenticated login screen. For every required viewport it uses Chromium DevTools to render and submit the login form, verify authenticated Portal content, reload and verify cookie-session restoration, verify authenticated Portal API paths use the session cookie and no browser `Authorization` header, and fail on horizontal overflow, runtime/console errors, broken internal links, or missing screenshot output.
+- The authenticated journey is driven by a test-only script injected by the loopback fixture into the production build: it fills the rendered React login form and submits it. A second Chromium process reuses the same profile and must render the protected project without the injection, proving persisted-cookie restoration.
+- Chromium CLI `--dump-dom`, stderr console capture, and `--screenshot` provide deterministic hosted-runner evidence without relying on a remote-debugging endpoint that hosted Chrome did not expose.
+- For every required viewport the E2E verifies authenticated Portal content, cookie-session restoration, authenticated Portal API paths with no browser `Authorization` header, horizontal overflow, runtime/console errors, broken internal links, and screenshot output.
 - The E2E serves only the production build directory (`public/portal`) and fails before running if the build output is absent. Its loopback fixture deliberately omits `Secure` only because the browser test runs over HTTP; the production API cookie attributes are separately covered by API regression tests.
 
 ## Current evidence
@@ -49,4 +50,4 @@ The CI artifact `portal-browser-e2e` must contain eight screenshots for the requ
 
 ## Release judgment
 
-Run `33723800003` proves the complete unit-test, Portal-test, lint, and production-build gates. Its browser step timed out before connecting to Chrome on a fixed port, so the E2E now uses Chrome's OS-allocated port. A fresh passing run on this correction is still required. No public release, DNS change, paid action, or data deletion was performed.
+Runs `33723800003` and `33724082188` prove the complete unit-test, Portal-test, lint, and production-build gates. Their browser steps timed out before Chrome exposed a DevTools endpoint; the E2E now uses the hosted-runner Chromium CLI path that previously produced screenshots successfully, extended with authenticated form submission and a separate cookie-restoration launch. A fresh passing run on this correction is still required. No public release, DNS change, paid action, or data deletion was performed.

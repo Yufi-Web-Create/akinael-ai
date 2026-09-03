@@ -98,9 +98,12 @@ const waitFor = async (command, expression, description) => {
   throw new Error(`Timed out waiting for ${description}`);
 };
 
-const waitForDevTools = async (port) => {
+const waitForDevTools = async (profile) => {
   for (let attempt = 0; attempt < 80; attempt += 1) {
     try {
+      const [portText] = (await readFile(path.join(profile, 'DevToolsActivePort'), 'utf8')).trim().split(/\r?\n/);
+      const port = Number(portText);
+      if (!Number.isInteger(port) || port <= 0) throw new Error('Chrome did not publish a valid DevTools port');
       const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
       const target = targets.find((item) => item.type === 'page' && item.webSocketDebuggerUrl);
       if (target) return await connectDevTools(port, new URL(target.webSocketDebuggerUrl).pathname);
@@ -161,12 +164,11 @@ try {
     const screenshot = path.join(artifactDirectory, `portal-${width}x${height}.png`);
     const profile = await mkdtemp(path.join(os.tmpdir(), `akinael-chrome-${width}x${height}-`));
     try {
-      const debuggingPort = 9300 + width;
-      const browser = spawn(chromium, ['--headless', '--no-sandbox', '--disable-gpu', '--no-first-run', '--enable-logging=stderr', '--log-level=0', `--user-data-dir=${profile}`, `--window-size=${width},${height}`, `--remote-debugging-port=${debuggingPort}`, `${baseUrl}/portal/`], { stdio: ['ignore', 'ignore', 'pipe'] });
+      const browser = spawn(chromium, ['--headless', '--no-sandbox', '--disable-gpu', '--no-first-run', '--enable-logging=stderr', '--log-level=0', `--user-data-dir=${profile}`, `--window-size=${width},${height}`, '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=0', `${baseUrl}/portal/`], { stdio: ['ignore', 'ignore', 'pipe'] });
       let stderr = '';
       browser.stderr.on('data', (chunk) => { stderr += chunk; });
       try {
-        const devtools = await waitForDevTools(debuggingPort);
+        const devtools = await waitForDevTools(profile);
         await devtools.command('Runtime.enable');
         await devtools.command('Page.enable');
         await waitFor(devtools.command, 'document.querySelector("#email") && document.querySelector("#password")', `login form at ${width}x${height}`);

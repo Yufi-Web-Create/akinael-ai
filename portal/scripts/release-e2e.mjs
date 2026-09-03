@@ -40,7 +40,10 @@ const run = (command, args) => new Promise((resolve, reject) => {
 });
 const fixtureScript = `<script>
 (() => {
-  const markLayout = () => document.documentElement.dataset.e2eOverflow = String(document.documentElement.scrollWidth > document.documentElement.clientWidth);
+  const markLayout = () => {
+    const next = String(document.documentElement.scrollWidth > document.documentElement.clientWidth);
+    if (document.documentElement.dataset.e2eOverflow !== next) document.documentElement.dataset.e2eOverflow = next;
+  };
   new MutationObserver(markLayout).observe(document.documentElement, { childList: true, subtree: true, attributes: true });
   addEventListener('load', markLayout);
   if (new URLSearchParams(location.search).get('e2eLogin') !== '1') return;

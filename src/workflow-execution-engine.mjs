@@ -108,13 +108,14 @@ const RELEASE_GATE_REVIEW_TASKS = new Set(['seo_a11y_review', 'visual_review', '
 
 const evaluateReleaseGate = (context) => {
   const tasks = new Map((context.priorTasks || []).map((task) => [task.task_key, task]));
-  const missing = RELEASE_GATE_REQUIRED.filter((key) => !tasks.has(key) || tasks.get(key).status !== 'completed');
+  const taskFor = (key) => tasks.get(key) || tasks.get(`expanded_${key}`);
+  const missing = RELEASE_GATE_REQUIRED.filter((key) => taskFor(key)?.status !== 'completed');
   const failedReviews = RELEASE_GATE_REQUIRED.filter((key) => {
     if (!RELEASE_GATE_REVIEW_TASKS.has(key)) return false;
-    return tasks.get(key)?.result?.review?.status !== 'PASS';
+    return taskFor(key)?.result?.review?.status !== 'PASS';
   });
   const missingEvidence = RELEASE_GATE_REQUIRED.filter((key) => {
-    const result = tasks.get(key)?.result || {};
+    const result = taskFor(key)?.result || {};
     return !result.artifact_id && !result.run_id;
   });
   const findings = [
@@ -539,4 +540,4 @@ export const createWorkflowExecutionEngine = ({ env = process.env, fetchImpl = f
   };
 };
 
-export { normalizeReview, isExternalTask, branchFor, resultPathFor, qaFailureReview, externalExecutionProfile, isReviewRetryExhausted, isExecutionEnvironmentFinding, reconcileReviewWithQa };
+export { normalizeReview, isExternalTask, branchFor, resultPathFor, qaFailureReview, externalExecutionProfile, isReviewRetryExhausted, isExecutionEnvironmentFinding, reconcileReviewWithQa, evaluateReleaseGate };

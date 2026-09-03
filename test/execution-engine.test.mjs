@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeReview, isExternalTask, branchFor, resultPathFor, qaFailureReview, externalExecutionProfile, isReviewRetryExhausted, reconcileReviewWithQa } from '../src/workflow-execution-engine.mjs';
+import { normalizeReview, isExternalTask, branchFor, resultPathFor, qaFailureReview, externalExecutionProfile, isReviewRetryExhausted, reconcileReviewWithQa, evaluateReleaseGate } from '../src/workflow-execution-engine.mjs';
 import { planDynamicExpansion } from '../src/dynamic-expansion.mjs';
 import { buildTaskPrompt } from '../src/execution-prompts.mjs';
 
@@ -160,6 +160,29 @@ test('general consultation can expand into a full new-web workflow without anoth
   assert.equal(expansion.tasks[0].depends_on.includes('consultation_triage'), true);
   assert.equal(expansion.tasks.some((item) => item.task_key === 'expanded_build'), true);
   assert.equal(expansion.tasks.some((item) => item.task_key === 'expanded_release_gate'), true);
+});
+
+test('release gate resolves completed full-pipeline tasks created by dynamic expansion', () => {
+  const reviewTasks = new Set(['seo_a11y_review', 'visual_review', 'copy_review', 'technical_review']);
+  const taskKeys = [
+    'market_ux_research', 'design_reference_research', 'copy_language_research',
+    'direction_synthesis', 'ux_architecture', 'copy_direction', 'design_direction',
+    'build', 'seo_a11y_review', 'visual_review', 'copy_review', 'technical_review'
+  ];
+  const priorTasks = taskKeys.map((taskKey) => ({
+    task_key: `expanded_${taskKey}`,
+    status: 'completed',
+    result: {
+      artifact_id: `artifact-${taskKey}`,
+      ...(reviewTasks.has(taskKey) ? { review: { status: 'PASS' } } : {})
+    }
+  }));
+
+  assert.deepEqual(evaluateReleaseGate({ priorTasks }), {
+    status: 'PASS',
+    findings: [],
+    summary: 'Research・Direction・Build・QA・Visual・Copy・Technicalの最新結果と実行証跡を確認し、DEPLOY READYです。'
+  });
 });
 
 test('execution prompt includes source truth and protected repository paths', () => {

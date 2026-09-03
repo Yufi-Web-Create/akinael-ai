@@ -1,0 +1,1 @@
+{"name":"akinael-admin","private":true,"type":"module","scripts":{"dev":"vite","build":"tsc -b && vite build","start":"vite preview","lint":"tsc --noEmit"},"dependencies":{"@vitejs/plugin-react":"latest","typescript":"^5.9.0","vite":"latest","react":"^19.2.0","react-dom":"^19.2.0"},"devDependencies":{"@types/react":"^19.0.0","@types/react-dom":"^19.0.0"}}

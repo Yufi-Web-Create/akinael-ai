@@ -75,6 +75,9 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
         if (!/^\S+@\S+\.\S+$/.test(email) || password.length < 6) {
           throw new PlatformStoreError('valid email and password of at least 6 characters are required', { status: 400, code: 'validation_error' });
         }
+        if (email === String(env.ADMIN_EMAIL || '').trim().toLowerCase()) {
+          throw new PlatformStoreError('administrator accounts must be created by the operator', { status: 403, code: 'admin_registration_disabled' });
+        }
         const result = await auth.signUp(email, password);
         const accessToken = result?.access_token || result?.session?.access_token || null;
         if (!accessToken) {
@@ -95,7 +98,13 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
         const accessToken = result?.access_token || null;
         if (!accessToken) throw new SupabaseAuthError('invalid credentials', { status: 401, code: 'invalid_credentials' });
         const me = await store.getMe(accessToken);
-        if (me.onboardingRequired) await store.provisionCustomer(accessToken, { displayName: email.split('@')[0] });
+        if (me.onboardingRequired) {
+          if (email === String(env.ADMIN_EMAIL || '').trim().toLowerCase()) {
+            await store.provisionAdmin(accessToken, { displayName: '管理者' });
+          } else {
+            await store.provisionCustomer(accessToken, { displayName: email.split('@')[0] });
+          }
+        }
         return writeJson(response, 200, { token: accessToken }), true;
       }
 
@@ -115,6 +124,14 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
 
       if (method === 'GET' && url.pathname === '/api/v2/projects') {
         return writeJson(response, 200, await store.listProjects(token)), true;
+      }
+
+      if (method === 'GET' && url.pathname === '/api/v2/admin/overview') {
+        return writeJson(response, 200, await store.getAdminOverview(token)), true;
+      }
+
+      if (method === 'GET' && parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'admin' && parts[3] === 'projects') {
+        return writeJson(response, 200, await store.getAdminProject(token, parts[4])), true;
       }
 
       if (method === 'POST' && url.pathname === '/api/v2/projects') {

@@ -50,8 +50,8 @@ const MIME_TYPES = {
 };
 
 const serveStatic = async (response, pathname) => {
-  const pages = { '/': 'index.html', '/portal': 'portal/index.html', '/portal/': 'portal/index.html', '/mypage': 'mypage.html', '/admin': 'admin.html', '/admin-login': 'admin-login.html', '/legal': 'legal.html', '/payment/success': 'payment-success.html', '/payment/cancel': 'payment-cancel.html', '/robots.txt': 'robots.txt', '/sitemap.xml': 'sitemap.xml' };
-  const relativePath = pages[pathname] || (pathname.startsWith('/portal/') ? `portal/${pathname.slice('/portal/'.length)}` : (pathname.startsWith('/assets/') ? pathname.slice(1) : null));
+  const pages = { '/': 'index.html', '/portal': 'portal/index.html', '/portal/': 'portal/index.html', '/mypage': 'mypage.html', '/admin/': 'admin/index.html', '/legal': 'legal.html', '/payment/success': 'payment-success.html', '/payment/cancel': 'payment-cancel.html', '/robots.txt': 'robots.txt', '/sitemap.xml': 'sitemap.xml' };
+  const relativePath = pages[pathname] || (pathname.startsWith('/portal/') ? `portal/${pathname.slice('/portal/'.length)}` : (pathname.startsWith('/admin/') ? `admin/${pathname.slice('/admin/'.length)}` : (pathname.startsWith('/assets/') ? pathname.slice(1) : null)));
   if (!relativePath || relativePath.includes('..')) return false;
   try {
     const filePath = join(PUBLIC_ROOT, relativePath);
@@ -66,7 +66,7 @@ const serveStatic = async (response, pathname) => {
       'permissions-policy': 'camera=(), microphone=(), geolocation=()',
       'content-security-policy': "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self'"
     };
-    if (pathname === '/mypage' || pathname === '/admin' || pathname.startsWith('/payment/')) {
+    if (pathname === '/mypage' || pathname === '/admin' || pathname.startsWith('/admin/') || pathname.startsWith('/payment/')) {
       headers['x-robots-tag'] = 'noindex, nofollow';
       headers['cache-control'] = 'no-store';
     } else if (pathname.startsWith('/assets/')) {
@@ -577,8 +577,8 @@ export const createApp = () => http.createServer(async (request, response) => {
         return error(response, 502, 'payment provider request failed');
       }
     }
-    if (method === 'GET' && url.pathname === '/admin' && (!user || user.role !== 'admin')) {
-      response.writeHead(302, { location: '/admin-login', 'cache-control': 'no-store' });
+    if (method === 'GET' && (url.pathname === '/admin' || url.pathname === '/admin-login')) {
+      response.writeHead(302, { location: '/admin/', 'cache-control': 'no-store' });
       return response.end();
     }
     if (method === 'GET' && await serveStatic(response, url.pathname)) return;

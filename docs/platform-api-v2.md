@@ -131,8 +131,22 @@ AI分類を追加する場合も、顧客入力をそのまま実行命令とし
 
 Request作成後、Production Routerが分類し、workflow run / taskへ接続する。顧客マイページはproduction endpointから進捗を参照できる。
 
+## Admin App
+
+Admin AppもSupabase Auth access tokenをCore APIへ渡す。Core APIはAuth userを検証した後、`user_profiles.role = admin`と同一tenantを必須条件にする。管理者メールの初回profile作成は、Renderに設定済みの`ADMIN_EMAIL`とAuth userの検証済みメールが完全一致する場合だけ行う。一般ユーザーが管理者メールを新規登録する経路は提供しない。
+
+### `GET /api/v2/admin/overview`
+
+同一tenantの顧客、案件、Workflow、Task、承認、通知を集約し、運用サマリーと案件一覧を返す。customer roleには403を返す。
+
+### `GET /api/v2/admin/projects/:projectId`
+
+同一tenantに属する案件について、顧客、依頼、メッセージ、Workflow、Task、成果物、品質検査、承認、決済、リポジトリ、デプロイ、監査ログを返す。成果物の実プレビューURLはCore APIが生成する。
+
+Admin Appの現段階は監視・確認を主用途とする。本番公開、DNS変更、新規課金、返金、データ削除はUIから自動実行せず、Human Gateであることを明示する。
+
 ## Migration rule
 
 新規Customer Portalはv2 APIのみ利用する。
 旧APIへの新機能追加は原則行わない。
-旧APIとJSON storeは、新Portal / Admin App移行が完了するまで互換レイヤーとして保持する。
+旧APIとJSON storeは互換レイヤーとして当面保持するが、新Portal / Admin Appからは利用しない。

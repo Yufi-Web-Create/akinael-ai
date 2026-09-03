@@ -156,3 +156,113 @@ test('v2 login exchanges credentials for a Supabase access token', async () => {
     await close(server);
   }
 });
+
+test('v2 login provisions the configured Supabase identity as an administrator', async () => {
+  let adminProvisioned = false;
+  const adminEnv = { ...env, ADMIN_EMAIL: 'admin@example.com' };
+  const supabaseFetch = async (url, options = {}) => {
+    const value = String(url);
+    if (value.endsWith('/auth/v1/token?grant_type=password')) {
+      return new Response(JSON.stringify({ access_token: 'admin-token' }), { status: 200 });
+    }
+    if (value.endsWith('/auth/v1/user')) {
+      return new Response(JSON.stringify({ id: 'admin-user', email: 'admin@example.com' }), { status: 200 });
+    }
+    if (value.includes('/rest/v1/tenants?')) {
+      return new Response(JSON.stringify([{ id: 'tenant-1', name: 'akinael' }]), { status: 200 });
+    }
+    if (value.includes('/rest/v1/user_profiles?') && options.method === 'POST') {
+      adminProvisioned = true;
+      const body = JSON.parse(options.body);
+      assert.equal(body.role, 'admin');
+      assert.equal(body.tenant_id, 'tenant-1');
+      return new Response(JSON.stringify([body]), { status: 201 });
+    }
+    if (value.includes('/rest/v1/user_profiles?')) {
+      return new Response(JSON.stringify(adminProvisioned ? [{ id: 'admin-user', tenant_id: 'tenant-1', role: 'admin', display_name: '管理者' }] : []), { status: 200 });
+    }
+    throw new Error(`unexpected Supabase request: ${value}`);
+  };
+  const server = createApp({ env: adminEnv, fetchImpl: supabaseFetch });
+  const baseUrl = await listen(server);
+  try {
+    const result = await fetch(`${baseUrl}/api/v2/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'admin@example.com', password: 'a-secure-password' })
+    });
+    assert.equal(result.status, 200);
+    assert.equal(adminProvisioned, true);
+    assert.deepEqual(await result.json(), { token: 'admin-token' });
+  } finally {
+    await close(server);
+  }
+});
+
+test('v2 admin overview rejects customer identities', async () => {
+  const supabaseFetch = async (url) => {
+    const value = String(url);
+    if (value.endsWith('/auth/v1/user')) {
+      return new Response(JSON.stringify({ id: 'customer-user', email: 'customer@example.com' }), { status: 200 });
+    }
+    if (value.includes('/rest/v1/user_profiles?')) {
+      return new Response(JSON.stringify([{ id: 'customer-user', tenant_id: 'tenant-1', role: 'customer', display_name: 'Customer' }]), { status: 200 });
+    }
+    throw new Error(`unexpected Supabase request: ${value}`);
+  };
+  const server = createApp({ env, fetchImpl: supabaseFetch });
+  const baseUrl = await listen(server);
+  try {
+    const result = await fetch(`${baseUrl}/api/v2/admin/overview`, {
+      headers: { authorization: 'Bearer customer-token' }
+    });
+    assert.equal(result.status, 403);
+    assert.equal((await result.json()).error.code, 'administrators_only');
+  } finally {
+    await close(server);
+  }
+});
+
+test('v2 admin overview returns tenant-scoped operational data', async () => {
+  const supabaseFetch = async (url) => {
+    const value = String(url);
+    if (value.endsWith('/auth/v1/user')) {
+      return new Response(JSON.stringify({ id: 'admin-user', email: 'admin@example.com' }), { status: 200 });
+    }
+    if (value.includes('/rest/v1/user_profiles?')) {
+      return new Response(JSON.stringify([{ id: 'admin-user', tenant_id: 'tenant-1', role: 'admin', display_name: 'Admin' }]), { status: 200 });
+    }
+    if (value.includes('/rest/v1/customers?')) {
+      return new Response(JSON.stringify([{ id: 'customer-1', name: 'E2E TEST Customer' }]), { status: 200 });
+    }
+    if (value.includes('/rest/v1/projects?')) {
+      return new Response(JSON.stringify([{ id: 'project-1', tenant_id: 'tenant-1', customer_id: 'customer-1', name: 'E2E TEST Project', status: 'active', needs_attention: true }]), { status: 200 });
+    }
+    if (value.includes('/rest/v1/workflow_runs?')) {
+      return new Response(JSON.stringify([{ id: 'workflow-1', status: 'running' }]), { status: 200 });
+    }
+    if (value.includes('/rest/v1/tasks?')) {
+      return new Response(JSON.stringify([{ id: 'task-1', status: 'failed' }]), { status: 200 });
+    }
+    if (value.includes('/rest/v1/approvals?')) {
+      return new Response(JSON.stringify([{ id: 'approval-1', status: 'pending' }]), { status: 200 });
+    }
+    if (value.includes('/rest/v1/notifications?')) return new Response('[]', { status: 200 });
+    throw new Error(`unexpected Supabase request: ${value}`);
+  };
+  const server = createApp({ env, fetchImpl: supabaseFetch });
+  const baseUrl = await listen(server);
+  try {
+    const result = await fetch(`${baseUrl}/api/v2/admin/overview`, {
+      headers: { authorization: 'Bearer admin-token' }
+    });
+    const body = await result.json();
+    assert.equal(result.status, 200);
+    assert.equal(body.summary.projects, 1);
+    assert.equal(body.summary.needsAttention, 1);
+    assert.equal(body.summary.failedTasks, 1);
+    assert.equal(body.projects[0].customer_name, 'E2E TEST Customer');
+  } finally {
+    await close(server);
+  }
+});

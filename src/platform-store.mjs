@@ -50,6 +50,13 @@ const customerTaskSelect = 'id,project_id,workflow_run_id,task_key,agent_role,ti
 const customerArtifactSelect = 'id,project_id,workflow_run_id,kind,title,metadata,created_at';
 const customerApprovalSelect = 'id,project_id,request_id,type,status,payload,created_at,decided_at';
 const customerQualityCheckSelect = 'id,project_id,workflow_run_id,reviewer,status,severity,location,problem,expected,created_at';
+const adminArtifactSelect = 'id,project_id,workflow_run_id,kind,title,storage_key,metadata,created_at';
+const adminQualityCheckSelect = 'id,project_id,workflow_run_id,reviewer,status,severity,location,problem,expected,evidence,created_at';
+const adminPaymentSelect = 'id,customer_id,project_id,approval_id,provider,provider_reference,kind,amount,currency,status,created_at,updated_at';
+const adminRepositorySelect = 'id,project_id,provider,repository_full_name,default_branch,created_at,updated_at';
+const adminDeploymentSelect = 'id,project_id,repository_id,environment,status,url,provider_reference,commit_sha,created_at,published_at';
+const adminAuditSelect = 'id,actor_user_id,actor_type,action,resource_type,resource_id,metadata,created_at';
+const adminNotificationSelect = 'id,user_id,project_id,type,message,read_at,created_at';
 const requestTypes = new Set(['general', 'web_new', 'web_change', 'copy', 'social', 'image', 'research', 'automation', 'seo', 'other']);
 const priorities = new Set(['low', 'normal', 'high', 'urgent']);
 
@@ -210,6 +217,108 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
       }
     });
     return getMe(accessToken);
+  };
+
+  const provisionAdmin = async (accessToken, input = {}) => {
+    const user = await authUser(accessToken);
+    const configuredEmail = String(env.ADMIN_EMAIL || '').trim().toLowerCase();
+    if (!configuredEmail || String(user.email || '').trim().toLowerCase() !== configuredEmail) {
+      throw new PlatformStoreError('admin account is not authorized', { status: 403, code: 'admin_not_authorized' });
+    }
+    const existing = await profileFor(user.id);
+    if (existing) {
+      if (existing.role !== 'admin') throw new PlatformStoreError('account role conflict', { status: 409, code: 'account_role_conflict' });
+      return getMe(accessToken);
+    }
+    const tenant = await resolveTenant();
+    const rows = await admin.request('/rest/v1/user_profiles', {
+      method: 'POST',
+      query: 'select=id,tenant_id,role,display_name',
+      headers: { Prefer: 'return=representation' },
+      body: {
+        id: user.id,
+        tenant_id: tenant.id,
+        role: 'admin',
+        display_name: optionalText(input.displayName) || '管理者'
+      }
+    });
+    if (!first(rows)) throw new PlatformStoreError('admin account could not be provisioned', { status: 502, code: 'admin_provision_failed' });
+    return getMe(accessToken);
+  };
+
+  const adminIdentity = async (accessToken) => {
+    const identity = await identityFor(accessToken);
+    if (identity.role !== 'admin') throw new PlatformStoreError('administrators only', { status: 403, code: 'administrators_only' });
+    return identity;
+  };
+
+  const tenantRows = async (identity, table, select, extra = '') => {
+    const rows = await admin.request(`/rest/v1/${table}`, {
+      query: `tenant_id=eq.${encodeURIComponent(identity.tenantId)}&select=${select}${extra}`
+    });
+    return Array.isArray(rows) ? rows : [];
+  };
+
+  const getAdminOverview = async (accessToken) => {
+    const identity = await adminIdentity(accessToken);
+    const [customers, projects, workflows, tasks, approvals, notifications] = await Promise.all([
+      tenantRows(identity, 'customers', 'id,name,created_at,updated_at', '&order=updated_at.desc'),
+      tenantRows(identity, 'projects', projectSelect, '&order=updated_at.desc'),
+      tenantRows(identity, 'workflow_runs', customerWorkflowSelect, '&order=created_at.desc'),
+      tenantRows(identity, 'tasks', customerTaskSelect, '&order=updated_at.desc'),
+      tenantRows(identity, 'approvals', customerApprovalSelect, '&order=created_at.desc'),
+      tenantRows(identity, 'notifications', adminNotificationSelect, '&order=created_at.desc&limit=50')
+    ]);
+    const customerNames = new Map(customers.map((item) => [item.id, item.name]));
+    return {
+      summary: {
+        customers: customers.length,
+        projects: projects.length,
+        needsAttention: projects.filter((item) => item.needs_attention).length,
+        runningWorkflows: workflows.filter((item) => item.status === 'running').length,
+        failedTasks: tasks.filter((item) => item.status === 'failed').length,
+        pendingApprovals: approvals.filter((item) => item.status === 'pending').length
+      },
+      projects: projects.map((project) => ({ ...project, customer_name: customerNames.get(project.customer_id) || null })),
+      recentWorkflows: workflows.slice(0, 20),
+      recentNotifications: notifications
+    };
+  };
+
+  const getAdminProject = async (accessToken, projectId) => {
+    const identity = await adminIdentity(accessToken);
+    const project = await getProjectForIdentity(identity, projectId);
+    const scope = `&project_id=eq.${encodeURIComponent(project.id)}`;
+    const [customers, requests, messages, workflows, tasks, artifacts, qualityChecks, approvals, payments, repositories, deployments, auditLogs] = await Promise.all([
+      tenantRows(identity, 'customers', 'id,name,created_at,updated_at', `&id=eq.${encodeURIComponent(project.customer_id)}&limit=1`),
+      tenantRows(identity, 'requests', requestSelect, `${scope}&order=created_at.desc`),
+      tenantRows(identity, 'messages', messageSelect, `${scope}&order=created_at.asc`),
+      tenantRows(identity, 'workflow_runs', customerWorkflowSelect, `${scope}&order=created_at.desc`),
+      tenantRows(identity, 'tasks', customerTaskSelect, `${scope}&order=sequence.asc`),
+      tenantRows(identity, 'artifacts', adminArtifactSelect, `${scope}&order=created_at.desc`),
+      tenantRows(identity, 'quality_checks', adminQualityCheckSelect, `${scope}&order=created_at.desc`),
+      tenantRows(identity, 'approvals', customerApprovalSelect, `${scope}&order=created_at.desc`),
+      tenantRows(identity, 'payments', adminPaymentSelect, `${scope}&order=created_at.desc`),
+      tenantRows(identity, 'repositories', adminRepositorySelect, `${scope}&order=created_at.desc`),
+      tenantRows(identity, 'deployments', adminDeploymentSelect, `${scope}&order=created_at.desc`),
+      tenantRows(identity, 'audit_logs', adminAuditSelect, `&metadata->>project_id=eq.${encodeURIComponent(project.id)}&order=created_at.desc&limit=100`)
+    ]);
+    const previewBase = String(env.PUBLIC_URL || 'https://akinael-ai.com').replace(/\/+$/, '');
+    return {
+      project,
+      customer: first(customers),
+      requests,
+      messages,
+      workflows,
+      tasks,
+      artifacts: artifacts.map((artifact) => ({ ...artifact, preview_url: artifact.kind === 'build_build' ? `${previewBase}/preview/${project.id}/${artifact.id}` : null })),
+      qualityChecks,
+      approvals,
+      payments,
+      repositories,
+      deployments,
+      auditLogs
+    };
   };
 
   const listProjects = async (accessToken) => {
@@ -425,6 +534,7 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
     config: admin.config,
     getMe,
     provisionCustomer,
+    provisionAdmin,
     listProjects,
     getProject,
     createProject,
@@ -434,6 +544,8 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
     addMessage,
     getProductionStatus,
     listApprovals,
-    createCustomerApproval
+    createCustomerApproval,
+    getAdminOverview,
+    getAdminProject
   };
 };

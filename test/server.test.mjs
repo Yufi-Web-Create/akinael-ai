@@ -29,9 +29,10 @@ test('frontend pages and project assets are served with the expected indexing bo
 
   const adminPage = await fetch(`${baseUrl}/admin`, { redirect: 'manual' });
   assert.equal(adminPage.status, 302);
-  assert.equal(adminPage.headers.get('location'), '/admin-login');
-  const adminLoginPage = await fetch(`${baseUrl}/admin-login`);
-  assert.equal(adminLoginPage.status, 200);
+  assert.equal(adminPage.headers.get('location'), '/admin/');
+  const adminLoginPage = await fetch(`${baseUrl}/admin-login`, { redirect: 'manual' });
+  assert.equal(adminLoginPage.status, 302);
+  assert.equal(adminLoginPage.headers.get('location'), '/admin/');
 
   const legalPage = await fetch(`${baseUrl}/legal`);
   assert.equal(legalPage.status, 200);

@@ -2,9 +2,9 @@
 
 Date: 2026-09-03
 
-Tested revision: `0a82e9df046cb54d4ec9f2d353e9d37d4f09aa02` plus the uncommitted correction recorded in this worktree.
+Tested revision: pending the Core Quality run triggered by this correction.
 
-Status: **FAIL — source/API regression tests pass; Portal dependency restoration, production build, and Chromium E2E require a fresh CI run before this release gate can pass.**
+Status: **PENDING — the complete Core Quality sequence now includes the previously missing Portal script-test step and requires a fresh CI run before the release gate can pass.**
 
 ## Corrections applied
 
@@ -12,16 +12,16 @@ Status: **FAIL — source/API regression tests pass; Portal dependency restorati
 - The browser E2E no longer stops at the unauthenticated login screen. For every required viewport it uses Chromium DevTools to render and submit the login form, verify authenticated Portal content, reload and verify cookie-session restoration, verify authenticated Portal API paths use the session cookie and no browser `Authorization` header, and fail on horizontal overflow, runtime/console errors, broken internal links, or missing screenshot output.
 - The E2E serves only the production build directory (`public/portal`) and fails before running if the build output is absent. Its loopback fixture deliberately omits `Secure` only because the browser test runs over HTTP; the production API cookie attributes are separately covered by API regression tests.
 
-## Current local evidence
+## Current evidence
 
 | Check | Result | Evidence |
 |---|---|---|
 | Full repository suite | PASS | `npm test`: 20 passed, 0 failed, 0 skipped |
 | Portal script tests | PASS | `npm --prefix portal test`: 1 passed, 0 failed |
 | E2E contract regression | PASS | Included in `npm test` (`test/portal-browser-e2e.test.mjs`) |
-| Portal lint/typecheck | NOT RUN | Dependency restoration did not complete in this restricted workspace |
-| Portal production build | NOT RUN | Dependency restoration did not complete in this restricted workspace |
-| Chromium authenticated E2E | NOT RUN | Depends on a successful production build; local sandbox also blocks loopback listeners |
+| Portal lint/typecheck | PASS (historical) | Core Quality run `33696822670`, revision `a7883d5ebbb253206d4b9970b767b0972d30bf04` |
+| Portal production build | PASS (historical) | Core Quality run `33696822670`, revision `a7883d5ebbb253206d4b9970b767b0972d30bf04` |
+| Chromium authenticated E2E | PASS (historical) | Core Quality run `33696822670`; artifact `portal-browser-e2e` ID `9872079676`, eight screenshots, digest `sha256:81516b13e2267a86945bbd99baf35e2c77c2c13bdc2f78bce6d48ec394c8ec9c` |
 
 ## Required CI evidence before a PASS judgment
 
@@ -48,4 +48,4 @@ The CI artifact `portal-browser-e2e` must contain eight screenshots for the requ
 
 ## Release judgment
 
-The previous report's historical CI run, screenshot artifact, test count, and tested revision are not evidence for this worktree and have been removed. No public release, DNS change, paid action, or data deletion was performed. A passing CI build and authenticated Chromium run are still required for release approval.
+Run `33696822670` proves that dependency restoration, production build, and authenticated Chromium E2E are executable in Core Quality, but it predates the newly added Portal script-test gate. A fresh passing run on this correction is still required. No public release, DNS change, paid action, or data deletion was performed.

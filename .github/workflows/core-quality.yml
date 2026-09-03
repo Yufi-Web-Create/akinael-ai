@@ -22,6 +22,7 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm ci --prefix portal
+      - run: npm --prefix portal test
       - run: npm --prefix portal run lint
       - run: npm --prefix portal run build
       - name: Run Portal browser E2E

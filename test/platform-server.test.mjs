@@ -218,7 +218,7 @@ test('v2 password recovery sends a fixed same-origin redirect to Supabase Auth',
       body: JSON.stringify({ email: 'ADMIN@EXAMPLE.COM' })
     });
     assert.equal(result.status, 202);
-    assert.deepEqual(recoveryBody, { email: 'admin@example.com', redirect_to: 'https://akinael-ai.com/admin/?mode=recovery' });
+    assert.deepEqual(recoveryBody, { email: 'admin@example.com', redirect_to: 'https://akinael-ai.com/mypage' });
   } finally {
     await close(server);
   }

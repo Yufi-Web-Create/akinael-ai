@@ -115,7 +115,7 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
           throw new PlatformStoreError('valid email is required', { status: 400, code: 'validation_error' });
         }
         const publicUrl = String(env.PUBLIC_URL || 'https://akinael-ai.com').replace(/\/+$/, '');
-        await auth.requestPasswordRecovery(email, `${publicUrl}/admin/?mode=recovery`);
+        await auth.requestPasswordRecovery(email, `${publicUrl}/mypage`);
         return writeJson(response, 202, { recoveryRequested: true }), true;
       }
 

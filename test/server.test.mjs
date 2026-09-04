@@ -47,6 +47,10 @@ test('frontend pages and project assets are served with the expected indexing bo
   assert.match(appSource, /authFragment\.get\('access_token'\)/);
   assert.match(appSource, /\/api\/v2\/onboarding/);
 
+  const recoveryScript = await fetch(`${baseUrl}/assets/recovery-redirect.js`);
+  assert.equal(recoveryScript.status, 200);
+  assert.match(await recoveryScript.text(), /\/admin\/\?mode=recovery/);
+
   const paymentSuccess = await fetch(`${baseUrl}/payment/success`);
   assert.equal(paymentSuccess.status, 200);
   assert.equal(paymentSuccess.headers.get('x-robots-tag'), 'noindex, nofollow');

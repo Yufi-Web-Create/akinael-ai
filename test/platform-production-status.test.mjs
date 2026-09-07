@@ -24,9 +24,9 @@ test('production status is scoped to the visible project and omits internal exec
     if (value.includes('/rest/v1/customer_members?')) return jsonResponse([{ customer_id: 'customer-1' }]);
     if (value.includes('/rest/v1/projects?')) return jsonResponse([{ id: 'project-1', tenant_id: 'tenant-1', customer_id: 'customer-1', name: '店舗サイト' }]);
     if (value.includes('/rest/v1/workflow_runs?')) return jsonResponse([{ id: 'run-1', project_id: 'project-1', status: 'running' }]);
-    if (value.includes('/rest/v1/tasks?')) return jsonResponse([{ id: 'task-1', project_id: 'project-1', status: 'running' }]);
+    if (value.includes('/rest/v1/tasks?')) return jsonResponse([{ id: 'task-1', project_id: 'project-1', task_key: 'release_gate', status: 'completed', result: { review: { status: 'PASS' } } }]);
     if (value.includes('/rest/v1/artifacts?')) return jsonResponse([{ id: 'artifact-1', project_id: 'project-1', title: '試作' }]);
-    if (value.includes('/rest/v1/quality_checks?')) return jsonResponse([{ id: 'check-1', project_id: 'project-1', status: 'pass' }]);
+    if (value.includes('/rest/v1/quality_checks?')) return jsonResponse([{ id: 'check-1', project_id: 'project-1', status: 'pass' }]);\n    if (value.includes('/rest/v1/approvals?')) return jsonResponse([{ id: 'approval-1', project_id: 'project-1', type: 'delivery', status: 'approved' }]);\n    if (value.includes('/rest/v1/deployments?')) return jsonResponse([]);\n    if (value.includes('/rest/v1/notifications?')) return jsonResponse([]);
     throw new Error(`unexpected request: ${value}`);
   };
 
@@ -35,7 +35,7 @@ test('production status is scoped to the visible project and omits internal exec
   assert.equal(result.workflows[0].id, 'run-1');
   assert.equal(result.tasks[0].id, 'task-1');
   assert.equal(result.artifacts[0].id, 'artifact-1');
-  assert.equal(result.qualityChecks[0].id, 'check-1');
+  assert.equal(result.qualityChecks[0].id, 'check-1');\n  assert.equal(result.deploymentGate.deployReady, true);\n  assert.equal(result.deploymentGate.humanGateRequired, true);\n  assert.equal(result.deploymentGate.productionPublished, false);
 
   const productionCalls = calls.filter((url) => /workflow_runs|tasks|artifacts|quality_checks/.test(url));
   assert.equal(productionCalls.length, 4);

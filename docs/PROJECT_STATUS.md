@@ -1,14 +1,14 @@
 # PROJECT_STATUS.md
 
-最終更新: 2026-09-07 UTC / 2026-09-08 JST（ChatGPT WorkによるGitHub・Supabase・本番照合）→ 2026-09-08 JST（Claude Code、migration drift記録状態を更新）
+最終更新: 2026-09-08 JST（PHASE 5 Admin本番E2E完了・引継ぎ更新）
 
 ## CURRENT PHASE
 
-**PHASE 5 / Admin完成 — IN PROGRESS**
+**PHASE 5 / Admin完成 — COMPLETE**
 
 ## PROJECT PROGRESS
 
-**PHASE 4 / 9 COMPLETE**
+**PHASE 5 / 9 COMPLETE**
 
 | PHASE | 内容 | 状態 | 根拠 |
 |---|---|---|---|
@@ -16,7 +16,7 @@
 | 2 | Production Runtime監査・安定化 | COMPLETE | runtime timeout/cost guard、GitHub runtime、Worker、Review/QA再試行経路を本番で安定化 |
 | 3 | Image / Asset Production | COMPLETE | 画像生成→Storage→顧客repo反映→Visual Reviewを本番完走 |
 | 4 | Customer Portal完成 | COMPLETE | Supabase Authから実preview表示、最終承認、console error 0まで本番E2E PASS |
-| 5 | Admin完成 | **IN PROGRESS** | 実ログインと案件概要表示までPASS。全タブ・viewport・reload・consoleの最終確認が残る |
+| 5 | Admin完成 | **COMPLETE** | 実Supabase Auth、PHASE 4案件の6タブ、Admin起点preview、reload、desktop/tablet/mobile、application console error 0を本番E2Eで確認 |
 | 6 | Notification / Approval / Deployment Gate | NOT STARTED | PHASE 5完了後 |
 | 7 | Akinael Reference Production | NOT STARTED | 受入条件未確定 |
 | 8 | Full Production QA | NOT STARTED | 受入条件未確定 |
@@ -78,7 +78,7 @@
 - Final Approval: `35ec6138-1e0d-4b30-829d-a7baa4d9a70e`（`delivery / approved`）
 - Verified: 実Supabase Auth、onboarding、project/request/messages、workflow progress、artifacts、preview_url紐付け、Portalから実preview表示、最終承認DB/Portal表示、Portal/Preview application console error 0。
 
-## PHASE 5 / Admin — current position
+## PHASE 5 / Admin — COMPLETE
 
 ### 実装済み
 
@@ -109,14 +109,17 @@
 - 確認: 4テーブルの `service_role SELECT` grant存在、修正後Admin実ログイン・overview表示PASS。
 - **source-control drift**: 本番へ適用済みの `20260904004834 / grant_admin_read_service_role_access` を `supabase/migrations/20260904004834_grant_admin_read_service_role_access.sql` として `docs/shared-handoff-foundation` branch（PR #42、Draft）へretroactive migration記録済み（2026-09-08 JST, Claude Code）。**productionへの再適用は行っていない。** `origin/main` への反映はPR #42のmerge待ち。Supabase migration history（`supabase_migrations.schema_migrations`）上に`20260904004834`が正式に記録されているかは未確認のため、今後確認する。
 
-### 未完了
+### 最終本番E2E（2026-09-08 JST）
 
-- PHASE 4 project `52beffb0-0c87-4949-af45-a36a8e155462` を選び、全6タブでcustomer/project/request/messages/workflow/artifacts/approval/deployment/auditを確認。
-- Adminのartifactリンクから実preview URLを開いて表示確認。
-- reload後の認証・選択状態確認。
-- desktop/mobile viewport確認。
-- application console error 0確認（Cloud Browser拡張自身の `chrome-extension://...` metadata errorはアプリエラーに数えない）。
-- 2026-09-07 UTCにclean docs worktreeで `npm ci` 後、Core tests **87/87 PASS**、Admin lint **PASS**、Admin build **PASS**を再確認。依存導入前のテスト失敗は環境不足であり、コード回帰ではない。
+- Cloud Browserの安全な認証入力経由で実Supabase Auth管理者ログイン成功。Adminに管理者メールと案件一覧を表示。
+- PHASE 4 project `52beffb0-0c87-4949-af45-a36a8e155462`（Cloud Browser Portal E2E）を選択し、概要、依頼・会話、Workflow、成果物・品質、承認、運用記録の6タブを本番データで確認。
+- DB基準では最終workflow `baa79515-498b-4b38-b6a6-3d812fedf262` が `completed / completed`、tasks `16/16` completed。Adminの全体集計 `20/23` は初回失敗workflowを含む正しい集計であることを確認。
+- 成果物タブの実リンクからpreview artifact `8c84cd57-8850-4401-9f36-c6127316a68c` を別タブで開き、実画面描画を確認。
+- 承認タブで `35ec6138-1e0d-4b30-829d-a7baa4d9a70e` の `delivery / approved` を確認。DB記録と一致。
+- reload後もログイン状態を維持し、PHASE 4案件の再選択・表示を確認。
+- desktop `1363×936`、tablet `768×1024`、mobile `390×844` で、主要UI・6タブ・案件情報・Workflow・承認表示に崩れ・操作不能なし。
+- Adminと実previewのapplication console errorは0件。Cloud Browser拡張由来の `chrome-extension://...` metadata error（Adminで21件）はアプリ外として分離。
+- 主要な読取操作・タブ遷移・preview表示で403/500/不整合なし。
 
 ## GitHub / deploy state
 
@@ -130,6 +133,6 @@
 
 ## Current blocker / Human Gate
 
-- Current functional blocker: **なし**。Admin最終E2Eを継続できる。
+- Current functional blocker: **なし**。PHASE 5本番E2Eは完了。
 - Reproducibility blocker: **解消（2026-09-08 JST）**。本番migration `20260904004834` は `docs/shared-handoff-foundation` branch（PR #42、Draft、未merge）へsource control記録済み。`origin/main` への反映はPR #42のmerge待ち。Supabase migration history上の正式記録有無は未確認のまま残す。
-- Human Gate: **NO**（残る検証とdocs/migration整合は非破壊）。ただし公開・DNS・課金・実顧客通知・データ削除・Secret操作へ進む場合はYES。
+- Human Gate: **NO**。PHASE 6で公開・DNS・課金・実顧客通知・データ削除・Secret操作へ進む場合はYES。

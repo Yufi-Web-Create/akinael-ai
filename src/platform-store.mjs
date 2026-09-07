@@ -484,7 +484,7 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
       }));
       if (!requestItem) throw new PlatformStoreError('request not found', { status: 404, code: 'request_not_found' });
     }
-    const note = requiredText(input.note, 'approval note', 10000);
+    const note = requiredText(input.note, 'approval note', 10000);\n    const existing = first(await admin.request('/rest/v1/approvals', {\n      query: `tenant_id=eq.${encodeURIComponent(identity.tenantId)}&project_id=eq.${encodeURIComponent(project.id)}&request_id=eq.${encodeURIComponent(requestId || '')}&type=eq.delivery&status=eq.approved&select=${customerApprovalSelect}&limit=1`\n    }));\n    if (existing) return { ...existing, duplicate: true };
     const rows = await admin.request('/rest/v1/approvals', {
       method: 'POST', query: `select=${customerApprovalSelect}`,
       headers: { Prefer: 'return=representation' },
@@ -500,7 +500,7 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
     const project = await getProjectForIdentity(identity, projectId);
     const scope = `tenant_id=eq.${encodeURIComponent(identity.tenantId)}&project_id=eq.${encodeURIComponent(project.id)}`;
 
-    const [workflows, tasks, artifacts, qualityChecks] = await Promise.all([
+    const [workflows, tasks, artifacts, qualityChecks, approvals, deployments, notifications] = await Promise.all([
       admin.request('/rest/v1/workflow_runs', {
         query: `${scope}&select=${customerWorkflowSelect}&order=created_at.desc`
       }),
@@ -526,7 +526,7 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
       workflows: Array.isArray(workflows) ? workflows : [],
       tasks: Array.isArray(tasks) ? tasks : [],
       artifacts: customerArtifacts,
-      qualityChecks: Array.isArray(qualityChecks) ? qualityChecks : []
+      qualityChecks: Array.isArray(qualityChecks) ? qualityChecks : [],\n      approvals: approvalRows,\n      notifications: Array.isArray(notifications) ? notifications : [],\n      deploymentGate: { releasePassed, customerApproved: Boolean(deliveryApproval), deployReady, humanGateRequired: true, productionPublished }
     };
   };
 

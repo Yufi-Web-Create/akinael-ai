@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-最終更新: 2026-09-07 UTC / 2026-09-08 JST（ChatGPT Work本番照合）→ 2026-09-08 JST（Claude Code、origin/main HEADとRender live deploy commitの表現分離）
+最終更新: 2026-09-08 JST（PHASE 6開始・共通引継ぎ基盤整合）
 
 ## このファイルの役割
 
@@ -15,10 +15,10 @@ Claude Code / ChatGPT Work が同じGitHub上の状態から作業を再開す�
 
 ## Current snapshot
 
-- CURRENT PHASE: **PHASE 5 / Admin完成（IN PROGRESS）**
-- PROJECT PROGRESS: **PHASE 4 / 9 COMPLETE**
-- PHASE 1〜4: 本番E2Eを含め **COMPLETE**
-- PHASE 5: 実装・本番配信・管理者Auth・Admin実ログイン・案件概要表示まで確認済み。6タブ横断、reload、desktop/mobile、実preview再表示、application console error 0の最終E2Eが未完了。
+- CURRENT PHASE: **PHASE 6 / Notification / Approval / Deployment Gate（IN PROGRESS）**
+- PROJECT PROGRESS: **PHASE 5 / 9 COMPLETE**
+- PHASE 1〜5: 本番E2Eを含め **COMPLETE**
+- PHASE 5: 本番E2EまでCOMPLETE。再実行しない。\n- PHASE 6: Notification、Customer Approval、Deployment Gate、Human Gateを本番データ・実ブラウザで検証する。production publish・実顧客通知はHuman Gate。
 - Core repo: `Yufi-Web-Create/akinael-ai`
 - `origin/main` HEAD（git上の事実。`git log -1 origin/main`でいつでも再確認可能）: `e2c2f8cb60208f47586f7098fb368854c0b6010d`
   - PR #42 merge後はこの値が変わるため、その都度更新する。
@@ -60,7 +60,7 @@ Research / Direction / Build / QA / Reviewの通常処理と、非破壊的な�
 
 ## 現在の重要注意
 
-本番Supabaseには `grant_admin_read_service_role_access`（version `20260904004834`）が適用済みだが、対応するmigration SQLはまだ `origin/main` に存在しない。次のセッションは `docs/NEXT_TASKS.md` の手順でsource-control driftを解消すること。すでに本番適用済みなので、効果確認なしに同じ推測修正を繰り返さない。
+本番Supabaseには `grant_admin_read_service_role_access`（version `20260904004834`）が適用済み。PR #42には同一GRANTのretroactive source-control記録のみを含む。merge後も本番へ再適用しない。
 
 ## セッション終了前
 

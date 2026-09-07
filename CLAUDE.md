@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-最終更新: 2026-09-07 UTC / 2026-09-08 JST（ChatGPT Work本番照合）
+最終更新: 2026-09-07 UTC / 2026-09-08 JST（ChatGPT Work本番照合）→ 2026-09-08 JST（Claude Code、origin/main HEADとRender live deploy commitの表現分離）
 
 ## このファイルの役割
 
@@ -20,7 +20,10 @@ Claude Code / ChatGPT Work が同じGitHub上の状態から作業を再開す�
 - PHASE 1〜4: 本番E2Eを含め **COMPLETE**
 - PHASE 5: 実装・本番配信・管理者Auth・Admin実ログイン・案件概要表示まで確認済み。6タブ横断、reload、desktop/mobile、実preview再表示、application console error 0の最終E2Eが未完了。
 - Core repo: `Yufi-Web-Create/akinael-ai`
-- `origin/main`: `e2c2f8cb60208f47586f7098fb368854c0b6010d`
+- `origin/main` HEAD（git上の事実。`git log -1 origin/main`でいつでも再確認可能）: `e2c2f8cb60208f47586f7098fb368854c0b6010d`
+  - PR #42 merge後はこの値が変わるため、その都度更新する。
+- Render Web Service `akinael-ai` live deploy commit（運用上の事実。Renderダッシュボードでの確認が必要）: `e2c2f8cb60208f47586f7098fb368854c0b6010d`
+  - 2026-09-04にRender画面で確認したproduction snapshot。`origin/main` HEADとは独立した運用上の事実として扱う。
 - 共通引継ぎ文書branch: `docs/shared-handoff-foundation`
 - Production: https://akinael-ai.com/
 - Customer Portal: https://akinael-ai.com/portal/

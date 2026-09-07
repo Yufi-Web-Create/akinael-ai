@@ -1,15 +1,16 @@
 # NEXT_TASKS.md
 
-最終更新: 2026-09-07 UTC / 2026-09-08 JST（ChatGPT Work本番照合）
+最終更新: 2026-09-07 UTC / 2026-09-08 JST（ChatGPT Work本番照合）→ 2026-09-08 JST（Claude Code、migration drift解消タスクを更新）
 
 ## 最優先: source-control driftを解消
 
-- [ ] `origin/main` から作業branchを作る（既存branchは削除しない）。
-- [ ] Supabase本番migration `20260904004834 / grant_admin_read_service_role_access` の存在と4つのSELECT grantを読み取り確認する。
-- [ ] 対応migration SQLをGitHubへ追加する。内容は `docs/HANDOFF.md` のSQLと一致させ、すでに本番適用済みであることをcommit/PRに明記する。
-- [ ] 同一migrationを推測で本番へ再適用しない。DBとmigration historyの照合を先に行う。
-- [ ] `npm ci` 後にCore `npm test`、Admin `npm run lint` / `npm run build` を実行する。
-- [ ] CI PASS後に通常のPRレビュー経路でmainへ反映する。branch削除はしない。
+- [x] `origin/main` から作業branchを作る（既存branchは削除しない）。→ 既存の `docs/shared-handoff-foundation`（PR #42）を継続利用。
+- [x] Supabase本番migration `20260904004834 / grant_admin_read_service_role_access` の存在と4つのSELECT grantを読み取り確認する（ChatGPT Work本番照合により確認済み）。
+- [x] 対応migration SQLをGitHubへ追加する。内容は `docs/HANDOFF.md` のSQLと一致させ、すでに本番適用済みであることをcommit/PRに明記する。→ `supabase/migrations/20260904004834_grant_admin_read_service_role_access.sql` をPR #42のcommitとして追加済み（2026-09-08 JST, Claude Code）。
+- [x] 同一migrationを推測で本番へ再適用しない。DBとmigration historyの照合を先に行う。→ productionへの再適用は行っていない。
+- [x] `npm ci` 後にCore `npm test` を実行する(87/87 PASS、2026-09-08確認)。Admin `npm run lint` / `npm run build` はアプリ本体を変更していないため今回は未実施。実際にmainへ反映する前には改めて実行する。
+- [ ] CI PASS後に通常のPRレビュー経路でmainへ反映する。branch削除はしない。→ PR #42はDraftのまま。mainへのmergeは指示により保留中。
+- [ ] Supabase migration history（`supabase_migrations.schema_migrations`）に`20260904004834`が正式に記録されているかを確認する(今後必要に応じて)。
 
 ## PHASE 5 / Admin最終E2E
 

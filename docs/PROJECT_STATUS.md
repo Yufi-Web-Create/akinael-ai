@@ -1,6 +1,6 @@
 # PROJECT_STATUS.md
 
-最終更新: 2026-09-07 UTC / 2026-09-08 JST（ChatGPT WorkによるGitHub・Supabase・本番照合）
+最終更新: 2026-09-07 UTC / 2026-09-08 JST（ChatGPT WorkによるGitHub・Supabase・本番照合）→ 2026-09-08 JST（Claude Code、migration drift記録状態を更新）
 
 ## CURRENT PHASE
 
@@ -107,7 +107,7 @@
 - 実原因: `notifications` のPostgREST呼出だけ403。続くproject detailで必要な `payments`, `deployments`, `audit_logs` もservice_role SELECT未付与。
 - 本番修正: Supabase migration `grant_admin_read_service_role_access`, version `20260904004834` を適用。
 - 確認: 4テーブルの `service_role SELECT` grant存在、修正後Admin実ログイン・overview表示PASS。
-- **source-control drift**: このmigrationは本番適用済みだが `origin/main` にSQLが未commit。次セッションの最優先。
+- **source-control drift**: 本番へ適用済みの `20260904004834 / grant_admin_read_service_role_access` を `supabase/migrations/20260904004834_grant_admin_read_service_role_access.sql` として `docs/shared-handoff-foundation` branch（PR #42、Draft）へretroactive migration記録済み（2026-09-08 JST, Claude Code）。**productionへの再適用は行っていない。** `origin/main` への反映はPR #42のmerge待ち。Supabase migration history（`supabase_migrations.schema_migrations`）上に`20260904004834`が正式に記録されているかは未確認のため、今後確認する。
 
 ### 未完了
 
@@ -131,5 +131,5 @@
 ## Current blocker / Human Gate
 
 - Current functional blocker: **なし**。Admin最終E2Eを継続できる。
-- Reproducibility blocker: 本番migration `20260904004834` がGitHub main未反映。
+- Reproducibility blocker: **解消（2026-09-08 JST）**。本番migration `20260904004834` は `docs/shared-handoff-foundation` branch（PR #42、Draft、未merge）へsource control記録済み。`origin/main` への反映はPR #42のmerge待ち。Supabase migration history上の正式記録有無は未確認のまま残す。
 - Human Gate: **NO**（残る検証とdocs/migration整合は非破壊）。ただし公開・DNS・課金・実顧客通知・データ削除・Secret操作へ進む場合はYES。

@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-最終更新: 2026-09-07 UTC / 2026-09-08 JST（ChatGPT Work本番照合）
+最終更新: 2026-09-07 UTC / 2026-09-08 JST（ChatGPT Work本番照合）→ 2026-09-08 JST（Claude Code、migration drift記録・表現修正）
 
 ## 目的
 
@@ -29,7 +29,12 @@ Claude Code / ChatGPT Workのどちらでも、チャット履歴に依存せず
 ## 3. 本番source of truth
 
 - PHASE 1〜4 COMPLETE、PHASE 5 IN PROGRESS。
-- `origin/main` / Render live commit: `e2c2f8cb60208f47586f7098fb368854c0b6010d`（最終Render画面確認2026-09-04）。
+- `origin/main` HEAD:
+  `e2c2f8cb60208f47586f7098fb368854c0b6010d`
+  git上で確認する現在のmain。PR #42 merge後はこの値が変わるため、その都度更新する。
+- Render Web Service `akinael-ai` live deploy commit:
+  `e2c2f8cb60208f47586f7098fb368854c0b6010d`
+  2026-09-04にRender画面で確認したproduction snapshot。`origin/main` HEADとは独立した運用上の事実として扱う(値が一致しているのは現時点の偶然であり、以後の再デプロイ有無は別途確認する)。
 - 2026-09-07のHTTP確認: `/`, `/portal/`, `/admin/`, PHASE 4 previewは200。
 - Admin実ログインはCloud BrowserでPASS。`kohayakawakohaya@gmail.com` / user `4b9af2d3-f500-4f5e-bced-0decf88f8feb` / role `admin`。
 - password/recovery token/OTPはどこにも保存していない。今後もsecure browser auth経由のみ。
@@ -55,7 +60,8 @@ to service_role;
 - version: `20260904004834`
 - 4テーブルのSELECT grantを実DBで確認済み。
 - 修正後、同じ管理者でAdmin実ログインとoverview表示に成功。
-- **重要**: SQL migrationファイルは `origin/main` 未反映。以前のWork scratchには `supabase/migrations/20260904005000_grant_admin_read_service_role_access.sql` として作成されたが、scratchをsource of truthにしない。次セッションで本番version/SQLを照合し、GitHubへmigrationとして記録する。
+- **状態更新（2026-09-08 JST, Claude Code）**: `supabase/migrations/20260904004834_grant_admin_read_service_role_access.sql` を `docs/shared-handoff-foundation` branch（PR #42、Draft）へ追加し、本番へ実際に適用済みの4テーブルSELECT grantをsource controlへretroactiveに記録した。**productionへの再適用は行っていない。** `origin/main` への反映はPR #42のmerge待ち。以前のWork scratchにあった `20260904005000` という誤ったバージョン番号は使用せず、本番migration履歴のバージョン `20260904004834` と完全一致させた。
+- 未確認事項として残す: Supabase migration history（`supabase_migrations.schema_migrations`）に `20260904004834` が正式なレコードとして記録されているかは未確認。必要に応じて今後Supabase側で確認する。
 
 ## 5. E2E data — 削除禁止
 
@@ -106,7 +112,8 @@ to service_role;
 
 | 項目 | 状態 / 扱い |
 |---|---|
-| Production migration drift | `20260904004834`がDBにのみ存在。最優先でGitHubへ記録する。 |
+| Production migration drift | `20260904004834`は本番へ適用済み。`docs/shared-handoff-foundation`（PR #42、Draft）へsource control記録済み、`origin/main`への反映はmerge待ち。Supabase migration history上の正式記録有無は未確認。 |
+| Base schemaの一部がgit管理外 | `notifications`/`payments`/`deployments`/`audit_logs`等の`create table`定義がこのリポジトリの`supabase/migrations/`に存在しない。base schema全体は現在のmigration群だけでは再構築できない可能性がある。今回のmigration driftは、この構造的ギャップが表面化した一例と見られる。PHASE 5の進行は妨げないため、base schemaの再構築・追加migration作成は今回行わない。今後、本番のフルスキーマdumpとの突合を検討する。 |
 | Remote branches | 2026-09-07時点45 remote refs（main含む）。意図未精査。**削除禁止**。 |
 | `portal/app/` | Next.js版残骸。現行Vite build未参照。勝手に削除しない。 |
 | `Dockerfile` | Renderの実build手順と乖離。利用経路確認前に変更しない。 |

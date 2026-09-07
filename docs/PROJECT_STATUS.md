@@ -1,118 +1,135 @@
 # PROJECT_STATUS.md
 
-最終更新: 2026-09-08（Claude Codeセッション、リポジトリ監査 + ChatGPT Work引き継ぎ情報の統合により作成）
+最終更新: 2026-09-07 UTC / 2026-09-08 JST（ChatGPT WorkによるGitHub・Supabase・本番照合）
 
-## この文書の役割
+## CURRENT PHASE
 
-「今、プロジェクトはどの状態か」を一箇所で確認するための現状スナップショット。アーキテクチャの詳細や技術的負債は [docs/HANDOFF.md](HANDOFF.md)、次にやる作業は [docs/NEXT_TASKS.md](NEXT_TASKS.md) を参照。
+**PHASE 5 / Admin完成 — IN PROGRESS**
 
-## 検証状況の凡例
+## PROJECT PROGRESS
 
-- **[監査確認]**: Claude Codeがこのリポジトリのコード・テスト・git履歴を直接調査して確認した事実。
-- **[本番確認]**: ChatGPT Workセッションが本番環境で実地確認し、2026-09-08に引き継いだ事実。Claude Codeはこれを自ら再実行・再検証していないが、source of truthとして扱う。
+**PHASE 4 / 9 COMPLETE**
 
-## プロジェクト基本情報 [本番確認]
+| PHASE | 内容 | 状態 | 根拠 |
+|---|---|---|---|
+| 1 | Production E2E完全突破 | COMPLETE | Workflow `7469cea7-d664-451e-8c25-46a7204ae51b` が `deploy_ready / release`、Release Gate artifact PASS |
+| 2 | Production Runtime監査・安定化 | COMPLETE | runtime timeout/cost guard、GitHub runtime、Worker、Review/QA再試行経路を本番で安定化 |
+| 3 | Image / Asset Production | COMPLETE | 画像生成→Storage→顧客repo反映→Visual Reviewを本番完走 |
+| 4 | Customer Portal完成 | COMPLETE | Supabase Authから実preview表示、最終承認、console error 0まで本番E2E PASS |
+| 5 | Admin完成 | **IN PROGRESS** | 実ログインと案件概要表示までPASS。全タブ・viewport・reload・consoleの最終確認が残る |
+| 6 | Notification / Approval / Deployment Gate | NOT STARTED | PHASE 5完了後 |
+| 7 | Akinael Reference Production | NOT STARTED | 受入条件未確定 |
+| 8 | Full Production QA | NOT STARTED | 受入条件未確定 |
+| 9 | Production Release | NOT STARTED | Human Gate対象を含む |
 
-- Core repository: `Yufi-Web-Create/akinael-ai`
-- Customer repository organization: `akinael-ai-clients`
-- Production: https://akinael-ai.com/
-- Customer Portal: https://akinael-ai.com/portal/
-- Admin: https://akinael-ai.com/admin/
-- Supabase project ref: `rxxmbnlqomtfjekdrblo`
-- GitHub App: `akinael-ai-runtime-yufi`（App ID `4762113`）
-  - `Yufi-Web-Create/akinael-ai` へインストール済み
-  - `akinael-ai-clients` Organization へインストール済み
+## URLs / production endpoints
 
-## 本番ランタイム接続状況 [本番確認]
-
-- **Render Worker: 稼働中**（未有効ではない）。Production Workflowの本番E2Eを複数回完走済み。
-- OpenAI Responses API: 実接続確認済み
-- GitHub App: 実接続確認済み
-- GitHub Actions（中央実行ワークフロー）: 実接続確認済み
-- Supabase: 実接続確認済み
-
-> ⚠️ 今後のセッションは「Workerが未有効」「GitHub Appがまだセットアップされていない」という前提で再構築しないこと。これらは実際に本番稼働している。
-
-## PHASE状況 [本番確認]
-
-| PHASE | 内容 | 状況 |
+| 対象 | URL | 最新確認 |
 |---|---|---|
-| 1 | Production E2E | COMPLETE |
-| 2 | Production Runtime監査・安定化 | COMPLETE |
-| 3 | Image / Asset Production | COMPLETE |
-| 4 | Customer Portal | COMPLETE |
-| 5 | Admin | **IN PROGRESS** |
-| 6 | Notification / Approval / Deployment Gate | NOT STARTED |
-| 7 | Akinael Reference Production | NOT STARTED |
-| 8 | Full Production QA | NOT STARTED |
-| 9 | Production Release | NOT STARTED |
+| 公開サイト | https://akinael-ai.com/ | HTTP 200（2026-09-07 UTC） |
+| Customer Portal | https://akinael-ai.com/portal/ | HTTP 200（2026-09-07 UTC）、PHASE 4実E2E PASS |
+| Admin | https://akinael-ai.com/admin/ | HTTP 200（2026-09-07 UTC）、実Supabase Authログイン PASS |
+| PHASE 4実preview | https://akinael-ai.com/preview/52beffb0-0c87-4949-af45-a36a8e155462/8c84cd57-8850-4401-9f36-c6127316a68c | HTTP 200（2026-09-07 UTC）、Cloud Browser実表示はPHASE 4でPASS |
 
-## PHASE 4 本番証跡 [本番確認]
+## PHASE 1〜3 completion evidence
 
-- Workflow ID: `baa79515-498b-4b38-b6a6-3d812fedf262`
-- Final state: `completed / completed`
-- Build Run: `33637959513`
-- SEO/A11y Review: `33644035238` PASS
-- Visual Review: `33647937315` PASS
-- Copy Review: `33661862728` PASS
-- Technical Review: `33725443457` PASS
-- Release Gate artifact: `d1029659-fcc4-47bb-9701-d927dfb0bab6`
+### PHASE 1 / Production E2E完全突破 — COMPLETE
+
+- Project: `be50c2c4-3bfa-4133-adbd-9d2d23dea10e`（E2E｜月灯り珈琲 新規Webサイト）
+- Workflow: `7469cea7-d664-451e-8c25-46a7204ae51b`
+- Final: `deploy_ready / release`
+- Release Gate artifact: `aa9a7098-62bf-43ff-ad42-2889dc9dab22`（PASS）
+- GitHub Actions Runs: `33318904374`, `33522195767`, `33576112866`, `33578272654`, `33576659672`（DB上すべてsucceeded）
+- Core commitとして報告済み: `38beb5c`（Build customer apps before visual review）
+
+### PHASE 2 / Production Runtime監査・安定化 — COMPLETE
+
+- Render Web / Worker、Supabase、OpenAI Responses API、GitHub App、中央GitHub Actionsの実接続を確認。
+- retry、terminal failure、timeout/cost guard、release evidence、customer repo bootstrap、QA/Review reconciliationを反復修正。
+- PHASE 1/3/4の本番Workflow完走がruntime実稼働の証拠。Workerを「未有効」として再構築しない。
+
+### PHASE 3 / Image / Asset Production — COMPLETE
+
+- Workflow: `4d91d88d-6935-478d-90fc-57da520d59b8`
+- Final: `completed / completed`
+- Image artifact: `35261129-dbd3-44a6-9430-e39d9ee6629d`
+- Visual Review artifact: `2319bd68-d76b-47f0-91a1-6dd0fe0832fa`
+- Builder Run: `33601385076`（succeeded）
+- Customer commitとして報告済み: `9218ab9f...`（完全SHAは現引継ぎでは未回収。prefix以上を推測しない）
+- Render Worker deployとして報告済み: `6216228520`
+
+## PHASE 4 / Customer Portal — COMPLETE
+
+- E2E tenant: `8be8ebe5-f07e-4669-96cd-1806ff4d01aa`
+- E2E project: `52beffb0-0c87-4949-af45-a36a8e155462`（Cloud Browser Portal E2E）
+- Customer: `50105824-c191-43b3-9960-7e83c9f97643`
+- Customer Auth user: `df9b7574-4164-4014-8e95-5faa47aa5ff5`
+- Final request: `8b94664a-8851-4de1-b447-58dc045cafe2`
+- Final workflow: `baa79515-498b-4b38-b6a6-3d812fedf262` — `completed / completed`
+- Build task: `7ef95dd3-8a2e-4d5e-b902-2c182f8cef75`
+- SEO/A11y task: `853d4c7b-9764-4f8a-8a99-69a17763ad8a`
+- Visual task: `e867995e-875b-46ac-abf2-01960ace01f8`
+- Copy task: `07f60b15-21ef-475d-ab5c-22f0e1ee9e0f`
+- Technical task: `8ca28beb-0502-4ba3-a0ca-fb69afbc5950`
+- Release Gate task: `d8e1d6ec-864b-4b7e-8c64-7f0b591f18bc`
+- Runs: Build `33637959513`; SEO/A11y `33644035238`; Visual `33647937315`; Copy `33661862728`; Technical `33725443457`
+- Preview artifacts: `8c84cd57-8850-4401-9f36-c6127316a68c`, `bc3183b5-5294-448e-96b6-38c1d7e3c194`
+- Release Gate artifact: `d1029659-fcc4-47bb-9701-d927dfb0bab6`（PASS）
 - Final Approval: `35ec6138-1e0d-4b30-829d-a7baa4d9a70e`（`delivery / approved`）
-- Customer Portal: 実Supabase Auth login PASS
-- Real preview: Cloud Browser表示 PASS
-- JavaScript application console errors: Portal 0 / Preview 0
+- Verified: 実Supabase Auth、onboarding、project/request/messages、workflow progress、artifacts、preview_url紐付け、Portalから実preview表示、最終承認DB/Portal表示、Portal/Preview application console error 0。
 
-PHASE 4は本番環境E2Eまで完了している。
+## PHASE 5 / Admin — current position
 
-## PHASE 5 現状
+### 実装済み
 
-関連コミット [監査確認]:
-- `516c3a2` feat(admin): add Supabase-backed operations console
-- `7362090` fix(admin): bundle production static assets
-- `7d78971` feat(admin): add secure password recovery flow
-- `a871fc9` fix(auth): route recovery sessions through allowed URL
-- `e2c2f8c` fix(auth): comply with recovery redirect CSP
+- React 19 + TypeScript + Vite SPAとして `/admin/` を実装。
+- Supabase-backed v2 APIによるoverview/project detail。
+- 6タブ: 概要、依頼・会話、Workflow、成果物・品質、承認、運用記録。
+- Supabase Authログイン、role=`admin`検証、customer role拒否。
+- password recovery / password update、許可済みredirect経路、strict CSP対応。
 
-確認済み事実 [本番確認、テスト結果のみ監査確認]:
-- Production `/admin/`: HTTP 200 確認済み
-- Core tests: 87 / 87 PASS（Claude Codeが2026-09-08に `npm ci` 後 `npm test` を実行し再現確認済み [監査確認]）
-- Admin lint/build: PASS
-- 未認証Admin API: 401 確認済み
-- Customer role: 403 確認済み
-- Admin password recovery flow: 実装済み
+### 本番確認済み
 
-**PHASE 5はまだCOMPLETEではない。** 主な残作業は本番ブラウザE2E（実Supabase Auth管理者ログイン、admin profile生成確認、PHASE 4 E2Eデータの表示確認、Admin主要操作、reload後の状態、desktop/mobile viewport、JavaScript console error 0件）。詳細チェックリストは [docs/NEXT_TASKS.md](NEXT_TASKS.md) を参照。全項目PASSするまでCOMPLETEにしない。
+- Admin Auth user: `4b9af2d3-f500-4f5e-bced-0decf88f8feb`
+- Admin email: `kohayakawakohaya@gmail.com`（パスワードはユーザーだけが保持。文書化禁止）
+- Admin profile: tenant `8be8ebe5-f07e-4669-96cd-1806ff4d01aa`, role `admin`, display name `管理者`
+- Account creation audit: `6dcf4244-f0f6-458f-9385-419856f26c1e`
+- Recovery: Supabase Auth `PUT /user = 200`（2026-09-04 00:40:15 UTC）を確認。
+- Password login: Supabase Auth `POST /token = 200`、`GET /user = 200`を確認。
+- Cloud Browserで `/admin/` 実ログイン成功、管理者メール表示、案件一覧、E2E案件の概要を確認。
+- `Cloud Browser Portal E2E`: workflow completed/current phase completed、Human Gate自動実行なし表示。
+- `E2E｜月灯り珈琲 新規Webサイト`: project `deploy_ready`、workflow completed、tasks `21/21 完了`表示。
+- customer roleでAdmin API 403、未認証401は確認済み。
 
-## 既存E2Eデータ（削除禁止）
+### 直近で発見・修正した本番問題
 
-PHASE 4で作成した本番E2Eデータは、PHASE 5のAdmin検証でも使用するため意図的に未削除。
+- 症状: Auth成功後、Admin overviewが `internal server error`。
+- 実原因: `notifications` のPostgREST呼出だけ403。続くproject detailで必要な `payments`, `deployments`, `audit_logs` もservice_role SELECT未付与。
+- 本番修正: Supabase migration `grant_admin_read_service_role_access`, version `20260904004834` を適用。
+- 確認: 4テーブルの `service_role SELECT` grant存在、修正後Admin実ログイン・overview表示PASS。
+- **source-control drift**: このmigrationは本番適用済みだが `origin/main` にSQLが未commit。次セッションの最優先。
 
-- 特に **Project `52beffb0-0c87-4949-af45-a36a8e155462`** はPHASE 5検証に利用できる。
+### 未完了
 
-## リポジトリ監査サマリー [監査確認]
+- PHASE 4 project `52beffb0-0c87-4949-af45-a36a8e155462` を選び、全6タブでcustomer/project/request/messages/workflow/artifacts/approval/deployment/auditを確認。
+- Adminのartifactリンクから実preview URLを開いて表示確認。
+- reload後の認証・選択状態確認。
+- desktop/mobile viewport確認。
+- application console error 0確認（Cloud Browser拡張自身の `chrome-extension://...` metadata errorはアプリエラーに数えない）。
+- 2026-09-07 UTCにclean docs worktreeで `npm ci` 後、Core tests **87/87 PASS**、Admin lint **PASS**、Admin build **PASS**を再確認。依存導入前のテスト失敗は環境不足であり、コード回帰ではない。
 
-2026-09-08時点:
-- git: `main` ブランチ、`origin/main` と同期、作業ツリークリーン、最新コミット `e2c2f8c`
-- v1（legacy in-memory API, `src/server.mjs`）と v2（Supabase-backed API, `src/platform-api.mjs`）が同一プロセスで共存
-- Workflow Execution Engineは内部実行（OpenAI Responses API）と外部実行（GitHub Actions経由Codex）を振り分け、QA reconciliationロジックまで作り込み済み（[test/execution-engine.test.mjs](../test/execution-engine.test.mjs) に17ケース）
-- Portal/AdminはどちらもVite + React 19 SPA、実体は各1ファイルのReactコンポーネント
-- 未マージのリモートbranchが40件存在（削除禁止、技術的負債として記録のみ）
+## GitHub / deploy state
 
-詳細は [docs/HANDOFF.md](HANDOFF.md) を参照。
+- `origin/main`: `e2c2f8cb60208f47586f7098fb368854c0b6010d`
+- PHASE 5 commits: `516c3a2`, `7362090`, `7d78971`, `a871fc9`, `e2c2f8c`
+- PRs: #39, #40, #41 merged（recovery関連）。
+- Render Web `akinael-ai`: commit `e2c2f8c` のLive deployを2026-09-04に確認。2026-09-07には3公開URLのHTTP 200を再確認。
+- Render Worker `akinael-ai-worker`: 本番稼働をPHASE 1〜4で確認済み。DB上、現在 `queued/running` taskは0でアイドル。最終task更新は2026-09-03 07:10:02 UTC。
+- GitHub App: `akinael-ai-runtime-yufi` App ID `4762113`。Core repoとcustomer Organization `akinael-ai-clients`への実接続を確認済み。
+- Remote branches: `origin/main`を含め45参照（2026-09-07 fetch時）。**削除禁止**。
 
-## Human Gate（正本）
+## Current blocker / Human Gate
 
-- 新しい有料サービスの開始
-- production DNS変更・新規公開
-- 実顧客への通知送信
-- payment（決済）操作
-- production dataの削除
-- secretの発行・失効
-- 不可逆なproduction変更
-- 正式な事業情報が不足し推測できない場合
-
-それ以外は原則自律進行する。詳細は [CLAUDE.md](../CLAUDE.md) および [AGENTS.md](../AGENTS.md) を参照。
-
-## Completion Rule
-
-unit test / build / CI成功だけではPHASE COMPLETEにしない。本番環境での実動作が最終的なsource of truthである。
+- Current functional blocker: **なし**。Admin最終E2Eを継続できる。
+- Reproducibility blocker: 本番migration `20260904004834` がGitHub main未反映。
+- Human Gate: **NO**（残る検証とdocs/migration整合は非破壊）。ただし公開・DNS・課金・実顧客通知・データ削除・Secret操作へ進む場合はYES。

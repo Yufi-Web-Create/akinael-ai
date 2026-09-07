@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-最終更新: 2026-09-07 UTC / 2026-09-08 JST（ChatGPT Work本番照合）→ 2026-09-08 JST（Claude Code、migration drift記録・表現修正）
+最終更新: 2026-09-08 JST（PHASE 5 Admin本番E2E完了・引継ぎ更新）
 
 ## 目的
 
@@ -28,7 +28,7 @@ Claude Code / ChatGPT Workのどちらでも、チャット履歴に依存せず
 
 ## 3. 本番source of truth
 
-- PHASE 1〜4 COMPLETE、PHASE 5 IN PROGRESS。
+- PHASE 1〜5 COMPLETE。
 - `origin/main` HEAD:
   `e2c2f8cb60208f47586f7098fb368854c0b6010d`
   git上で確認する現在のmain。PR #42 merge後はこの値が変わるため、その都度更新する。
@@ -40,6 +40,20 @@ Claude Code / ChatGPT Workのどちらでも、チャット履歴に依存せず
 - password/recovery token/OTPはどこにも保存していない。今後もsecure browser auth経由のみ。
 - PHASE 4 completed workflow: `baa79515-498b-4b38-b6a6-3d812fedf262`。
 - PHASE 4 preview URL: `https://akinael-ai.com/preview/52beffb0-0c87-4949-af45-a36a8e155462/8c84cd57-8850-4401-9f36-c6127316a68c`。
+
+## 3.1 PHASE 5 Admin final production E2E — COMPLETE
+
+- 実Supabase Auth管理者ログイン: PASS。Cloud Browserの安全な認証入力を使用し、秘密情報は保存・表示していない。
+- Admin profile: user `4b9af2d3-f500-4f5e-bced-0decf88f8feb`、tenant `8be8ebe5-f07e-4669-96cd-1806ff4d01aa`、role `admin` をDBで確認。
+- PHASE 4 project `52beffb0-0c87-4949-af45-a36a8e155462` をAdminで開き、概要／依頼・会話／Workflow／成果物・品質／承認／運用記録の6タブを実データで確認。
+- DBの最終workflow `baa79515-498b-4b38-b6a6-3d812fedf262` は `completed / completed`・tasks `16/16` completed。Adminの`20/23`は初回失敗workflowを含む集計であり、表示との整合を確認。
+- 成果物タブからpreview artifact `8c84cd57-8850-4401-9f36-c6127316a68c` の実リンクを開き、Cloud Browserで画面描画成功。
+- 承認 `35ec6138-1e0d-4b30-829d-a7baa4d9a70e` は `delivery / approved` とDB・Admin表示で一致。
+- reload後も認証維持・案件再表示を確認。
+- viewport: desktop `1363×936`、tablet `768×1024`、mobile `390×844` で主要UI・6タブ・案件情報・Workflow・承認に崩れ／操作不能なし。
+- console: Adminとpreviewのapplication errorは0。Cloud Browser拡張由来 `chrome-extension://...` metadata error（Admin 21件）はアプリ外として分離。
+- 主要な読取操作・タブ遷移・preview表示で403/500/不整合なし。
+- 次PHASE: **PHASE 6 / Notification / Approval / Deployment Gate**。
 
 ## 4. 直近のAdmin障害と修正
 
@@ -135,4 +149,4 @@ to service_role;
 
 ## 8. Human Gate
 
-公開/DNS、課金/返金、実顧客通知、production data削除、Secret発行/失効、不可逆変更、正式情報不足/法務リスク。現時点のPHASE 5検証・migration記録はHuman Gateではない。
+公開/DNS、課金/返金、実顧客通知、production data削除、Secret発行/失効、不可逆変更、正式情報不足/法務リスク。PHASE 5は完了。PHASE 6の公開・通知・課金などに進む場合はHuman Gateを再判定する。

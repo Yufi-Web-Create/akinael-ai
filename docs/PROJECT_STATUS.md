@@ -1,6 +1,6 @@
 # PROJECT_STATUS.md
 
-最終更新: 2026-09-08 UTC checkpoint（PHASE 6 checkpoint）
+最終更新: 2026-09-08 JST（Claude Code、Admin/Portal stale-session recovery修正 — PR #53/#54 merge・production反映確認済み）
 
 ## CURRENT PHASE
 
@@ -123,11 +123,11 @@
 
 ## GitHub / deploy state
 
-- `origin/main`: `b0e8a6e84fdf327ec561a30a5111e24dc474c0fc`（2026-09-08、PR #44/#45/#46/#47/#48 merge後。#47/#48はdocs-onlyのcheckpoint/implementation plan）
+- `origin/main`: `c2c328f`（2026-09-08、PR #53/#54 merge後）
 - PHASE 5 commits: `516c3a2`, `7362090`, `7d78971`, `a871fc9`, `e2c2f8c`
-- PHASE 6 commits/PRs: PR #43（`45e449e`）, PR #44（`a6bb4cc`）, PR #45（`75cda86`）, PR #46（`ee12c79`）— すべてmerged
-- PRs: #39, #40, #41, #42, #43, #44, #45, #46 merged。
-- Render Web `akinael-ai`: `ee12c79`世代のLive deployを2026-09-08に読み取り専用HTTP確認で確認済み（`docs/HANDOFF.md`の確認手法を参照）。
+- PHASE 6 commits/PRs: PR #43（`45e449e`）, PR #44（`a6bb4cc`）, PR #45（`75cda86`）, PR #46（`ee12c79`）, PR #50（`ce2e8d2`）, PR #51（`84d9050`）, PR #53（`838d1e6`）, PR #54（`c2c328f`）— すべてmerged
+- PRs: #39, #40, #41, #42, #43, #44, #45, #46, #50, #51, #53, #54 merged。
+- Render Web `akinael-ai`: `c2c328f`世代のLive deployを2026-09-08に読み取り専用HTTP確認で確認済み（`docs/HANDOFF.md`の確認手法を参照）。public/portal/はRender build時に自動再生成されるが、public/admin/はgit管理下の静的asset commitに依存しており、PR #43〜#51の期間はRenderの通常buildで自動更新されていなかった（原因未特定、`docs/HANDOFF.md`技術的負債表参照）。PR #54でsource commitとの同期を回復した。
 - Render Worker `akinael-ai-worker`: 本番稼働をPHASE 1〜4で確認済み。DB上、現在 `queued/running` taskは0でアイドル。最終task更新は2026-09-03 07:10:02 UTC。
 - GitHub App: `akinael-ai-runtime-yufi` App ID `4762113`。Core repoとcustomer Organization `akinael-ai-clients`への実接続を確認済み。
 - Remote branches: `origin/main`を含め45参照（2026-09-07 fetch時）。**削除禁止**。
@@ -215,5 +215,26 @@ Owner stepped away for ~1 hour with autonomous-mode instructions. Summary of wha
 - Also merged: PR #50 (`ce2e8d2`), CORS support scoped to `/api/v2/auth/register`+`/login`, needed by the new `akinael-ai-web` marketing site's register widget (separate repo, PHASE 7, owner-approved Astro Build in progress there — PR #4).
 - Core tests 93/93 PASS on `ce2e8d2`.
 - **The Cloud Browser E2E can now actually be attempted with a reasonable expectation of success.** Prior attempts (if any were made against the broken window) would have failed regardless of correct link/credentials.
-- New unfixed technical debt recorded (not actioned, out of this session's scope): `admin/src/Admin.tsx` has the identical stale-session recovery-UI bug `Portal.tsx` had before `9233e79`; `Portal.tsx`'s `updatePassword` doesn't clear an old session after a successful reset. See `docs/HANDOFF.md` technical debt table.
+- New unfixed technical debt recorded (not actioned, out of this session's scope): `admin/src/Admin.tsx` has the identical stale-session recovery-UI bug `Portal.tsx` had before `9233e79`; `Portal.tsx`'s `updatePassword` doesn't clear an old session after a successful reset. See `docs/HANDOFF.md` technical debt table. **— both fixed; see the checkpoint below.**
 - Human Gate: unaffected. No production data, DNS, notification, or payment action.
+
+## PHASE 6 critical-fix checkpoint (2026-09-08, fourth Claude Code session) — the two remaining recovery bugs are fixed, tested, merged, and confirmed live
+
+Both bugs recorded as unfixed technical debt in the checkpoint above are now fixed, with regression tests, and confirmed live in production. **PHASE 6 is still IN PROGRESS — this closes the last known code-level blocker, not the phase itself. PHASE 6 becomes COMPLETE only when Work's Cloud Browser E2E actually PASSes (see `docs/NEXT_TASKS.md`).**
+
+- **Bug 1 — Admin stale-session recovery-UI unreachable.** `admin/src/Admin.tsx` never received the fix `Portal.tsx` got in `9233e79`: the recovery card was nested inside `if(!token||!me)`, so an admin whose browser still had a valid stale `localStorage` session couldn't reach the "set new password" form from an emailed recovery link — the background session check would resolve successfully and route to the dashboard instead. Fixed with a one-line gate reorder: `if(recoveryMode||!token||!me)`.
+- **Bug 2 — Portal/Admin don't clear the old session after a successful password reset.** Both `Portal.tsx`'s and `Admin.tsx`'s `updatePassword` left the pre-reset `token`/`localStorage` session in place after a successful reset, so a stale-but-valid session would carry the user straight into the authenticated dashboard instead of a normal-login state with the new password — contradicting the UI's own "log in again" message. Fixed by calling each component's existing `logout()` (already correctly, conditionally hitting the real Supabase-backed `/api/v2/auth/logout`, and clearing state/localStorage) before redirecting.
+- Both fixes reuse existing, already-correct logic — no new auth mechanism, no bypass, no hardcoded credential, no test-only endpoint.
+- Added Vitest + Testing Library + jsdom test infrastructure to `portal/` and `admin/` (previously untested React packages). New tests: `admin/src/Admin.test.tsx` (3 tests), `portal/src/Portal.test.tsx` (4 tests) — covering stale-session recovery access, post-reset session cleanup, normal login regression, and recovery-hash-missing regression. **Verified with teeth**: stashed each `.tsx` fix, confirmed the corresponding new test fails against the pre-fix code, restored the fix, confirmed it passes.
+- Core suite: 93/93 PASS. Both `portal`/`admin` `npm run build` clean.
+- **PR #53** (`bec7a02` → merged `838d1e6`): the two code fixes + tests. CI PASS, merged.
+- **PR #54** (`5c4171f` → merged `c2c328f`): a necessary follow-up. After #53 merged, `akinael-ai.com/portal/`'s live bundle updated to the fix within minutes (byte-diff confirmed identical to a local build off the merge commit), but `akinael-ai.com/admin/` kept serving the exact same pre-fix bytes as before. Root cause: `public/admin/` is committed to git (unlike `public/portal/`, which Render regenerates from `admin/dist`/`portal/dist` at deploy time per `render.yaml`), and it hadn't been refreshed since `7362090`/`7d78971` — Render's build isn't actually keeping it in sync, for a reason this session couldn't diagnose without dashboard/build-log access. PR #54 rebuilt `admin/` off `838d1e6` and re-synced the committed bundle (`index-B6nNySKH.js` → `index-DmdIVxZS.js`), matching this repo's own established precedent (`7362090`) for shipping Admin changes. This is a **new, still-open technical debt item** — see `docs/HANDOFF.md`.
+- **PR #54's merge was blocked twice by this session's own permission classifier** (same session-variable behavior documented in earlier checkpoints — sometimes blocks, sometimes doesn't). Per the no-workaround rule, this session stopped and reported it; **the owner merged PR #54 manually.**
+- **Production verification (read-only, this session, post-merge of both PRs):**
+  - `GET /admin/assets/index-B6nNySKH.js` → `404` (old bundle gone).
+  - `GET /admin/assets/index-DmdIVxZS.js` → `200`, byte-for-byte identical to a fresh local `admin/` build off `c2c328f`.
+  - `GET /portal/`'s live JS bundle → byte-for-byte identical to a fresh local `portal/` build off `838d1e6`.
+  - `GET /admin/` → `200`, correct HTML shell, correct CSP/`x-robots-tag` headers, both new JS and CSS assets resolve `200`.
+  - **Not verified by this session** (no browser available): actual DOM rendering, interactive behavior, or JavaScript console errors for `/admin/`. HTTP/byte-level evidence is strong (identical bytes to a build that passed 3/3 targeted regression tests plus the full 93/93 suite), but real-browser confirmation — including console error 0 — is Work's Cloud Browser E2E, per the existing Claude Code / Work split (see `docs/NEXT_TASKS.md` step 9).
+- `origin/main` is now `c2c328f`.
+- Human Gate: unaffected. No production data, DNS, real-customer notification, or payment action. No Secret was issued/viewed/rotated.

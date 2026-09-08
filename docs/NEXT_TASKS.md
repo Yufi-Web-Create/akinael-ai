@@ -1,6 +1,6 @@
 # NEXT_TASKS.md
 
-最終更新: 2026-09-08 UTC checkpoint（PHASE 6 checkpoint）→ 2026-09-08 JST（Claude Code、1時間自律セッション: PR #44/#45/#46を用意）
+最終更新: 2026-09-08 JST（Claude Code、Admin/Portal stale-session recovery修正 — PR #53/#54 merge・production反映確認済み。Work向けexact next actionを更新）
 
 ## 最優先: source-control driftを解消
 
@@ -55,36 +55,41 @@
 - [x] Admin notification/deployment gate表示を実装
 - [x] PR #43 CI・independent review・merge（Core Quality `34176064714` PASS、main `45e449e`）
 - [x] Render blocker解消：owner確認済み。Render Web main `a6d3e828ad89148448ee02b4520c46b631dc1009` はDeploy succeeded / Live、fresh AdminでPHASE 6新UIを表示。
-- [ ] E2E TESTデータによるNotification / Approval / Deployment Gate本番検証
-- [x] Cloud Browser policy-compliant E2E customer authenticationの手段を用意 → PR #44 **merge・Render deploy確認済み**。以下の手順でWorkが実行すること。
+- [x] recovery hash race修正（PR #51、`app.js`との実行順序レースでrecovery tokenが失われる問題。詳細は`docs/HANDOFF.md`）
+- [x] Admin stale-session recovery不可バグ修正（PR #53、`838d1e6`）。回帰test fail-before/pass-after確認済み。
+- [x] Portal/Adminのpassword reset後にセッションが残る問題を修正（PR #53、同上）。回帰test fail-before/pass-after確認済み。
+- [x] `public/admin/`がRender buildで自動更新されない問題を発見・暫定対応（PR #54、`c2c328f`、owner手動merge）。production反映をbyte-diffで確認済み。根本原因（Renderの実際のbuild設定）は未解明のまま技術的負債として記録（`docs/HANDOFF.md`参照）。
+- [ ] E2E TESTデータによるNotification / Approval / Deployment Gate本番検証 — **Work、Cloud Browserで実行**
 - [x] 認証不要のDB / Release Gate / unauthorized API evidenceを再確認
-- [ ] Portal/Admin/DB照合、authorization/failure cases、console error 0
+- [ ] Portal/Admin/DB照合、authorization/failure cases、console error 0 — **Work、Cloud Browserで実行**
 
-### Work向け: Cloud Browserで実行する正確な手順
+### Work向け exact next action: Cloud Browserで実行する正確な手順
 
-実装・デプロイはClaude Codeが確認済み。以下はブラウザが必要なためWorkが実行する。
+実装・デプロイ・production反映（byte-diff等の読み取り専用確認）はClaude Codeが完了・確認済み。**残るのは以下のCloud Browser実行のみ。PHASE 6はこれが全項目PASSして初めてCOMPLETEと判定する。**
 
-1. Cloud Browserで `https://akinael-ai.com/portal/` をfresh表示（既存session/localStorageなしを推奨）
-2. 「パスワードを忘れた方」リンクから、既存E2E customer `yuchi.info.contact@gmail.com` でrecovery emailをリクエスト
-3. 届いたrecovery emailのリンクを開く。`https://akinael-ai.com/mypage` → 自動的に `https://akinael-ai.com/portal/?mode=recovery#access_token=...` へ遷移することを確認（role-aware bounceにより、customerアカウントなので`/portal/`へ着地するはず。万一`/admin/`へ着地した場合はPR #44のfail-open挙動のバグ報告として記録すること）
-4. 新しいパスワード（12文字以上）を設定し、「パスワードを更新」を実行
-5. 更新完了後、通常のPortalログインフォームで新パスワードでログイン
-6. ログイン後、E2E project上でapproval操作を実行し、notification生成を確認
-7. 同一approvalを重複送信し、duplicate protectionが機能する（二重にnotification/レコードが増えない）ことを確認
-8. Admin側（`/admin/`）で同じprojectを開き、Deployment Gate表示、notification、approvalがPortalおよびDBと一致することを確認
-9. reload、desktop/mobile viewport、JavaScript application console error 0を確認（Cloud Browser拡張由来のerrorは分離）
-10. 全項目PASSで初めてPHASE 6 COMPLETEと判定する
+1. fresh Customer Portal — Cloud Browserで `https://akinael-ai.com/portal/` をfresh表示（既存session/localStorageなしを推奨）
+2. E2E customer recovery — 「パスワードを忘れた方」リンクから、既存E2E customer `yuchi.info.contact@gmail.com` でrecovery emailをリクエスト
+3. recovery link — 届いたrecovery emailのリンクを開く。`https://akinael-ai.com/mypage` → 自動的に `https://akinael-ai.com/portal/?mode=recovery#access_token=...` へ遷移することを確認（role-aware bounceにより、customerアカウントなので`/portal/`へ着地するはず）
+4. password reset — 新しいパスワード（12文字以上）を設定し、「パスワードを更新」を実行
+5. 通常login — 更新完了後、通常のPortalログインフォームで新パスワードでログイン（PR #53の修正により、reset後は古いsessionが残らず、この通常loginへ確実に戻ることを確認する）
+6. approval — ログイン後、E2E project上でapproval操作を実行し、notification生成を確認
+7. duplicate protection — 同一approvalを重複送信し、duplicate protectionが機能する（二重にnotification/レコードが増えない）ことを確認
+8. Admin / DB照合 — Admin側（`/admin/`）で同じprojectを開き、Deployment Gate表示、notification、approvalがPortalおよびDBと一致することを確認（PR #53の修正により、Adminがstale sessionを持っていてもrecovery flow自体は別途正常に到達できることも既にtest済み。今回のE2Eでは通常operatorログインでの確認でよい）
+9. responsive / reload / console error 0 — desktop/mobile viewport、reload後のセッション維持、JavaScript application console error 0を確認（Cloud Browser拡張由来のerrorは分離）。Portal・Admin両方で確認する。
+10. PHASE 6 COMPLETE判定 — 上記1〜9すべてPASSして初めてPHASE 6をCOMPLETEと判定する。一つでもFAILがあればPHASE 6はIN PROGRESSのまま。
 
 秘密情報（password、OTP、recovery URL/token）はこの文書や会話に残さないこと。
 
-### Claude Code exact next action（更新: 2026-09-08、第3セッション — 重要な訂正あり）
+### Claude Code exact next action（更新: 2026-09-08、第4セッション）
 
-- **CURRENT PHASE:** PHASE 6 / Notification / Approval / Deployment Gate — **IN PROGRESS**。PHASE 1〜5はCOMPLETE、PHASE 6はまだCOMPLETEではない。
-- **訂正**: 前回チェックポイントの「実装・merge・deployは完了、残るのはCloud Browser E2Eのみ」は不完全だった。PR #44のrecovery機能は、`app.js`との実行順序レースにより**実際のブラウザでは機能しない状態のままmerge・deployされていた**（`recovery-redirect.js`の非同期化により、同じページで`defer`読み込みされる`app.js`が先にURL hashを消費・削除してしまい、recovery tokenが失われる）。独立レビューで発見し、PR #51（`84d9050`、本番反映確認済み）で修正済み。詳細は`docs/HANDOFF.md`。
-- PR #44・#45・#46・#50（CORS対応）・#51（この修正）はすべてmain（`ce2e8d27f1550e8c296ba4116f3c7ed0fafae962`）へmerge済み、Renderへのlive deployを読み取り専用HTTP確認で確認済み。
-- **Claude Code側でこれ以上進められる実装作業はない。** 残るのはCloud BrowserでのE2E実行のみで、これはWorkが上記手順で行う。**今回の修正により、実際に成功する見込みが立った状態でE2Eへ進める。**
+- **CURRENT PHASE:** PHASE 6 / Notification / Approval / Deployment Gate — **IN PROGRESS**。PHASE 1〜5はCOMPLETE、PHASE 6はまだCOMPLETEではない。**WorkのCloud Browser E2Eが上記10項目すべてPASSするまでCOMPLETEにしない。**
+- 前回セッションで技術的負債として記録されていた2件のバグ(Admin stale-session recovery不可、Portal/Adminのpassword reset後セッション残留)を修正。回帰test(fail-before/pass-after確認済み)とともにPR #53(`838d1e6`)としてmerge。
+- production反映確認の過程で、Admin側だけproduction bundleが更新されない問題を発見(`public/admin/`がgit管理下の静的assetで、Renderのbuildが自動更新していなかった)。PR #54(`c2c328f`、owner手動merge)で暫定対応。根本原因(Renderの実際のbuild設定)は未解明のまま技術的負債として記録(`docs/HANDOFF.md`参照)。
+- **production反映を読み取り専用HTTP確認(byte-diff)で確認済み**: `/admin/assets/index-B6nNySKH.js`(旧)は404、`/admin/assets/index-DmdIVxZS.js`(新)は200かつローカルbuildとbyte-for-byte一致。`/portal/`のlive bundleも同様に一致確認済み。`/admin/`は200・正しいCSP/x-robots-tagヘッダー・新JS/CSS両方とも200。
+- **Claude Codeでは確認できていない事項**: 実ブラウザでのDOM描画・操作・JavaScript console error(Cloud Browserがないため)。static/byte-level証拠は強い(3/3・4/4の対象回帰testと93/93の全体testに合格したbuildとbyte一致)が、実ブラウザでの確認は上記Work向けexact next actionの9番で行うこと。
+- **Claude Code側でこれ以上進められる実装作業はない。** 残るのはCloud BrowserでのE2E実行のみで、これはWorkが上記10手順で行う。
 - Core testsは93/93 PASS、Portal/Admin buildはPASS。migration `20260908011350`は本番適用・検証済み。
-- 未修正のまま記録した技術的負債（今回は対応しない）: `admin/src/Admin.tsx`に`Portal.tsx`と同種のstale-session recovery不可バグが残っている。`Portal.tsx`の`updatePassword`はreset成功後に古いsessionをクリアしない。詳細は`docs/HANDOFF.md`技術的負債表参照。
+- 新たに記録した技術的負債(今回は根本対応せず): `public/admin/`がRenderのbuildで自動更新されない問題。今後admin側のcode変更を行う際は、production反映をportalと同様の自動更新に頼らず、byte-diff等で明示的に確認すること。詳細は`docs/HANDOFF.md`技術的負債表参照。
 - production publish、実顧客notification、DNS、payment/refund、production data削除、Secret操作はHuman Gate。E2E/production dataは削除しない。
 
 ## PHASE 7 / Akinael Reference Production — Astro Build進行中（別repo）

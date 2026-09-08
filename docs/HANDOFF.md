@@ -170,9 +170,9 @@ to service_role;
 - Branch / PR: `codex/phase6-notification-deployment-gate` / Draft PR #43.
 - Latest remote source commit: `28643261f1fa9de9feaa83f24197818c18f0214d`.
 - Completed implementation: malformed literal `\\n` in the prior PR source/tests was fixed; v2 derives release/approval/deployment gate server-side; delivery approval uses a stable `idempotency_key`; notification/audit failures do not change a durable approval into a false failure; Portal and Admin display notification and gate state.
-- Pending migration: `supabase/migrations/20260908010406_add_notification_approval_idempotency.sql`. It is additive, but **not yet applied to production**. It must be reviewed against live schema and verified with a test query before application. Do not reapply `20260904004834`.
+- Production migration: `supabase/migrations/20260908011350_add_notification_approval_idempotency.sql`. Supabase migration tooling assigned version `20260908011350`; the source file matches that recorded version. It is additive and is applied to production. Verification: 1 approval idempotency column, 4 notification columns, 2 unique indexes. Do not reapply `20260904004834`.
 - PASS: `npm test` 88/88; Admin build PASS; Portal build PASS. Generated Vite artifacts are local-only/untracked and were not committed.
 - Current errors: none after correction. Direct `git push` cannot authenticate in this environment; source was persisted through the GitHub connector to the same remote branch. Do not use secret/credential workarounds.
-- Exact next action: inspect PR #43 diff and latest CI; perform independent review. If clean, apply only migration `20260908010406` to production via the approved Supabase path, verify indexes/columns, make PR ready, merge after CI, verify Render deploy, then run non-destructive E2E TEST approval/gate checks.
-- Production: code and migration are **not** deployed. No real-customer notification or production publish occurred.
+- Exact next action: inspect PR #43 diff and latest CI; perform independent review. If clean, make PR ready, merge after CI, verify Render deploy, then run non-destructive E2E TEST approval/gate checks.
+- Production: DB migration is applied; application code is **not** deployed. No real-customer notification or production publish occurred.
 - Human Gate: NO for review, additive schema, tests and E2E TEST; YES for real-customer notification, production publish/DNS, payment/refund, data deletion, or Secret actions.

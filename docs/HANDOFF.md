@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-最終更新: 2026-09-08 JST（PHASE 5 Admin本番E2E完了・引継ぎ更新）
+最終更新: 2026-09-08 UTC checkpoint（PHASE 6 checkpoint）
 
 ## 目的
 
@@ -150,3 +150,16 @@ to service_role;
 ## 8. Human Gate
 
 公開/DNS、課金/返金、実顧客通知、production data削除、Secret発行/失効、不可逆変更、正式情報不足/法務リスク。PHASE 5は完了。PHASE 6の公開・通知・課金などに進む場合はHuman Gateを再判定する。
+
+
+## PHASE 6 checkpoint (2026-09-08 UTC checkpoint)
+
+- CURRENT PHASE: PHASE 6 / Notification / Approval / Deployment Gate — IN PROGRESS
+- Branch: `codex/phase6-notification-deployment-gate`; Draft PR #43.
+- Latest remote commit: `ef53905ef8c8236ec30c1f75edad8cd320ced144`.
+- Completed: v2 API exposes a computed deployment gate; Portal shows notification/deploy-ready/Human Gate; customer approval persists notification and audit evidence; duplicate delivery approval is returned without another insert.
+- PASS: local Core `npm test` 87/87; Portal/Admin production builds PASS.
+- Current error: none in code/tests. Local Git HTTPS push lacks interactive credentials; equivalent commits were saved to the remote branch through GitHub connector. Generated local Vite artifacts are untracked and not part of the PR.
+- Unfinished: strengthen DB-level idempotency, Admin notification/deployment gate display, CI/review, merge/deploy, production E2E including authorization/failure cases. Production is **not** updated.
+- Exact next action: inspect PR #43 diff/CI, add DB-backed idempotency plus Admin display and tests, then review/deploy/E2E. Do not create real-customer notifications or production publishes.
+- Human Gate: NO for continued implementation; YES for real-customer notification or production publish/DNS.

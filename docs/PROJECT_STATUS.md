@@ -167,3 +167,12 @@
 - DB: additive migration `20260908011350 / add_notification_approval_idempotency` applied; schema verification PASS（approval key column 1、notification columns 4、unique indexes 2）。
 - Blocker: Cloud Browserでfresh `/admin/` を確認すると旧asset `index-B6nNySKH.js` が配信され、merged codeのAdmin Deployment Gate UIがまだliveではない。Render live deployがmain mergeを反映したことを確認できるまで、本番E2Eは開始しない。
 - Human Gate: NO（Render application deployの確認・再試行はproduction publishではない）。実顧客通知・customer site production publishは未実行。
+
+## PHASE 6 final Claude Code handoff checkpoint (2026-09-08 UTC)
+
+- **CURRENT PHASE: PHASE 6 / Notification / Approval / Deployment Gate — IN PROGRESS.** PHASE 6 is **not** COMPLETE; PHASE 1–5 are COMPLETE.
+- This supersedes the earlier historical Render-old-asset note: owner confirmed Render Web main `a6d3e828ad89148448ee02b4520c46b631dc1009` is Deploy succeeded / Live and fresh `/admin/` displays the PHASE 6 UI.
+- PHASE 6 implementation is merged to main at `45e449e94ee6275285438d5d2ad2a87c1bc419fa`; production migration `20260908011350_add_notification_approval_idempotency.sql` is applied and verified. Core tests **88/88 PASS**; Portal/Admin builds PASS.
+- **Only blocker:** authenticated Customer Portal production-browser E2E. Existing E2E customer: `yuchi.info.contact@gmail.com`. No Portal session exists, and Portal exposes no supported safe password-recovery or passwordless route. Cloud Browser rejected new-customer creation under policy; no bypass/workaround was used and no data was created.
+- **Exact next action for Claude Code:** implement a formal, policy-compliant Customer Portal password-recovery flow, securely authenticate the existing E2E customer through it, then finish authenticated notification/approval/deployment-gate E2E with Portal/Admin/DB consistency. Do not store credentials, tokens, or session data.
+- Human Gate: real-customer notification, production publish, DNS change, payment/refund, production-data deletion, Secret issuance/reissue/revocation, and irreversible production changes. E2E/production data must not be deleted without explicit owner approval.

@@ -156,7 +156,7 @@ to service_role;
 
 - CURRENT PHASE: PHASE 6 / Notification / Approval / Deployment Gate — IN PROGRESS
 - Branch: `codex/phase6-notification-deployment-gate`; Draft PR #43.
-- Latest remote commit: `ef53905ef8c8236ec30c1f75edad8cd320ced144`.
+- Latest remote commit: `5a32d626ba7e26e8f012d6c4f896ff00636d399e`.
 - Completed: v2 API exposes a computed deployment gate; Portal shows notification/deploy-ready/Human Gate; customer approval persists notification and audit evidence; duplicate delivery approval is returned without another insert.
 - PASS: local Core `npm test` 87/87; Portal/Admin production builds PASS.
 - Current error: none in code/tests. Local Git HTTPS push lacks interactive credentials; equivalent commits were saved to the remote branch through GitHub connector. Generated local Vite artifacts are untracked and not part of the PR.

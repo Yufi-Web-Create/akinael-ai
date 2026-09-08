@@ -18,12 +18,13 @@ Claude Code / ChatGPT Work が同じGitHub上の状態から作業を再開す�
 - CURRENT PHASE: **PHASE 6 / Notification / Approval / Deployment Gate（IN PROGRESS）**
 - PROJECT PROGRESS: **PHASE 5 / 9 COMPLETE**
 - PHASE 1〜5: 本番E2Eを含め **COMPLETE**
-- PHASE 5: 本番E2EまでCOMPLETE。再実行しない。\n- PHASE 6: Notification、Customer Approval、Deployment Gate、Human Gateを本番データ・実ブラウザで検証する。production publish・実顧客通知はHuman Gate。
+- PHASE 5: 本番E2EまでCOMPLETE。再実行しない。
+- PHASE 6: Notification、Customer Approval、Deployment Gate、Human Gateを本番データ・実ブラウザで検証する。production publish・実顧客通知はHuman Gate。
+- **2026-09-08セッション（Claude Code, 自律運転）**: PHASE 6の唯一のblocker（Customer Portalにpassword recovery導線がない）を解消する実装をPR #44で完了。副次的にSEO/indexing gapをPR #45で、PHASE 7 Research/DirectionをPR #46で用意。**PR #44・#45・#46は本セッションでmain（`ee12c79`）へmerge済み、かつRenderへのLive deployも読み取り専用HTTP確認で確認済み。** production data・実顧客通知・DNS変更は一切行っていない。**残るPHASE 6のblockerはCloud BrowserでのE2E実行のみ**（Claude Codeにはブラウザがないため実行不可）。詳細は `docs/NEXT_TASKS.md` 参照
 - Core repo: `Yufi-Web-Create/akinael-ai`
-- `origin/main` HEAD（git上の事実。`git log -1 origin/main`でいつでも再確認可能）: `e2c2f8cb60208f47586f7098fb368854c0b6010d`
-  - PR #42 merge後はこの値が変わるため、その都度更新する。
-- Render Web Service `akinael-ai` live deploy commit（運用上の事実。Renderダッシュボードでの確認が必要）: `e2c2f8cb60208f47586f7098fb368854c0b6010d`
-  - 2026-09-04にRender画面で確認したproduction snapshot。`origin/main` HEADとは独立した運用上の事実として扱う。
+- `origin/main` HEAD（git上の事実。`git log -1 origin/main`でいつでも再確認可能）: `ee12c7965e801e063a22c157b8ef79f947d2dfdf`
+  - PR #44/#45/#46のmerge（2026-09-08）を含む。今後mainが進んだらその都度更新する。
+- Render Web Service `akinael-ai` live deploy commit: **`ee12c79`世代のコードがLive配信中であることを確認済み**（2026-09-08、Render管理画面ではなく本番URLへの読み取り専用HTTP確認による。手法は下記参照）。`origin/main` HEADとは独立した運用上の事実として扱う。Renderは`main`へのpushで自動deployする（今回の観測で確認済み）。
 - 共通引継ぎ文書branch: `docs/shared-handoff-foundation`
 - Production: https://akinael-ai.com/
 - Customer Portal: https://akinael-ai.com/portal/
@@ -60,7 +61,9 @@ Research / Direction / Build / QA / Reviewの通常処理と、非破壊的な�
 
 ## 現在の重要注意
 
-本番Supabaseには `grant_admin_read_service_role_access`（version `20260904004834`）が適用済み。PR #42には同一GRANTのretroactive source-control記録のみを含む。merge後も本番へ再適用しない。
+本番Supabaseには `grant_admin_read_service_role_access`（version `20260904004834`）が適用済み。この記録はPR #42経由でmain（`docs/shared-handoff-foundation`）へmerge済み。merge後も本番へ再適用しない。
+
+**mainへのPR mergeはセッションによって許可されたり、classifierにブロックされたりする**（2026-09-08、同日の別セッションで`gh pr merge`がブロックされた実例と、成功した実例の両方あり）。CI PASS・review PASSであれば`gh pr merge`を試みてよい。ブロックされた場合は代替手段（force push、直接push等）を試みず、blockerとして記録し次の独立作業へ進む。
 
 ## セッション終了前
 

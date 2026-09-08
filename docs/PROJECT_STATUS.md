@@ -17,7 +17,7 @@
 | 3 | Image / Asset Production | COMPLETE | 画像生成→Storage→顧客repo反映→Visual Reviewを本番完走 |
 | 4 | Customer Portal完成 | COMPLETE | Supabase Authから実preview表示、最終承認、console error 0まで本番E2E PASS |
 | 5 | Admin完成 | **COMPLETE** | 実Supabase Auth、PHASE 4案件の6タブ、Admin起点preview、reload、desktop/tablet/mobile、application console error 0を本番E2Eで確認 |
-| 6 | Notification / Approval / Deployment Gate | IN PROGRESS | PR #43でv2 Deployment Gate・Portal通知表示を実装中。未merge・未deploy |
+| 6 | Notification / Approval / Deployment Gate | IN PROGRESS | 実装・migration・password recovery（PR #43, #44, #45）すべてmain反映済みかつRender Live deploy確認済み。残るのはCloud Browser E2Eのみ |
 | 7 | Akinael Reference Production | NOT STARTED | 受入条件未確定 |
 | 8 | Full Production QA | NOT STARTED | 受入条件未確定 |
 | 9 | Production Release | NOT STARTED | Human Gate対象を含む |
@@ -123,10 +123,11 @@
 
 ## GitHub / deploy state
 
-- `origin/main`: `e2c2f8cb60208f47586f7098fb368854c0b6010d`
+- `origin/main`: `ee12c7965e801e063a22c157b8ef79f947d2dfdf`（2026-09-08、PR #44/#45/#46 merge後）
 - PHASE 5 commits: `516c3a2`, `7362090`, `7d78971`, `a871fc9`, `e2c2f8c`
-- PRs: #39, #40, #41 merged（recovery関連）。
-- Render Web `akinael-ai`: commit `e2c2f8c` のLive deployを2026-09-04に確認。2026-09-07には3公開URLのHTTP 200を再確認。
+- PHASE 6 commits/PRs: PR #43（`45e449e`）, PR #44（`a6bb4cc`）, PR #45（`75cda86`）, PR #46（`ee12c79`）— すべてmerged
+- PRs: #39, #40, #41, #42, #43, #44, #45, #46 merged。
+- Render Web `akinael-ai`: `ee12c79`世代のLive deployを2026-09-08に読み取り専用HTTP確認で確認済み（`docs/HANDOFF.md`の確認手法を参照）。
 - Render Worker `akinael-ai-worker`: 本番稼働をPHASE 1〜4で確認済み。DB上、現在 `queued/running` taskは0でアイドル。最終task更新は2026-09-03 07:10:02 UTC。
 - GitHub App: `akinael-ai-runtime-yufi` App ID `4762113`。Core repoとcustomer Organization `akinael-ai-clients`への実接続を確認済み。
 - Remote branches: `origin/main`を含め45参照（2026-09-07 fetch時）。**削除禁止**。
@@ -176,3 +177,33 @@
 - **Only blocker:** authenticated Customer Portal production-browser E2E. Existing E2E customer: `yuchi.info.contact@gmail.com`. No Portal session exists, and Portal exposes no supported safe password-recovery or passwordless route. Cloud Browser rejected new-customer creation under policy; no bypass/workaround was used and no data was created.
 - **Exact next action for Claude Code:** implement a formal, policy-compliant Customer Portal password-recovery flow, securely authenticate the existing E2E customer through it, then finish authenticated notification/approval/deployment-gate E2E with Portal/Admin/DB consistency. Do not store credentials, tokens, or session data.
 - Human Gate: real-customer notification, production publish, DNS change, payment/refund, production-data deletion, Secret issuance/reissue/revocation, and irreversible production changes. E2E/production data must not be deleted without explicit owner approval.
+
+## PHASE 6 autonomous session checkpoint — UPDATED, all 3 PRs merged and confirmed live (2026-09-08, Claude Code)
+
+Two consecutive autonomous sessions. First session implemented and opened PR #44/#45/#46 but hit a merge-permission block; this second session re-verified and merged all three. This entry supersedes the earlier "open, unmerged" checkpoint below it — do not read that one as current.
+
+- **PR #44 `fix/portal-password-recovery` — MERGED** (`a6bb4cc`). Implements the Customer Portal password-recovery flow that was PHASE 6's sole E2E blocker. Reuses the already-shipped `/api/v2/auth/password-recovery` and `/api/v2/auth/password` endpoints as-is (no new auth surface, no bypass, no hardcoded credential). Makes the shared `/mypage` recovery bounce script (`public/assets/recovery-redirect.js`) role-aware via `/api/v2/auth/me` so a customer recovery link now lands on `/portal/?mode=recovery` instead of always on `/admin/`. Independent code review (`code-review` skill) found one real bug — the recovery UI was unreachable when a stale session token was present in localStorage — fixed in a follow-up commit on the same branch before merge. Three lower-severity/architectural notes (client-side role-guess fail-open direction, code duplication with Admin's recovery UI, substring-only test assertions) were evaluated and recorded as accepted tradeoffs / tech debt, not actioned — see `docs/HANDOFF.md` technical debt table.
+- **PR #45 `fix/protect-portal-preview-from-indexing` — MERGED** (`75cda86`). `robots.txt` and `x-robots-tag`/`no-store` headers now cover `/portal/` and `/preview/:projectId/:artifactId`, matching the existing `/mypage`/`/admin` protection. Found during PHASE 7 research; independent of the auth fix.
+- **PR #46 `docs/phase7-akinael-site-research` — MERGED** (`ee12c79`). PHASE 7 Research/Direction spec (`docs/web-production/AKINAEL_PROJECT_SPEC.md`). Docs-only.
+- **`origin/main` HEAD is now `ee12c7965e801e063a22c157b8ef79f947d2dfdf`.** Core tests 90/90 PASS on this commit (re-verified locally after merge). Portal and Admin production builds PASS.
+- **Production deploy: CONFIRMED LIVE**, verified by this session via plain read-only HTTPS requests to `akinael-ai.com` (no Render dashboard credentials needed — the Node app itself exposes enough to check):
+  - `GET /assets/recovery-redirect.js` → 200, body matches PR #44's new role-aware script verbatim.
+  - `GET /robots.txt` → 200, body includes `Disallow: /portal` and `Disallow: /preview/` (PR #45).
+  - `GET /portal/` → 200, response header `x-robots-tag: noindex, nofollow` present (PR #45).
+  - The Portal's live JS bundle (`/portal/assets/index-CBNkG9eV.js`, fetched from the HTML's script tag) contains the strings `PASSWORD RECOVERY` and `password-recovery` (PR #44's UI is actually in the shipped bundle, not just merged in source).
+  - **This confirms Render auto-deploys on push to `main`** — previously an open question in this repo's docs.
+  - Caution for future checks: `curl -I` sends a HEAD request, which this app's router does not implement (only `GET` is checked per-route), so HEAD requests always 404 here even when the route works. Use `curl -s -o /dev/null -w '%{http_code}'` (GET) or fetch the body, not `-I`, when probing this app.
+- **Merge-permission note:** the first session's `gh pr merge` attempt was blocked by that session's permission classifier; this second session's attempts succeeded without any workaround. The block is apparently per-session/variable, not a fixed rule — see `docs/HANDOFF.md` for the corrected guidance.
+- **PHASE 6 remaining blocker — narrowed to exactly one item:** the actual authenticated Customer Portal E2E in a real browser (Cloud Browser), which Claude Code cannot perform (no browser). Implementation and production deploy are no longer blockers. Exact steps for Work are listed in `docs/NEXT_TASKS.md`.
+- **Human Gate:** unaffected. No production data was created, changed, or deleted; no real-customer notification was sent; no DNS change; no secret was issued, viewed, or rotated. Merging application code to `main` and confirming a public URL's response headers are not Human Gate actions in themselves.
+
+## PHASE 6 autonomous session checkpoint (2026-09-08, Claude Code, 1-hour autonomous window) — SUPERSEDED, see entry above
+
+Owner stepped away for ~1 hour with autonomous-mode instructions. Summary of what was completed; full detail in `docs/HANDOFF.md` and `docs/NEXT_TASKS.md`.
+
+- **PR #44 `fix/portal-password-recovery`** (open, unmerged): implements the exact-next-action above. Reuses the already-shipped `/api/v2/auth/password-recovery` and `/api/v2/auth/password` endpoints as-is (no new auth surface). Makes the shared `/mypage` recovery bounce script (`public/assets/recovery-redirect.js`) role-aware via `/api/v2/auth/me` so a customer recovery link now lands on `/portal/?mode=recovery` instead of always on `/admin/`. Independent code review (via the `code-review` skill) found one real bug — the recovery UI was unreachable when a stale session token was present in localStorage — fixed in a follow-up commit on the same branch. Three lower-severity/architectural notes from that review (client-side role-guess fail-open direction, code duplication with Admin's recovery UI, substring-only test assertions) were evaluated and recorded as accepted tradeoffs / tech debt rather than actioned, to avoid unvalidated changes to Supabase Auth redirect-URL configuration this session cannot inspect. Core tests 88/88 → 90/90 (see PR #45). Portal and Admin production builds PASS. CI (`Core Quality`) PASS.
+- **PR #45 `fix/protect-portal-preview-from-indexing`** (open, unmerged): found during PHASE 7 research, unrelated to the auth fix. `robots.txt` and the `x-robots-tag`/`no-store` headers protect `/mypage` and `/admin` but were never extended to the completed Customer Portal (`/portal/`) or the per-customer draft preview route (`/preview/:projectId/:artifactId`), leaving unapproved draft site content indexable by default. Fixed with new tests (a temporary Portal build-output fixture, since `public/portal/` isn't committed to this repo, and a mocked-Supabase test for the preview route). Core tests 90/90 PASS. CI PASS.
+- **PR #46 `docs/phase7-akinael-site-research`** (open, unmerged): PHASE 7 Research/Direction artifact (`docs/web-production/AKINAEL_PROJECT_SPEC.md`), following `AKINAEL_SITE_PLAN.md`'s own Phase 1 process and the existing `PROJECT_SPEC_TEMPLATE.md` format. Docs-only, no Build. Records two concrete findings for owner decision: the homepage's registration CTA still opens the legacy `/mypage` dialog instead of routing to the completed Customer Portal (so the two apps finished in PHASE 4/5 aren't actually wired into the site's acquisition funnel), and the live site is single-page while `website-content-requirements.md` specifies a multi-page IA. CI PASS.
+- **Merge blocker (session-level, not a Human Gate):** `gh pr merge` on PR #44 was blocked by this session's own permission classifier ("Blocked by classifier... merging to main"), despite the owner's standing autonomous-mode instructions authorizing merge when CI/tests/review pass. This is a tool-permission boundary of this specific session, not a judgment call — no workaround was attempted (per the classifier's own guidance not to route around a denial). **PRs #44, #45, #46 are ready to merge (CI PASS, reviewed) but require the owner or a permitted session to run the actual merge.**
+- **Exact next action:** merge PR #44, #45, #46 to `main` (any order — they touch disjoint files and are independent). After PR #44 merges, confirm Render actually redeployed the new commit before attempting the Customer Portal recovery E2E — PHASE 6's PR #43 merge earlier the same day had a real instance of Render continuing to serve a stale asset bundle until the deploy was manually confirmed live (see the "PHASE 6 deployment checkpoint" note in `docs/HANDOFF.md`), so don't assume the merge alone means the fix is live in production.
+- **Human Gate:** unaffected by this checkpoint. No production data was created, changed, or deleted; no real-customer notification; no production deploy or DNS change; no secret was issued, viewed, or rotated.

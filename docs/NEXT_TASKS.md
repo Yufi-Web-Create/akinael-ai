@@ -43,11 +43,19 @@
 - [x] DB-level duplicate/idempotency制約とnotification failure handlingを実装・本番schema検証（migration `20260908011350` 適用済み）
 - [x] Admin notification/deployment gate表示を実装
 - [x] PR #43 CI・independent review・merge（Core Quality `34176064714` PASS、main `45e449e`）
-- [ ] Renderがmain `45e449e94ee6275285438d5d2ad2a87c1bc419fa` をlive配信することを確認（fresh Adminは現在旧asset）
+- [x] Render blocker解消：owner確認済み。Render Web main `a6d3e828ad89148448ee02b4520c46b631dc1009` はDeploy succeeded / Live、fresh AdminでPHASE 6新UIを表示。
 - [ ] E2E TESTデータによるNotification / Approval / Deployment Gate本番検証
 - [ ] Cloud Browser policy-compliant E2E customer authentication（新規登録はbrowser safety policyにより未実行）
 - [x] 認証不要のDB / Release Gate / unauthorized API evidenceを再確認
 - [ ] Portal/Admin/DB照合、authorization/failure cases、console error 0
+
+### Claude Code exact next action (final checkpoint)
+
+- **CURRENT PHASE:** PHASE 6 / Notification / Approval / Deployment Gate — **IN PROGRESS**。PHASE 1〜5はCOMPLETE、PHASE 6はまだCOMPLETEではない。
+- 唯一のblockerはCustomer Portal authenticated production-browser E2E。既存E2E customerは`yuchi.info.contact@gmail.com`だが、Portal sessionはなく、現Portalには安全なpassword recovery/passwordless導線がない。Cloud Browserによる新規customer作成はポリシー拒否であり、回避策は使用していない。
+- **Claude Codeは正式なCustomer Portal password recovery導線を実装**し、その安全な導線で既存E2E customerを認証してから、Notification / Approval / Deployment Gateの本番E2E、Portal/Admin/DB整合、authorization/failure、console error 0を完了すること。
+- PHASE 6 implementationはmain `45e449e94ee6275285438d5d2ad2a87c1bc419fa`へ反映済み、migration `20260908011350`は本番適用・検証済み、Core testsは88/88 PASS、Portal/Admin buildはPASS。Render blockerは解消済み。
+- production publish、実顧客notification、DNS、payment/refund、production data削除、Secret操作はHuman Gate。E2E/production dataは削除しない。
 
 production公開、DNS、実顧客通知、payment、データ削除、Secret操作はHuman Gate。
 

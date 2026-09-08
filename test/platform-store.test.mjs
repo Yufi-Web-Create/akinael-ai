@@ -154,3 +154,23 @@ test('createProject derives tenant and customer from the verified user instead o
   assert.equal(payload.name, '店舗サイト');
   assert.equal(Object.hasOwn(payload, 'ownerId'), false);
 });
+
+test('customer delivery approval is idempotent and notification failure does not undo durable approval', async () => {
+  const { fetchImpl, calls } = routeFetch([
+    { match: (url) => url.endsWith('/auth/v1/user'), reply: async () => ({ id: 'user-1', email: 'owner@example.com' }) },
+    { match: (url) => url.includes('/rest/v1/user_profiles?'), reply: async () => [{ id: 'user-1', tenant_id: 'tenant-1', role: 'customer' }] },
+    { match: (url) => url.includes('/rest/v1/customer_members?'), reply: async () => [{ customer_id: 'customer-1' }] },
+    { match: (url, options) => url.includes('/rest/v1/projects?') && (!options.method || options.method === 'GET'), reply: async () => [{ id: 'project-1', tenant_id: 'tenant-1', customer_id: 'customer-1' }] },
+    { match: (url, options) => url.includes('/rest/v1/approvals?') && (!options.method || options.method === 'GET'), reply: async () => [] },
+    { match: (url, options) => url.includes('/rest/v1/approvals?') && options.method === 'POST', reply: async () => [{ id: 'approval-1', project_id: 'project-1', type: 'delivery', status: 'approved' }] },
+    { match: (url, options) => url.includes('/rest/v1/notifications?') && options.method === 'POST', status: 500, reply: async () => ({ message: 'temporary notification outage' }) },
+    { match: (url, options) => url.includes('/rest/v1/audit_logs?') && options.method === 'POST', reply: async () => [{ id: 'audit-1' }] }
+  ]);
+
+  const approval = await createPlatformStore({ env, fetchImpl }).createCustomerApproval('access-token', 'project-1', { note: 'E2E TEST approval' });
+  assert.equal(approval.id, 'approval-1');
+  assert.equal(approval.notification.status, 'pending_retry');
+  const insert = calls.find((call) => call.url.includes('/rest/v1/approvals?') && call.options.method === 'POST');
+  assert.match(insert.url, /on_conflict=idempotency_key/);
+  assert.equal(JSON.parse(insert.options.body).idempotency_key, 'delivery_approved:project-1:project');
+});

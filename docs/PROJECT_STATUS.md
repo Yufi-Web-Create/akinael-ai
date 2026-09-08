@@ -1,10 +1,10 @@
 # PROJECT_STATUS.md
 
-最終更新: 2026-09-08 JST（PHASE 5 Admin本番E2E完了・引継ぎ更新）
+最終更新: 2026-09-08 UTC checkpoint（PHASE 6 checkpoint）
 
 ## CURRENT PHASE
 
-**PHASE 5 / Admin完成 — COMPLETE**
+**PHASE 6 / Notification / Approval / Deployment Gate — IN PROGRESS**
 
 ## PROJECT PROGRESS
 
@@ -17,7 +17,7 @@
 | 3 | Image / Asset Production | COMPLETE | 画像生成→Storage→顧客repo反映→Visual Reviewを本番完走 |
 | 4 | Customer Portal完成 | COMPLETE | Supabase Authから実preview表示、最終承認、console error 0まで本番E2E PASS |
 | 5 | Admin完成 | **COMPLETE** | 実Supabase Auth、PHASE 4案件の6タブ、Admin起点preview、reload、desktop/tablet/mobile、application console error 0を本番E2Eで確認 |
-| 6 | Notification / Approval / Deployment Gate | NOT STARTED | PHASE 5完了後 |
+| 6 | Notification / Approval / Deployment Gate | IN PROGRESS | PR #43でv2 Deployment Gate・Portal通知表示を実装中。未merge・未deploy |
 | 7 | Akinael Reference Production | NOT STARTED | 受入条件未確定 |
 | 8 | Full Production QA | NOT STARTED | 受入条件未確定 |
 | 9 | Production Release | NOT STARTED | Human Gate対象を含む |
@@ -136,3 +136,26 @@
 - Current functional blocker: **なし**。PHASE 5本番E2Eは完了。
 - Reproducibility blocker: **解消（2026-09-08 JST）**。本番migration `20260904004834` は `docs/shared-handoff-foundation` branch（PR #42、Draft、未merge）へsource control記録済み。`origin/main` への反映はPR #42のmerge待ち。Supabase migration history上の正式記録有無は未確認のまま残す。
 - Human Gate: **NO**。PHASE 6で公開・DNS・課金・実顧客通知・データ削除・Secret操作へ進む場合はYES。
+
+
+## PHASE 6 checkpoint (2026-09-08 UTC checkpoint)
+
+- Branch / Draft PR: `codex/phase6-notification-deployment-gate` / #43
+- Remote head: `ef53905ef8c8236ec30c1f75edad8cd320ced144`
+- 実装済み: v2 production statusへRelease Gate PASS・delivery approval・deployment stateから導く`deploymentGate`、Portalの通知／公開候補／Human Gate表示、customer approval時の通知・audit記録、同一delivery approvalの重複抑止。
+- PASS: Core `npm test` 87/87、Portal/Admin build。
+- 未完了: DB制約を伴う重複防止の強化、Admin表示、PR CI/review、Render deploy、本番E2E。
+- Production: 未反映。PR #43はDraftでmain未merge。
+- Human Gate: NO。production publish・実顧客通知は実行していない。
+
+## PHASE 6 checkpoint (2026-09-08 UTC — notification/deployment hardening)
+
+- CURRENT PHASE: **PHASE 6 / Notification / Approval / Deployment Gate — IN PROGRESS**
+- Working branch / Draft PR: `codex/phase6-notification-deployment-gate` / #43
+- Remote source commit: `28643261f1fa9de9feaa83f24197818c18f0214d`（remote branchの最新HEAD。ローカルGit HTTPS push不可のため、GitHub connectorで同一branchへ保存。）
+- Completed: PR #43に混入していた文字列`\\n`による構文エラーを除去。customer delivery approvalは`idempotency_key`でDB upsertし、notification/audit失敗で承認済み状態を失敗扱いにしない。PortalのDeployment Gate変数未定義を修正し、Adminに通知・Release Gate・approval・DEPLOY READY・Human Gate/production状態を表示。
+- Added migration: `20260908011350_add_notification_approval_idempotency.sql`（approvals/notificationsへのadditive idempotency/delivery-status列・unique index）。本番適用・index/column検証済み。
+- PASS: Core `npm test` **88/88**、Admin `npm run build` PASS、Portal `npm run build` PASS、Supabase migration／schema verification PASS。
+- Unfinished: PR #43のindependent review、main merge、Render deploy、その後E2E TESTでDB/Portal/Admin/authorization/failure/consoleを確認すること。
+- Production: DB migrationのみ反映済み。application codeは未反映。production publish・DNS・実顧客通知は未実行。
+- Human Gate: 現時点NO。production publish/DNSまたは実顧客通知はYES。

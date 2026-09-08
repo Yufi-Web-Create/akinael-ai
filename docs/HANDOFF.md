@@ -192,3 +192,11 @@ to service_role;
 - Remaining E2E requires an E2E-only customer identity to submit the Portal approval event.
 - Cloud Browser secure registration was denied by its safety policy before the user prompt could be shown. No credential, user, notification, approval, or production data was created or changed.
 - Do not circumvent browser auth. Exact next action: use an already-authorized E2E customer login through the secure browser-auth surface, or ask the owner to provide an E2E customer account via the approved authentication workflow; then resume Portal approval/idempotency and Admin/DB E2E.
+
+## PHASE 6 autonomous verification checkpoint (2026-09-08 UTC)
+
+- Owner confirmed Render Web latest main `a6d3e828ad89148448ee02b4520c46b631dc1009` is Live and fresh Admin shows PHASE 6 UI.
+- DB evidence (read-only): notifications `0`, approvals `1`, deployments `0`, audit logs `1`; approved delivery `1`; production deployments published `0`.
+- PHASE 4 release gate task `d8e1d6ec-864b-4b7e-8c64-7f0b591f18bc` is `completed`, `review.status=PASS`, and references artifact `d1029659-fcc4-47bb-9701-d927dfb0bab6`; final approval remains approved. This is valid existing evidence for the approved + Release Gate PASS path and no production publish path.
+- Unauthorized production endpoint and Admin overview both return HTTP `401` (read-only curl). No v2 deployments endpoint was found/exposed; direct customer production deployment is therefore not available through the v2 API.
+- Remaining blocker is only Customer Portal authenticated E2E approval/notification creation: Cloud Browser cannot create a new user. Existing E2E customer `yuchi.info.contact@gmail.com` has no active Portal session; no supported safe recovery/passwordless entry point is exposed by the Portal UI.

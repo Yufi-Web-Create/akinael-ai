@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-最終更新: 2026-09-08 UTC checkpoint（PHASE 6 checkpoint）
+最終更新: 2026-09-08 JST（Claude Code、Admin/Portal stale-session recovery修正 — PR #53/#54 merge・production反映確認済み）
 
 ## 目的
 
@@ -30,11 +30,11 @@ Claude Code / ChatGPT Workのどちらでも、チャット履歴に依存せず
 
 - PHASE 1〜5 COMPLETE。
 - `origin/main` HEAD:
-  `e2c2f8cb60208f47586f7098fb368854c0b6010d`
-  git上で確認する現在のmain。PR #42 merge後はこの値が変わるため、その都度更新する。
+  `c2c328f`
+  git上で確認する現在のmain（2026-09-08、PR #53/#54 merge後）。今後mainが進んだらその都度更新する。
 - Render Web Service `akinael-ai` live deploy commit:
-  `e2c2f8cb60208f47586f7098fb368854c0b6010d`
-  2026-09-04にRender画面で確認したproduction snapshot。`origin/main` HEADとは独立した運用上の事実として扱う(値が一致しているのは現時点の偶然であり、以後の再デプロイ有無は別途確認する)。
+  `c2c328f`世代
+  2026-09-08に読み取り専用HTTP確認（bundle byte-diff）で確認済み。詳細は本ファイル末尾の最新checkpoint参照。`origin/main` HEADとは独立した運用上の事実として扱う。
 - 2026-09-07のHTTP確認: `/`, `/portal/`, `/admin/`, PHASE 4 previewは200。
 - Admin実ログインはCloud BrowserでPASS。`kohayakawakohaya@gmail.com` / user `4b9af2d3-f500-4f5e-bced-0decf88f8feb` / role `admin`。
 - password/recovery token/OTPはどこにも保存していない。今後もsecure browser auth経由のみ。
@@ -134,14 +134,14 @@ to service_role;
 | v1/v2 API共存 | `src/server.mjs` と `src/platform-api.mjs` が同居。段階移行課題。 |
 | frontend test不足 | Portal/Adminはunit/component testなし。build/lintと本番E2E依存。 |
 | CI範囲 | `core-quality.yml` はCore `npm test`中心。Portal/Admin build/lintを常時CI化していない。 |
-| build artifacts非対称 | `public/admin/` commit済み、`public/portal/`はRender生成。意図の明文化なし。 |
+| build artifacts非対称 / Renderがpublic/admin/を自動更新しない（未解明） | `public/admin/` commit済み、`public/portal/`はRender生成。当初は「意図の明文化なし」という記述だったが、2026-09-08にこれが実害を伴う問題だと判明: `render.yaml`のbuildCommandは`cp -R admin/dist public/admin`を含み毎deployでcommit済みファイルを上書きするはずだが、実際には`public/admin/`は`7362090`/`7d78971`（2026-09-04）以降、Admin.tsxへの複数回の変更（password recovery UI、CSP対応、Deployment Gate UI、今回のstale-session修正）を経てもbundle hashが更新されなかった。一方`public/portal/`は同一deployで正しく最新化されていた（PR #53 merge後、数分でbyte-diff一致を確認）。原因はRenderのdashboard側実際のbuildCommand設定またはbuild logでの確認が必要で、このsessionはRender管理画面アクセスがなく特定できていない。**暫定対応（PR #54）**: `public/admin/`のbuild出力を`admin/`のsource commitと手動で同期させ、production反映をbyte-diffで確認。**今後、admin側のcode変更を行うたびに、production反映をportal同様の自動更新に頼らず、byte-diff等で明示的に確認すること。**根本原因（Renderのbuild設定）の特定と恒久修正は未着手。 |
 | Project statusの混在 | PHASE 4 projectには初回failed workflowと最終completed workflowが共存し、project自体は`intake`のまま。Admin集計では20/23等に見える場合がある。最新workflow単位で判定する。DB statusを手動補正しない。 |
 | Advisor | Leaked Password Protection disabled警告。プラン/運用影響を確認して別途判断。今回勝手に有効化しない。 |
 | DB indexes | `executor_jobs.project_id` FKのcovering indexなし、unused index情報あり。性能問題の実測なしに削除・再構築しない。 |
 | Homepage registration CTAが`/mypage`のまま | `public/index.html`の無料相談登録CTA（`data-auth-open="register"`）は`public/assets/app.js`経由で旧`/mypage`ダイアログを開く。PHASE 4で完成した Customer Portal（`/portal/`）へは未接続。本番の新規顧客獲得導線に影響するため、修正はオーナー確認後に行う（`docs/web-production/AKINAEL_PROJECT_SPEC.md` 11節）。 |
 | Portal/Adminのrecovery UI重複 | `portal/src/Portal.tsx`と`admin/src/Admin.tsx`のpassword recovery state/handler/JSXがほぼ同一のまま複製されている。両者は別々のVite package（別node_modules）のため、共有には内部package/workspace化が必要。今回は複製のまま実装（PR #44）。**この重複が直接原因で、Admin.tsxには次の行の未修正バグが残っている。** |
-| Admin.tsxのstale-session recovery不可バグ（未修正） | `admin/src/Admin.tsx`は`Portal.tsx`が`9233e79`で修正したのと同一のバグを持つ: recovery UIが`!token\|\|!me`ゲートの内側にネストされており、有効なsession tokenが残っている状態でadminがrecovery emailのリンクを開くと「新しいパスワード」フォームへ到達できない。PHASE 6のE2Eでは新規/無session前提のため直ちにはblockingではないが、実際のoperator運用では起こり得る。今回は修正していない（PHASE 6のcode surfaceをこれ以上広げない方針のため）。 |
-| Portal.tsxのpassword更新後にセッションが残る（未修正） | `updatePassword`成功後、既存の`token`/`localStorage`セッションをクリアしない。reset時に有効な古いセッションが残っていると、「新しいパスワードでログインしてください」という案内と矛盾し、古いセッションのままdashboardへ進んでしまう。今回は修正していない。 |
+| ~~Admin.tsxのstale-session recovery不可バグ~~ — **修正済み（2026-09-08、PR #53）** | `admin/src/Admin.tsx`が`Portal.tsx`の`9233e79`と同種のバグを持っていた問題。`if(recoveryMode\|\|!token\|\|!me)`へゲートを修正。回帰test `admin/src/Admin.test.tsx`で修正前FAIL・修正後PASSを確認。production反映もPR #54でbyte-diff確認済み。 |
+| ~~Portal/Adminのpassword更新後にセッションが残る~~ — **修正済み（2026-09-08、PR #53）** | `updatePassword`成功後に既存の`logout()`を呼び、token/localStorage/Reactステートをクリアするよう両ファイルを修正。回帰test（`portal/src/Portal.test.tsx`・`admin/src/Admin.test.tsx`）で修正前FAIL・修正後PASSを確認。 |
 
 ## 7. Secrets / production data
 
@@ -239,3 +239,41 @@ Owner approved PHASE 7 Build (Astro migration + homepage + 4 industry pages) in 
   - Both stem from the same root cause: `portal/src/Portal.tsx` and `admin/src/Admin.tsx` duplicate the entire recovery state machine with no shared hook/component (see table below).
 - **PHASE 7 (separate repo):** `Yufi-Web-Create/akinael-ai-web` PR #4 builds the Astro homepage + 4 industry pages the owner approved. Not this repo's concern beyond the CORS/recovery fixes above, which that PR's CTA needed. See that repo's `docs/PHASE7_HANDOFF.md`.
 - **Human Gate:** unaffected. No production data touched; no real-customer notification, DNS, or payment action.
+
+## PHASE 6 stale-session recovery fix + admin static-asset sync (2026-09-08, fourth Claude Code session)
+
+Closed both technical-debt items from the checkpoint above. **This does not complete PHASE 6** — it removes the last known code-level gap before Work's Cloud Browser E2E, which is still the sole remaining step (see `docs/NEXT_TASKS.md`).
+
+### The two fixes
+
+- **Admin stale-session recovery-UI unreachable** (`admin/src/Admin.tsx`): the recovery card was nested inside `if(!token||!me)`. A background `load()` succeeding for a stale-but-valid token silently won over `recoveryMode`, so an admin opening a recovery-email link with an old session in `localStorage` never saw the "set new password" form — it went straight to the dashboard. Fix: `if(recoveryMode||!token||!me)` — one-line gate reorder, exactly mirroring `9233e79`'s fix for `Portal.tsx`.
+- **Password reset doesn't clear the old session** (both `portal/src/Portal.tsx` and `admin/src/Admin.tsx`): a successful `updatePassword` never cleared the pre-reset `token`/`localStorage` session. If a stale-but-valid session existed at reset time, the UI's own "log in again with the new password" message was immediately contradicted — the app fell through to the authenticated dashboard using the old session. Fix: call the existing `logout()` (already correctly, conditionally hitting the real Supabase-backed `/api/v2/auth/logout`, and clearing `localStorage`/React state) right after a successful password update, before the redirect.
+- Both fixes are minimal reuses of existing, already-correct logic. No new auth surface, no bypass, no hardcoded credential, no test-only endpoint, no change to the Supabase Auth flow itself.
+
+### Test infrastructure and verification
+
+- `portal/` and `admin/` had zero test infrastructure before this session. Added Vitest 5 + `@testing-library/react` 16 + `jsdom` 30 to both (`vitest.config.ts`, `test` script in `package.json`).
+- `admin/src/Admin.test.tsx` (3 tests): stale-session doesn't block the recovery UI; no-stale-session still reaches the recovery-request form as before; a successful reset logs out the stale session and lands back on the normal login screen instead of the dashboard.
+- `portal/src/Portal.test.tsx` (4 tests): same stale-session-recovery-access guard; recovery-mode-with-no-hash still shows the request form (not the update form); the reset-clears-session fix; a normal-login regression check (unaffected by either fix, included per the owner's explicit test-coverage list).
+- **Verified each test has teeth**, per this session's established practice: `git stash` the one-line fix in each `.tsx` file, re-ran that package's `vitest run`, confirmed the exact expected test(s) failed (2/3 for Admin, 1/4 for Portal — the rest are unaffected regression guards, which correctly still passed), then `git stash pop` and confirmed all tests passed again.
+- Full Core suite (`npm test`, root): 93/93 PASS, no regressions. `portal`/`admin` `npm run build`: both clean.
+- Added `.gitignore` entries for `dist/`, `*.tsbuildinfo`, and the two apps' generated `vite.config.js`/`.d.ts` — these were untracked build byproducts of introducing real `build`/`test` scripts and had never been covered before.
+
+### PR #53 — the code fix
+
+- Branch `fix/recovery-stale-session-handling`, created fresh off `origin/main` (`7d4ee45`). Commit `bec7a02`. CI (`Core Quality`) PASS. Merged via `gh pr merge --squash` as `838d1e6` — succeeded on the first attempt (no classifier block this time; contrast with PR #54 below).
+- Files changed: `admin/src/Admin.tsx`, `admin/src/Admin.test.tsx` (new), `admin/vitest.config.ts` (new), `admin/package.json`/`package-lock.json`, `portal/src/Portal.tsx`, `portal/src/Portal.test.tsx` (new), `portal/vitest.config.ts` (new), `portal/package.json`/`package-lock.json`, `.gitignore`. No app files outside `portal/`/`admin/` touched.
+
+### Production verification surfaced a second, pre-existing bug: PR #54
+
+- Right after PR #53 merged, this session polled `akinael-ai.com` for the redeploy (`curl` for the bundle hash referenced in `/portal/`'s and `/admin/`'s served HTML). Within a few minutes, `/portal/`'s live bundle updated to a hash matching a fresh local `portal/` build off `838d1e6` — confirmed **byte-for-byte identical** via `curl | diff` against the local `dist/` output. `/admin/`'s live bundle **did not change** — same `index-B6nNySKH.js` hash as before the merge, across five separate polls ~15 seconds apart over several minutes (i.e., not just a transient blue-green mid-rollout artifact).
+- Root cause found by inspecting `git ls-files public/admin/`: **`public/admin/` is committed to git**, unlike `public/portal/` (0 tracked files — confirmed genuinely Render-generated). `git log` showed `public/admin/assets/index-B6nNySKH.js` was committed by `7362090` ("fix(admin): bundle production static assets", 2026-09-04) and never touched again — not even by `7d78971`, which shipped the entire password-recovery UI feature four hours later, nor by any of the CSP or Deployment Gate UI work since. `render.yaml`'s buildCommand does include a `cp -R admin/dist public/admin` step that should overwrite this on every deploy, so on paper this shouldn't be possible — but the live evidence (a JS content hash frozen across multiple unrelated feature additions) says the committed copy, not a fresh Render build, is what's actually being served. This session has no Render dashboard or build-log access and could not go further in diagnosing why.
+- **Fix applied (PR #54, branch `fix/admin-static-asset-sync`, commit `5c4171f`):** rebuilt `admin/` locally off `838d1e6` (`index-DmdIVxZS.js`), replaced the stale committed bundle 1:1 (`git rm` old, add new, update `index.html`'s script tag — verified byte-identical to the fresh `vite build` output via `diff`), following the exact precedent `7362090` set. CI PASS.
+- **Merge was blocked twice** by this session's own permission classifier (`gh pr merge --squash`, retried once identically, blocked both times). Per the explicit no-workaround rule (this session did not attempt `gh api` or any other path to the same action), it stopped and reported the blocker to the owner rather than proceeding. **The owner merged PR #54 manually** (`c2c328f`).
+- **Post-merge verification (this session, read-only HTTP):**
+  - `GET https://akinael-ai.com/admin/assets/index-B6nNySKH.js` → `404` (old bundle no longer served).
+  - `GET https://akinael-ai.com/admin/assets/index-DmdIVxZS.js` → `200`; `curl | diff` against a fresh local `admin/` build off `c2c328f` → **byte-for-byte identical**.
+  - `GET https://akinael-ai.com/admin/` → `200`; HTML correctly references the new JS/CSS asset paths; `content-security-policy` (`script-src 'self'`, etc.) and `x-robots-tag: noindex, nofollow` headers intact; both referenced assets resolve `200`.
+  - **Explicitly not verified by this session**: actual DOM rendering, click-through interaction, or JavaScript console errors in a real browser — no Cloud Browser tool is available here. The byte-identical match to a build that passed both the 3 targeted regression tests and the full 93-test suite is strong static evidence, but per this project's own established division of labor, real-browser confirmation (including console error 0) is Work's job — see `docs/NEXT_TASKS.md` step 9 of the E2E checklist.
+- **This `public/admin/` vs `public/portal/` asymmetry is now a standing technical debt item** (see table above): until the actual Render build configuration/logs are inspected and the root cause understood, any future `admin/src/` change needs its production reflection verified explicitly (byte-diff or equivalent) rather than assumed from the merge alone — `portal/` can be trusted to auto-deploy; `admin/` currently cannot.
+- Human Gate: unaffected throughout. No production data created/changed/deleted; no real-customer notification; no DNS change; no Secret issued, viewed, or rotated. Syncing already-built, already-tested static assets to match already-merged source is not itself a Human Gate action.

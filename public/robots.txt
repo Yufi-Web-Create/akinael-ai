@@ -3,6 +3,8 @@ Allow: /
 Disallow: /admin
 Disallow: /admin-login
 Disallow: /mypage
+Disallow: /portal
+Disallow: /preview/
 Disallow: /payment/
 Disallow: /api/
 Disallow: /sites/

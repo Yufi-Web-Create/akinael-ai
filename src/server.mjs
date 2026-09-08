@@ -66,7 +66,7 @@ const serveStatic = async (response, pathname) => {
       'permissions-policy': 'camera=(), microphone=(), geolocation=()',
       'content-security-policy': "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self'"
     };
-    if (pathname === '/mypage' || pathname === '/admin' || pathname.startsWith('/admin/') || pathname.startsWith('/payment/')) {
+    if (pathname === '/mypage' || pathname === '/admin' || pathname.startsWith('/admin/') || pathname === '/portal' || pathname.startsWith('/portal/') || pathname.startsWith('/payment/')) {
       headers['x-robots-tag'] = 'noindex, nofollow';
       headers['cache-control'] = 'no-store';
     } else if (pathname.startsWith('/assets/')) {

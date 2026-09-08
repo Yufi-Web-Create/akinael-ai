@@ -317,3 +317,23 @@ test('v2 admin overview returns tenant-scoped operational data', async () => {
     await close(server);
   }
 });
+
+test('customer preview page is excluded from search indexing', async () => {
+  const fetchImpl = async (url) => {
+    const value = String(url);
+    if (value.includes('/rest/v1/artifacts?')) {
+      return new Response(JSON.stringify([{ id: 'artifact-1', title: '試作サイト', kind: 'build_build', content_text: '<p>draft</p>', metadata: {} }]), { status: 200 });
+    }
+    throw new Error(`unexpected Supabase request: ${value}`);
+  };
+  const server = createApp({ env, fetchImpl });
+  const baseUrl = await listen(server);
+  try {
+    const result = await fetch(`${baseUrl}/preview/project-1/artifact-1`);
+    assert.equal(result.status, 200);
+    assert.equal(result.headers.get('x-robots-tag'), 'noindex, nofollow');
+    assert.equal(result.headers.get('cache-control'), 'no-store');
+  } finally {
+    await close(server);
+  }
+});

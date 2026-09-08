@@ -42,6 +42,13 @@ export const extractAccessToken = (request) => {
   return match?.[1]?.trim() || null;
 };
 
+// Registration/login are the only v2 endpoints an external static site (the
+// akinael-ai-web marketing site, a different origin) needs to call directly
+// from the browser. No cookies/credentials are used, so an open origin is
+// safe here; the rest of /api/v2/* stays same-origin only.
+const CORS_ENABLED_PATHS = new Set(['/api/v2/auth/register', '/api/v2/auth/login']);
+const corsHeadersFor = (pathname) => (CORS_ENABLED_PATHS.has(pathname) ? { 'access-control-allow-origin': '*' } : {});
+
 export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {}) => {
   const store = createPlatformStore({ env, fetchImpl });
   const productionRouter = createProductionRouter({ env, fetchImpl });
@@ -66,6 +73,18 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
     const method = request.method || 'GET';
     const token = extractAccessToken(request);
     const parts = url.pathname.split('/').filter(Boolean);
+    const cors = corsHeadersFor(url.pathname);
+
+    if (method === 'OPTIONS' && CORS_ENABLED_PATHS.has(url.pathname)) {
+      response.writeHead(204, {
+        ...cors,
+        'access-control-allow-methods': 'POST, OPTIONS',
+        'access-control-allow-headers': 'content-type',
+        'access-control-max-age': '600'
+      });
+      response.end();
+      return true;
+    }
 
     try {
       if (method === 'POST' && url.pathname === '/api/v2/auth/register') {
@@ -81,10 +100,10 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
         const result = await auth.signUp(email, password);
         const accessToken = result?.access_token || result?.session?.access_token || null;
         if (!accessToken) {
-          return writeJson(response, 202, { confirmationRequired: true }), true;
+          return writeJson(response, 202, { confirmationRequired: true }, cors), true;
         }
         await store.provisionCustomer(accessToken, { displayName: email.split('@')[0] });
-        return writeJson(response, 201, { token: accessToken }), true;
+        return writeJson(response, 201, { token: accessToken }, cors), true;
       }
 
       if (method === 'POST' && url.pathname === '/api/v2/auth/login') {
@@ -105,7 +124,7 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
             await store.provisionCustomer(accessToken, { displayName: email.split('@')[0] });
           }
         }
-        return writeJson(response, 200, { token: accessToken }), true;
+        return writeJson(response, 200, { token: accessToken }, cors), true;
       }
 
       if (method === 'POST' && url.pathname === '/api/v2/auth/password-recovery') {

@@ -12,14 +12,16 @@
 - [x] CI PASS後に通常のPRレビュー経路でmainへ反映する。branch削除はしない。→ PR #42はmerge済み（`docs: establish shared Claude Code / Work handoff`）。
 - [ ] Supabase migration history（`supabase_migrations.schema_migrations`）に`20260904004834`が正式に記録されているかを確認する(今後必要に応じて)。
 
-## 最優先（2026-09-08セッション末時点）: 開いているPR 3件をmergeする
+## PR #44 / #45 / #46 — MERGED and confirmed live (2026-09-08, Claude Code)
 
-Claude Codeの自律セッション権限では`gh pr merge`がpermission classifierにブロックされた（Human Gateではなく、セッション種別のtool権限の問題）。オーナーまたはWorkが以下をmergeすること。3件とも disjoint files、CI PASS、レビュー済み。
+前回セッションでは`gh pr merge`がpermission classifierにブロックされたが、今回のセッションでは3件とも問題なくmergeできた（ブロックはセッション固有で、常に発生するものではない）。
 
-- [ ] PR #44 `fix/portal-password-recovery` → main（Customer Portal password recovery実装。PHASE 6の唯一のblocker解消）
-- [ ] PR #45 `fix/protect-portal-preview-from-indexing` → main（`/portal/`・`/preview/`のnoindex対応。PHASE 6 blockerとは無関係の独立修正）
-- [ ] PR #46 `docs/phase7-akinael-site-research` → main（PHASE 7 Research/Directionドキュメントのみ、アプリコード変更なし）
-- [ ] PR #44 merge後、RenderがそのcommitへLive deploy済みであることを確認してから、Customer Portal password recovery E2Eへ進む（PHASE 6のPR #43でも、merge直後は旧assetが配信され続けた実例あり）
+- [x] PR #44 `fix/portal-password-recovery` → main（`a6bb4cc`）
+- [x] PR #45 `fix/protect-portal-preview-from-indexing` → main（`75cda86`）
+- [x] PR #46 `docs/phase7-akinael-site-research` → main（`ee12c79`）
+- [x] `origin/main`は`ee12c7965e801e063a22c157b8ef79f947d2dfdf`。ローカルで`npm ci && npm test`を再実行し90/90 PASSを確認済み。
+- [x] Render Live deployを確認 → `curl -s https://akinael-ai.com/assets/recovery-redirect.js`が新コードと一致、`curl -s https://akinael-ai.com/robots.txt`に`Disallow: /portal`・`Disallow: /preview/`あり、`curl -s -D - -o /dev/null https://akinael-ai.com/portal/`で`x-robots-tag: noindex, nofollow`確認、Portal実JSバンドルに`PASSWORD RECOVERY`文字列を確認。**Renderダッシュボードの認証情報なしで確認できた。**
+- [ ] Supabase側でrecovery emailを実際にトリガーする確認はClaude Codeでは行っていない（実メール送信を伴うため）。Workが以下のE2Eで初めて実行する。
 
 ## PHASE 5 / Admin最終E2E — COMPLETE
 
@@ -54,18 +56,34 @@ Claude Codeの自律セッション権限では`gh pr merge`がpermission classi
 - [x] PR #43 CI・independent review・merge（Core Quality `34176064714` PASS、main `45e449e`）
 - [x] Render blocker解消：owner確認済み。Render Web main `a6d3e828ad89148448ee02b4520c46b631dc1009` はDeploy succeeded / Live、fresh AdminでPHASE 6新UIを表示。
 - [ ] E2E TESTデータによるNotification / Approval / Deployment Gate本番検証
-- [x] Cloud Browser policy-compliant E2E customer authenticationの手段を用意 → PR #44でCustomer Portal password recovery実装済み（未merge）。mergeとRender deploy確認後、既存E2E customer `yuchi.info.contact@gmail.com` をこの導線で認証すること
+- [x] Cloud Browser policy-compliant E2E customer authenticationの手段を用意 → PR #44 **merge・Render deploy確認済み**。以下の手順でWorkが実行すること。
 - [x] 認証不要のDB / Release Gate / unauthorized API evidenceを再確認
 - [ ] Portal/Admin/DB照合、authorization/failure cases、console error 0
 
-### Claude Code exact next action (final checkpoint, 2026-09-08セッション末)
+### Work向け: Cloud Browserで実行する正確な手順
+
+実装・デプロイはClaude Codeが確認済み。以下はブラウザが必要なためWorkが実行する。
+
+1. Cloud Browserで `https://akinael-ai.com/portal/` をfresh表示（既存session/localStorageなしを推奨）
+2. 「パスワードを忘れた方」リンクから、既存E2E customer `yuchi.info.contact@gmail.com` でrecovery emailをリクエスト
+3. 届いたrecovery emailのリンクを開く。`https://akinael-ai.com/mypage` → 自動的に `https://akinael-ai.com/portal/?mode=recovery#access_token=...` へ遷移することを確認（role-aware bounceにより、customerアカウントなので`/portal/`へ着地するはず。万一`/admin/`へ着地した場合はPR #44のfail-open挙動のバグ報告として記録すること）
+4. 新しいパスワード（12文字以上）を設定し、「パスワードを更新」を実行
+5. 更新完了後、通常のPortalログインフォームで新パスワードでログイン
+6. ログイン後、E2E project上でapproval操作を実行し、notification生成を確認
+7. 同一approvalを重複送信し、duplicate protectionが機能する（二重にnotification/レコードが増えない）ことを確認
+8. Admin側（`/admin/`）で同じprojectを開き、Deployment Gate表示、notification、approvalがPortalおよびDBと一致することを確認
+9. reload、desktop/mobile viewport、JavaScript application console error 0を確認（Cloud Browser拡張由来のerrorは分離）
+10. 全項目PASSで初めてPHASE 6 COMPLETEと判定する
+
+秘密情報（password、OTP、recovery URL/token）はこの文書や会話に残さないこと。
+
+### Claude Code exact next action（更新: 2026-09-08、第2セッション）
 
 - **CURRENT PHASE:** PHASE 6 / Notification / Approval / Deployment Gate — **IN PROGRESS**。PHASE 1〜5はCOMPLETE、PHASE 6はまだCOMPLETEではない。
-- Customer Portal password recovery導線はPR #44として実装済み（未merge、CI PASS、独立レビュー済み）。上記「最優先」節の3件のPRをmergeし、Render deployを確認してから、既存E2E customer `yuchi.info.contact@gmail.com` をこの導線で認証し、Notification / Approval / Deployment Gateの本番E2E、Portal/Admin/DB整合、authorization/failure、console error 0を完了すること。
-- PHASE 6 implementationはmain `45e449e94ee6275285438d5d2ad2a87c1bc419fa`へ反映済み、migration `20260908011350`は本番適用・検証済み、Core testsは90/90 PASS（PR #44/#45分を含む）、Portal/Admin buildはPASS。Render blockerは解消済み。
+- PR #44・#45・#46はすべてmain（`ee12c7965e801e063a22c157b8ef79f947d2dfdf`）へmerge済み、かつRenderへのLive deployを読み取り専用HTTP確認で確認済み（Render管理画面の認証情報は不要だった。手法は`docs/HANDOFF.md`参照）。
+- **Claude Code側でこれ以上進められる実装作業はない。** 残るのはCloud BrowserでのE2E実行のみで、これはWorkが上記手順で行う。
+- Core testsは90/90 PASS、Portal/Admin buildはPASS。migration `20260908011350`は本番適用・検証済み。
 - production publish、実顧客notification、DNS、payment/refund、production data削除、Secret操作はHuman Gate。E2E/production dataは削除しない。
-
-production公開、DNS、実顧客通知、payment、データ削除、Secret操作はHuman Gate。
 
 ## PHASE 7 / Akinael Reference Production — Research/Direction完了、Build未着手
 

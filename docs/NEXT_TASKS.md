@@ -46,6 +46,7 @@
 - [ ] Renderがmain `45e449e94ee6275285438d5d2ad2a87c1bc419fa` をlive配信することを確認（fresh Adminは現在旧asset）
 - [ ] E2E TESTデータによるNotification / Approval / Deployment Gate本番検証
 - [ ] Cloud Browser policy-compliant E2E customer authentication（新規登録はbrowser safety policyにより未実行）
+- [x] 認証不要のDB / Release Gate / unauthorized API evidenceを再確認
 - [ ] Portal/Admin/DB照合、authorization/failure cases、console error 0
 
 production公開、DNS、実顧客通知、payment、データ削除、Secret操作はHuman Gate。

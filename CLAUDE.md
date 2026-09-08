@@ -20,11 +20,11 @@ Claude Code / ChatGPT Work が同じGitHub上の状態から作業を再開す�
 - PHASE 1〜5: 本番E2Eを含め **COMPLETE**
 - PHASE 5: 本番E2EまでCOMPLETE。再実行しない。
 - PHASE 6: Notification、Customer Approval、Deployment Gate、Human Gateを本番データ・実ブラウザで検証する。production publish・実顧客通知はHuman Gate。
-- **2026-09-08セッション（Claude Code, 自律運転）**: PHASE 6の唯一のblocker（Customer Portalにpassword recovery導線がない）を解消する実装をPR #44で完了。副次的にSEO/indexing gapをPR #45で、PHASE 7 Research/DirectionをPR #46で用意。**PR #44・#45・#46は本セッションでmain（`ee12c79`）へmerge済み、かつRenderへのLive deployも読み取り専用HTTP確認で確認済み。** production data・実顧客通知・DNS変更は一切行っていない。**残るPHASE 6のblockerはCloud BrowserでのE2E実行のみ**（Claude Codeにはブラウザがないため実行不可）。詳細は `docs/NEXT_TASKS.md` 参照
+- **2026-09-08セッション3件目（Claude Code）**: PHASE 7（Astro reference site、別repo `akinael-ai-web`）のBuildをオーナー承認に基づき進行中。その過程でCore repo側の重大な既存不具合を発見・修正: PR #44のpassword recovery機能は`app.js`との実行順序レースにより**実際のブラウザでは機能しない状態のままmerge・deployされていた**（recovery tokenがURLから失われる）。PR #51（`84d9050`、本番反映確認済み）で修正。副次的にCORS対応をPR #50（`ce2e8d2`）で追加（akinael-ai-webのCTAが必要としたため）。**残るPHASE 6のblockerはCloud BrowserでのE2E実行のみ**で、今回の修正により実際に成功する見込みが立った状態。詳細は `docs/HANDOFF.md`・`docs/NEXT_TASKS.md` 参照
 - Core repo: `Yufi-Web-Create/akinael-ai`
-- `origin/main` HEAD（git上の事実。`git log -1 origin/main`でいつでも再確認可能）: `b0e8a6e84fdf327ec561a30a5111e24dc474c0fc`
-  - PR #44/#45/#46/#47/#48のmerge（2026-09-08、Claude Code 2セッション目）をすべて含む。これがこのセッションの最終状態。今後mainが進んだらその都度更新する。
-- Render Web Service `akinael-ai` live deploy commit: **`ee12c79`世代のコードがLive配信中であることを確認済み**（2026-09-08、Render管理画面ではなく本番URLへの読み取り専用HTTP確認による。手法は下記参照）。`origin/main` HEADとは独立した運用上の事実として扱う。Renderは`main`へのpushで自動deployする（今回の観測で確認済み）。
+- `origin/main` HEAD（git上の事実。`git log -1 origin/main`でいつでも再確認可能）: `ce2e8d27f1550e8c296ba4116f3c7ed0fafae962`
+  - PR #44/#45/#46/#47/#48/#49/#50/#51のmergeをすべて含む（2026-09-08）。今後mainが進んだらその都度更新する。
+- Render Web Service `akinael-ai` live deploy commit: **`ce2e8d2`世代のコードがLive配信中であることを確認済み**（2026-09-08、Render管理画面ではなく本番URLへの読み取り専用HTTP確認による。手法は`docs/HANDOFF.md`参照）。`origin/main` HEADとは独立した運用上の事実として扱う。Renderは`main`へのpushで自動deployする（確認済み）。
 - 共通引継ぎ文書branch: `docs/shared-handoff-foundation`
 - Production: https://akinael-ai.com/
 - Customer Portal: https://akinael-ai.com/portal/

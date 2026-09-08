@@ -77,15 +77,27 @@
 
 秘密情報（password、OTP、recovery URL/token）はこの文書や会話に残さないこと。
 
-### Claude Code exact next action（更新: 2026-09-08、第2セッション）
+### Claude Code exact next action（更新: 2026-09-08、第3セッション — 重要な訂正あり）
 
 - **CURRENT PHASE:** PHASE 6 / Notification / Approval / Deployment Gate — **IN PROGRESS**。PHASE 1〜5はCOMPLETE、PHASE 6はまだCOMPLETEではない。
-- PR #44・#45・#46はすべてmain（`ee12c7965e801e063a22c157b8ef79f947d2dfdf`）へmerge済み、かつRenderへのLive deployを読み取り専用HTTP確認で確認済み（Render管理画面の認証情報は不要だった。手法は`docs/HANDOFF.md`参照）。
-- **Claude Code側でこれ以上進められる実装作業はない。** 残るのはCloud BrowserでのE2E実行のみで、これはWorkが上記手順で行う。
-- Core testsは90/90 PASS、Portal/Admin buildはPASS。migration `20260908011350`は本番適用・検証済み。
+- **訂正**: 前回チェックポイントの「実装・merge・deployは完了、残るのはCloud Browser E2Eのみ」は不完全だった。PR #44のrecovery機能は、`app.js`との実行順序レースにより**実際のブラウザでは機能しない状態のままmerge・deployされていた**（`recovery-redirect.js`の非同期化により、同じページで`defer`読み込みされる`app.js`が先にURL hashを消費・削除してしまい、recovery tokenが失われる）。独立レビューで発見し、PR #51（`84d9050`、本番反映確認済み）で修正済み。詳細は`docs/HANDOFF.md`。
+- PR #44・#45・#46・#50（CORS対応）・#51（この修正）はすべてmain（`ce2e8d27f1550e8c296ba4116f3c7ed0fafae962`）へmerge済み、Renderへのlive deployを読み取り専用HTTP確認で確認済み。
+- **Claude Code側でこれ以上進められる実装作業はない。** 残るのはCloud BrowserでのE2E実行のみで、これはWorkが上記手順で行う。**今回の修正により、実際に成功する見込みが立った状態でE2Eへ進める。**
+- Core testsは93/93 PASS、Portal/Admin buildはPASS。migration `20260908011350`は本番適用・検証済み。
+- 未修正のまま記録した技術的負債（今回は対応しない）: `admin/src/Admin.tsx`に`Portal.tsx`と同種のstale-session recovery不可バグが残っている。`Portal.tsx`の`updatePassword`はreset成功後に古いsessionをクリアしない。詳細は`docs/HANDOFF.md`技術的負債表参照。
 - production publish、実顧客notification、DNS、payment/refund、production data削除、Secret操作はHuman Gate。E2E/production dataは削除しない。
 
-## PHASE 7 / Akinael Reference Production — Research/Direction完了、Build未着手
+## PHASE 7 / Akinael Reference Production — Astro Build進行中（別repo）
+
+オーナー承認済み（2026-09-08）。作業は`Yufi-Web-Create/akinael-ai-web`（別repo）の`phase7/reference-site-build`branch、PR #4。詳細はそのrepoの`docs/PHASE7_HANDOFF.md`参照。このrepo（Core）とは別のgit historyのため、このNEXT_TASKS.mdでは進捗の要約のみ記録する。
+
+- [x] Astro migration、homepage、業種別4ページ（美容室・サロン／カフェ・飲食店／教室・スクール／住宅メンテナンス）を実装
+- [x] lint / typecheck / unit / build 全てPASS
+- [ ] Playwright E2E（CI、`ubuntu-latest`）— 初回run失敗（`playwright.config.ts`のNext.js残骸フラグが原因、修正済み、再実行確認中）
+- [ ] CI全項目PASS確認後、akinael-ai-webのPR #4をmerge
+- [ ] Core repo側のhomepage CTA修正（`/mypage`→`/portal/`）は別途承認済みだが未着手（`AKINAEL_IMPLEMENTATION_PLAN.md`参照）
+
+## PHASE 7 / Akinael Reference Production — Research/Direction完了、Build未着手（このセクションは上記に置き換え。履歴として保持）
 
 - [x] Research/Directionドキュメント作成 → `docs/web-production/AKINAEL_PROJECT_SPEC.md`（PR #46）。`AKINAEL_SITE_PLAN.md`のPhase 1プロセスに準拠
 - [ ] オーナー判断が必要な項目（同spec 11節）: リポジトリ分離の可否、homepage登録CTAを`/portal/`へ向ける修正の実施可否、多ページ化の優先度、運営者・対応地域情報の確定

@@ -159,3 +159,11 @@
 - Unfinished: PR #43のindependent review、main merge、Render deploy、その後E2E TESTでDB/Portal/Admin/authorization/failure/consoleを確認すること。
 - Production: DB migrationのみ反映済み。application codeは未反映。production publish・DNS・実顧客通知は未実行。
 - Human Gate: 現時点NO。production publish/DNSまたは実顧客通知はYES。
+
+## PHASE 6 deployment checkpoint (2026-09-08 UTC)
+
+- PR #43 merged to `origin/main`: merge commit `45e449e94ee6275285438d5d2ad2a87c1bc419fa`.
+- CI: Core Quality Run `34176064714` PASS.
+- DB: additive migration `20260908011350 / add_notification_approval_idempotency` applied; schema verification PASS（approval key column 1、notification columns 4、unique indexes 2）。
+- Blocker: Cloud Browserでfresh `/admin/` を確認すると旧asset `index-B6nNySKH.js` が配信され、merged codeのAdmin Deployment Gate UIがまだliveではない。Render live deployがmain mergeを反映したことを確認できるまで、本番E2Eは開始しない。
+- Human Gate: NO（Render application deployの確認・再試行はproduction publishではない）。実顧客通知・customer site production publishは未実行。

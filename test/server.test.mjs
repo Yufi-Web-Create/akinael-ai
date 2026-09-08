@@ -49,7 +49,11 @@ test('frontend pages and project assets are served with the expected indexing bo
 
   const recoveryScript = await fetch(`${baseUrl}/assets/recovery-redirect.js`);
   assert.equal(recoveryScript.status, 200);
-  assert.match(await recoveryScript.text(), /\/admin\/\?mode=recovery/);
+  const recoveryScriptSource = await recoveryScript.text();
+  assert.match(recoveryScriptSource, /\/api\/v2\/auth\/me/);
+  assert.match(recoveryScriptSource, /'\/admin\/'/);
+  assert.match(recoveryScriptSource, /'\/portal\/'/);
+  assert.match(recoveryScriptSource, /\?mode=recovery/);
 
   const paymentSuccess = await fetch(`${baseUrl}/payment/success`);
   assert.equal(paymentSuccess.status, 200);

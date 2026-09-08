@@ -18,7 +18,9 @@ Claude Code / ChatGPT Work が同じGitHub上の状態から作業を再開す�
 - CURRENT PHASE: **PHASE 6 / Notification / Approval / Deployment Gate（IN PROGRESS）**
 - PROJECT PROGRESS: **PHASE 5 / 9 COMPLETE**
 - PHASE 1〜5: 本番E2Eを含め **COMPLETE**
-- PHASE 5: 本番E2EまでCOMPLETE。再実行しない。\n- PHASE 6: Notification、Customer Approval、Deployment Gate、Human Gateを本番データ・実ブラウザで検証する。production publish・実顧客通知はHuman Gate。
+- PHASE 5: 本番E2EまでCOMPLETE。再実行しない。
+- PHASE 6: Notification、Customer Approval、Deployment Gate、Human Gateを本番データ・実ブラウザで検証する。production publish・実顧客通知はHuman Gate。
+- **2026-09-08セッション（Claude Code, 自律運転1時間）**: PHASE 6の唯一のblocker（Customer Portalにpassword recovery導線がない）を解消する実装をPR #44で完了。副次的にSEO/indexing gapをPR #45で、PHASE 7 Research/DirectionをPR #46で用意。3件ともCI PASS・mainへの直接作業なし・production dataの作成/削除なし。**3件ともmainへのmerge権限がこの自律セッションには付与されておらず、merge試行はpermission classifierにブロックされた。** 次セッション（Work/オーナー）が最初に行うべきことはこの3件のPRのmergeと、その後のRender deploy確認。詳細は `docs/NEXT_TASKS.md` 参照
 - Core repo: `Yufi-Web-Create/akinael-ai`
 - `origin/main` HEAD（git上の事実。`git log -1 origin/main`でいつでも再確認可能）: `e2c2f8cb60208f47586f7098fb368854c0b6010d`
   - PR #42 merge後はこの値が変わるため、その都度更新する。
@@ -60,7 +62,9 @@ Research / Direction / Build / QA / Reviewの通常処理と、非破壊的な�
 
 ## 現在の重要注意
 
-本番Supabaseには `grant_admin_read_service_role_access`（version `20260904004834`）が適用済み。PR #42には同一GRANTのretroactive source-control記録のみを含む。merge後も本番へ再適用しない。
+本番Supabaseには `grant_admin_read_service_role_access`（version `20260904004834`）が適用済み。この記録はPR #42経由でmain（`docs/shared-handoff-foundation`）へmerge済み。merge後も本番へ再適用しない。
+
+**mainへのPR mergeはこのセッション種別の権限では実行できない**（2026-09-08、`gh pr merge`がpermission classifierにブロックされた実例あり）。CI PASS・review PASSでも、実際の`gh pr merge`実行はオーナーまたはWorkが行う前提で進める。ブロックされた場合は代替手段（force push等）を試みず、blockerとして記録し次の独立作業へ進む。
 
 ## セッション終了前
 

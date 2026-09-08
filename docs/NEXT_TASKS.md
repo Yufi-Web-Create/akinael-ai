@@ -1,6 +1,6 @@
 # NEXT_TASKS.md
 
-最終更新: 2026-09-08 UTC checkpoint（PHASE 6 checkpoint）
+最終更新: 2026-09-08 UTC checkpoint（PHASE 6 checkpoint）→ 2026-09-08 JST（Claude Code、1時間自律セッション: PR #44/#45/#46を用意）
 
 ## 最優先: source-control driftを解消
 
@@ -9,8 +9,17 @@
 - [x] 対応migration SQLをGitHubへ追加する。内容は `docs/HANDOFF.md` のSQLと一致させ、すでに本番適用済みであることをcommit/PRに明記する。→ `supabase/migrations/20260904004834_grant_admin_read_service_role_access.sql` をPR #42のcommitとして追加済み（2026-09-08 JST, Claude Code）。
 - [x] 同一migrationを推測で本番へ再適用しない。DBとmigration historyの照合を先に行う。→ productionへの再適用は行っていない。
 - [x] `npm ci` 後にCore `npm test` を実行する(87/87 PASS、2026-09-08確認)。Admin `npm run lint` / `npm run build` はアプリ本体を変更していないため今回は未実施。実際にmainへ反映する前には改めて実行する。
-- [ ] CI PASS後に通常のPRレビュー経路でmainへ反映する。branch削除はしない。→ PR #42はDraftのまま。mainへのmergeは指示により保留中。
+- [x] CI PASS後に通常のPRレビュー経路でmainへ反映する。branch削除はしない。→ PR #42はmerge済み（`docs: establish shared Claude Code / Work handoff`）。
 - [ ] Supabase migration history（`supabase_migrations.schema_migrations`）に`20260904004834`が正式に記録されているかを確認する(今後必要に応じて)。
+
+## 最優先（2026-09-08セッション末時点）: 開いているPR 3件をmergeする
+
+Claude Codeの自律セッション権限では`gh pr merge`がpermission classifierにブロックされた（Human Gateではなく、セッション種別のtool権限の問題）。オーナーまたはWorkが以下をmergeすること。3件とも disjoint files、CI PASS、レビュー済み。
+
+- [ ] PR #44 `fix/portal-password-recovery` → main（Customer Portal password recovery実装。PHASE 6の唯一のblocker解消）
+- [ ] PR #45 `fix/protect-portal-preview-from-indexing` → main（`/portal/`・`/preview/`のnoindex対応。PHASE 6 blockerとは無関係の独立修正）
+- [ ] PR #46 `docs/phase7-akinael-site-research` → main（PHASE 7 Research/Directionドキュメントのみ、アプリコード変更なし）
+- [ ] PR #44 merge後、RenderがそのcommitへLive deploy済みであることを確認してから、Customer Portal password recovery E2Eへ進む（PHASE 6のPR #43でも、merge直後は旧assetが配信され続けた実例あり）
 
 ## PHASE 5 / Admin最終E2E — COMPLETE
 
@@ -45,19 +54,24 @@
 - [x] PR #43 CI・independent review・merge（Core Quality `34176064714` PASS、main `45e449e`）
 - [x] Render blocker解消：owner確認済み。Render Web main `a6d3e828ad89148448ee02b4520c46b631dc1009` はDeploy succeeded / Live、fresh AdminでPHASE 6新UIを表示。
 - [ ] E2E TESTデータによるNotification / Approval / Deployment Gate本番検証
-- [ ] Cloud Browser policy-compliant E2E customer authentication（新規登録はbrowser safety policyにより未実行）
+- [x] Cloud Browser policy-compliant E2E customer authenticationの手段を用意 → PR #44でCustomer Portal password recovery実装済み（未merge）。mergeとRender deploy確認後、既存E2E customer `yuchi.info.contact@gmail.com` をこの導線で認証すること
 - [x] 認証不要のDB / Release Gate / unauthorized API evidenceを再確認
 - [ ] Portal/Admin/DB照合、authorization/failure cases、console error 0
 
-### Claude Code exact next action (final checkpoint)
+### Claude Code exact next action (final checkpoint, 2026-09-08セッション末)
 
 - **CURRENT PHASE:** PHASE 6 / Notification / Approval / Deployment Gate — **IN PROGRESS**。PHASE 1〜5はCOMPLETE、PHASE 6はまだCOMPLETEではない。
-- 唯一のblockerはCustomer Portal authenticated production-browser E2E。既存E2E customerは`yuchi.info.contact@gmail.com`だが、Portal sessionはなく、現Portalには安全なpassword recovery/passwordless導線がない。Cloud Browserによる新規customer作成はポリシー拒否であり、回避策は使用していない。
-- **Claude Codeは正式なCustomer Portal password recovery導線を実装**し、その安全な導線で既存E2E customerを認証してから、Notification / Approval / Deployment Gateの本番E2E、Portal/Admin/DB整合、authorization/failure、console error 0を完了すること。
-- PHASE 6 implementationはmain `45e449e94ee6275285438d5d2ad2a87c1bc419fa`へ反映済み、migration `20260908011350`は本番適用・検証済み、Core testsは88/88 PASS、Portal/Admin buildはPASS。Render blockerは解消済み。
+- Customer Portal password recovery導線はPR #44として実装済み（未merge、CI PASS、独立レビュー済み）。上記「最優先」節の3件のPRをmergeし、Render deployを確認してから、既存E2E customer `yuchi.info.contact@gmail.com` をこの導線で認証し、Notification / Approval / Deployment Gateの本番E2E、Portal/Admin/DB整合、authorization/failure、console error 0を完了すること。
+- PHASE 6 implementationはmain `45e449e94ee6275285438d5d2ad2a87c1bc419fa`へ反映済み、migration `20260908011350`は本番適用・検証済み、Core testsは90/90 PASS（PR #44/#45分を含む）、Portal/Admin buildはPASS。Render blockerは解消済み。
 - production publish、実顧客notification、DNS、payment/refund、production data削除、Secret操作はHuman Gate。E2E/production dataは削除しない。
 
 production公開、DNS、実顧客通知、payment、データ削除、Secret操作はHuman Gate。
+
+## PHASE 7 / Akinael Reference Production — Research/Direction完了、Build未着手
+
+- [x] Research/Directionドキュメント作成 → `docs/web-production/AKINAEL_PROJECT_SPEC.md`（PR #46）。`AKINAEL_SITE_PLAN.md`のPhase 1プロセスに準拠
+- [ ] オーナー判断が必要な項目（同spec 11節）: リポジトリ分離の可否、homepage登録CTAを`/portal/`へ向ける修正の実施可否、多ページ化の優先度、運営者・対応地域情報の確定
+- PHASE 6が完全にCOMPLETEするまで、PHASE 7のBuildには着手しない
 
 ## 再実行不要
 

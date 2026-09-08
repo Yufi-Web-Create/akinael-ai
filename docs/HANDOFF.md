@@ -200,3 +200,12 @@ to service_role;
 - PHASE 4 release gate task `d8e1d6ec-864b-4b7e-8c64-7f0b591f18bc` is `completed`, `review.status=PASS`, and references artifact `d1029659-fcc4-47bb-9701-d927dfb0bab6`; final approval remains approved. This is valid existing evidence for the approved + Release Gate PASS path and no production publish path.
 - Unauthorized production endpoint and Admin overview both return HTTP `401` (read-only curl). No v2 deployments endpoint was found/exposed; direct customer production deployment is therefore not available through the v2 API.
 - Remaining blocker is only Customer Portal authenticated E2E approval/notification creation: Cloud Browser cannot create a new user. Existing E2E customer `yuchi.info.contact@gmail.com` has no active Portal session; no supported safe recovery/passwordless entry point is exposed by the Portal UI.
+
+## Final handoff authority — PHASE 6 (2026-09-08 UTC)
+
+- **CURRENT PHASE:** **PHASE 6 / Notification / Approval / Deployment Gate — IN PROGRESS**. **PHASE 1–5 are COMPLETE; PHASE 6 is not COMPLETE.**
+- Earlier Render old-asset notes are historical. Owner confirmed Render Web main `a6d3e828ad89148448ee02b4520c46b631dc1009` is Deploy succeeded / Live and fresh Admin displays PHASE 6 UI.
+- PHASE 6 code is merged at `45e449e94ee6275285438d5d2ad2a87c1bc419fa`; production migration `20260908011350_add_notification_approval_idempotency.sql` is applied and verified. Core tests **88/88 PASS**; Portal/Admin builds PASS.
+- **Sole remaining blocker:** authenticated Customer Portal production-browser E2E. Existing E2E customer `yuchi.info.contact@gmail.com` has no active Portal session, and Portal offers no supported safe password-recovery/passwordless route. Cloud Browser rejected new-customer creation under policy. No bypass/workaround was attempted; no credential, user, notification, approval, or production data was created.
+- **Exact next action (Claude Code):** implement a formal Customer Portal password-recovery flow, authenticate the existing E2E customer securely through that route, then complete the notification/approval/deployment-gate E2E and Portal/Admin/DB consistency checks. Never persist password, OTP, recovery URL/token, or session data.
+- **Human Gate:** real-customer notification, production publish, DNS change, payment/refund, production-data deletion, Secret issuance/reissue/revocation, and irreversible production changes. Do not delete E2E/production data without explicit owner approval.

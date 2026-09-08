@@ -18,7 +18,7 @@
 | 4 | Customer Portal完成 | COMPLETE | Supabase Authから実preview表示、最終承認、console error 0まで本番E2E PASS |
 | 5 | Admin完成 | **COMPLETE** | 実Supabase Auth、PHASE 4案件の6タブ、Admin起点preview、reload、desktop/tablet/mobile、application console error 0を本番E2Eで確認 |
 | 6 | Notification / Approval / Deployment Gate | IN PROGRESS | 実装・migration・password recovery（PR #43, #44, #45）すべてmain反映済みかつRender Live deploy確認済み。残るのはCloud Browser E2Eのみ |
-| 7 | Akinael Reference Production | NOT STARTED | 受入条件未確定 |
+| 7 | Akinael Reference Production | Research/Direction + 実装計画完了、Build未着手 | `docs/web-production/AKINAEL_PROJECT_SPEC.md`（PR #46）・`AKINAEL_IMPLEMENTATION_PLAN.md`（PR #48）。オーナー判断待ちの項目あり（各文書11節参照） |
 | 8 | Full Production QA | NOT STARTED | 受入条件未確定 |
 | 9 | Production Release | NOT STARTED | Human Gate対象を含む |
 
@@ -123,7 +123,7 @@
 
 ## GitHub / deploy state
 
-- `origin/main`: `ee12c7965e801e063a22c157b8ef79f947d2dfdf`（2026-09-08、PR #44/#45/#46 merge後）
+- `origin/main`: `b0e8a6e84fdf327ec561a30a5111e24dc474c0fc`（2026-09-08、PR #44/#45/#46/#47/#48 merge後。#47/#48はdocs-onlyのcheckpoint/implementation plan）
 - PHASE 5 commits: `516c3a2`, `7362090`, `7d78971`, `a871fc9`, `e2c2f8c`
 - PHASE 6 commits/PRs: PR #43（`45e449e`）, PR #44（`a6bb4cc`）, PR #45（`75cda86`）, PR #46（`ee12c79`）— すべてmerged
 - PRs: #39, #40, #41, #42, #43, #44, #45, #46 merged。
@@ -185,7 +185,7 @@ Two consecutive autonomous sessions. First session implemented and opened PR #44
 - **PR #44 `fix/portal-password-recovery` — MERGED** (`a6bb4cc`). Implements the Customer Portal password-recovery flow that was PHASE 6's sole E2E blocker. Reuses the already-shipped `/api/v2/auth/password-recovery` and `/api/v2/auth/password` endpoints as-is (no new auth surface, no bypass, no hardcoded credential). Makes the shared `/mypage` recovery bounce script (`public/assets/recovery-redirect.js`) role-aware via `/api/v2/auth/me` so a customer recovery link now lands on `/portal/?mode=recovery` instead of always on `/admin/`. Independent code review (`code-review` skill) found one real bug — the recovery UI was unreachable when a stale session token was present in localStorage — fixed in a follow-up commit on the same branch before merge. Three lower-severity/architectural notes (client-side role-guess fail-open direction, code duplication with Admin's recovery UI, substring-only test assertions) were evaluated and recorded as accepted tradeoffs / tech debt, not actioned — see `docs/HANDOFF.md` technical debt table.
 - **PR #45 `fix/protect-portal-preview-from-indexing` — MERGED** (`75cda86`). `robots.txt` and `x-robots-tag`/`no-store` headers now cover `/portal/` and `/preview/:projectId/:artifactId`, matching the existing `/mypage`/`/admin` protection. Found during PHASE 7 research; independent of the auth fix.
 - **PR #46 `docs/phase7-akinael-site-research` — MERGED** (`ee12c79`). PHASE 7 Research/Direction spec (`docs/web-production/AKINAEL_PROJECT_SPEC.md`). Docs-only.
-- **`origin/main` HEAD is now `ee12c7965e801e063a22c157b8ef79f947d2dfdf`.** Core tests 90/90 PASS on this commit (re-verified locally after merge). Portal and Admin production builds PASS.
+- **`origin/main` HEAD is now `b0e8a6e84fdf327ec561a30a5111e24dc474c0fc`** (after also merging PR #47 — this checkpoint's own doc updates — and PR #48, the PHASE 7 implementation plan; both docs-only). Core tests 90/90 PASS on this commit (re-verified locally after merge). Portal and Admin production builds PASS. This is this session's final state; no further merges are pending.
 - **Production deploy: CONFIRMED LIVE**, verified by this session via plain read-only HTTPS requests to `akinael-ai.com` (no Render dashboard credentials needed — the Node app itself exposes enough to check):
   - `GET /assets/recovery-redirect.js` → 200, body matches PR #44's new role-aware script verbatim.
   - `GET /robots.txt` → 200, body includes `Disallow: /portal` and `Disallow: /preview/` (PR #45).

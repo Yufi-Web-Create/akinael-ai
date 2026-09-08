@@ -42,7 +42,8 @@
 - [x] Core tests 87/87、Portal/Admin build
 - [x] DB-level duplicate/idempotency制約とnotification failure handlingを実装・本番schema検証（migration `20260908011350` 適用済み）
 - [x] Admin notification/deployment gate表示を実装
-- [ ] PR #43 CI・independent review・merge・Render deploy
+- [x] PR #43 CI・independent review・merge（Core Quality `34176064714` PASS、main `45e449e`）
+- [ ] Renderがmain `45e449e94ee6275285438d5d2ad2a87c1bc419fa` をlive配信することを確認（fresh Adminは現在旧asset）
 - [ ] E2E TESTデータによるNotification / Approval / Deployment Gate本番検証
 - [ ] Portal/Admin/DB照合、authorization/failure cases、console error 0
 

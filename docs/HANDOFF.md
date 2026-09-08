@@ -176,3 +176,12 @@ to service_role;
 - Exact next action: inspect PR #43 diff and latest CI; perform independent review. If clean, make PR ready, merge after CI, verify Render deploy, then run non-destructive E2E TEST approval/gate checks.
 - Production: DB migration is applied; application code is **not** deployed. No real-customer notification or production publish occurred.
 - Human Gate: NO for review, additive schema, tests and E2E TEST; YES for real-customer notification, production publish/DNS, payment/refund, data deletion, or Secret actions.
+
+## PHASE 6 deployment checkpoint (2026-09-08 UTC)
+
+- `origin/main` merge commit: `45e449e94ee6275285438d5d2ad2a87c1bc419fa` (PR #43 merged).
+- CI PASS: Core Quality `34176064714`.
+- Production DB: migration `20260908011350 / add_notification_approval_idempotency` applied and verified (1 approval idempotency column, 4 notification delivery/idempotency columns, 2 unique indexes). No E2E data was deleted and no real-customer notification was sent.
+- Current blocker: Render live did not yet serve the merged Admin asset. A fresh Cloud Browser `/admin/` returned `/admin/assets/index-B6nNySKH.js`, which predates the new Deployment Gate UI. Do not mark production E2E as PASS and do not create approval test data until the new Render deploy is visibly live.
+- Exact next action: check Render service deploy event for commit `45e449e94ee6275285438d5d2ad2a87c1bc419fa`; once live, load fresh `/admin/`, confirm Deployment Gate UI, then use secure Supabase Auth and an explicitly E2E TEST customer/project to verify notification/idempotency/authorization/Portal/Admin/console. Do not publish production.
+- Human Gate: NO for Render application deployment troubleshooting. YES for real-customer notification, customer production publish/DNS, payment/refund, deletion, or Secret actions.

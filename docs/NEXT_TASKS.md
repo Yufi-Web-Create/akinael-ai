@@ -40,9 +40,8 @@
 
 - [x] Branch / Draft PR #43を作成し、v2 deploymentGate／Portal通知表示の初期実装を保存
 - [x] Core tests 87/87、Portal/Admin build
-- [x] DB-level duplicate/idempotency制約とnotification failure handlingを実装（migration `20260908010406` は未適用）
+- [x] DB-level duplicate/idempotency制約とnotification failure handlingを実装・本番schema検証（migration `20260908011350` 適用済み）
 - [x] Admin notification/deployment gate表示を実装
-- [ ] `20260908010406` をlive schema確認後に本番適用し、検証queryを実行
 - [ ] PR #43 CI・independent review・merge・Render deploy
 - [ ] E2E TESTデータによるNotification / Approval / Deployment Gate本番検証
 - [ ] Portal/Admin/DB照合、authorization/failure cases、console error 0

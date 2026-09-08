@@ -125,3 +125,24 @@
 - DB status手動偽装
 - 実顧客通知、課金、返金、公開、DNS変更
 - Secret値の取得・表示・commit・再発行
+
+
+## Work Production Browser E2E result — FAIL (2026-09-08 UTC)
+
+- [x] Recovery email request, secure owner-completed password update, normal Customer Portal login, Portal reload
+- [x] Exactly one E2E request created: `746feb20-b98b-42ce-bc44-47218402534e` / `E2E TEST PHASE 6 APPROVAL`; workflow `eed70c53-ec31-4d8a-861a-262fb534f08c` completed 4/4. **Do not delete.**
+- [ ] New approval creation — **FAIL**: Portal displayed `承認を記録できませんでした`; DB approvals stayed 1 and notifications stayed 0.
+- [ ] Duplicate approval protection — not testable because the first new approval was not durable; no blind second retry.
+- [ ] Deployment Gate — **FAIL**: code queries `task_key=release_gate`, but production PASS evidence uses `expanded_release_gate` (task `d8e1d6ec-864b-4b7e-8c64-7f0b591f18bc`). Admin/Portal show not ready despite approved delivery + PASS evidence.
+- [x] Production remained not published; deployments=0. Human Gate held.
+- [x] Portal/Admin authenticated reload; application console error 0 after excluding explicit Cloud Browser extension errors.
+- [ ] Responsive final PASS — rerun after critical approval/gate fixes.
+
+### Claude Code exact next action after Work E2E failure
+
+1. Replace the partial-index/upsert mismatch: `on_conflict=idempotency_key` cannot infer the production partial unique index on non-null `idempotency_key`. Fix approvals and inspect notifications for the identical defect.
+2. Make Release Gate lookup recognize persisted `expanded_release_gate` and select deterministically; preserve valid PASS evidence across later consultation-only workflows.
+3. Add regression coverage using PostgreSQL conflict semantics, plus gate-selection tests with real persisted task keys and multiple workflows.
+4. Deploy and have Work rerun the two approval submissions, DB count comparison, Portal/Admin/DB consistency, responsive/reload, and console checks.
+
+PHASE 6 remains **IN PROGRESS**. Production publish and all other Human Gate actions remain prohibited. Retain all E2E/production data.

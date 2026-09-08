@@ -1,6 +1,6 @@
 # NEXT_TASKS.md
 
-最終更新: 2026-09-08 JST（PHASE 5 Admin本番E2E完了・次PHASEへ更新）
+最終更新: 2026-09-08 UTC checkpoint（PHASE 6 checkpoint）
 
 ## 最優先: source-control driftを解消
 
@@ -36,9 +36,17 @@
 - 修正・deploy: 今回の最終E2Eでは不要（本番コード変更なし）。
 - E2Eデータ、production data、remote branchは削除していない。削除にはオーナー確認が必要。
 
-## PHASE 6以降
+## PHASE 6 / Notification / Approval / Deployment Gate — IN PROGRESS
 
-PHASE 5 COMPLETE。次はPHASE 6 / `Notification / Approval / Deployment Gate` に着手する。production公開、DNS、実顧客通知、payment、データ削除、Secret操作はHuman Gate。
+- [x] Branch / Draft PR #43を作成し、v2 deploymentGate／Portal通知表示の初期実装を保存
+- [x] Core tests 87/87、Portal/Admin build
+- [ ] DB-level duplicate/idempotency制約とnotification failure handling
+- [ ] Admin notification/deployment gate表示
+- [ ] PR #43 CI・review・merge・Render deploy
+- [ ] E2E TESTデータによるNotification / Approval / Deployment Gate本番検証
+- [ ] Portal/Admin/DB照合、authorization/failure cases、console error 0
+
+production公開、DNS、実顧客通知、payment、データ削除、Secret操作はHuman Gate。
 
 ## 再実行不要
 

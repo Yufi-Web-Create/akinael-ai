@@ -147,3 +147,15 @@
 - 未完了: DB制約を伴う重複防止の強化、Admin表示、PR CI/review、Render deploy、本番E2E。
 - Production: 未反映。PR #43はDraftでmain未merge。
 - Human Gate: NO。production publish・実顧客通知は実行していない。
+
+## PHASE 6 checkpoint (2026-09-08 UTC — notification/deployment hardening)
+
+- CURRENT PHASE: **PHASE 6 / Notification / Approval / Deployment Gate — IN PROGRESS**
+- Working branch / Draft PR: `codex/phase6-notification-deployment-gate` / #43
+- Remote source commit: `28643261f1fa9de9feaa83f24197818c18f0214d`（remote branchの最新HEAD。ローカルGit HTTPS push不可のため、GitHub connectorで同一branchへ保存。）
+- Completed: PR #43に混入していた文字列`\\n`による構文エラーを除去。customer delivery approvalは`idempotency_key`でDB upsertし、notification/audit失敗で承認済み状態を失敗扱いにしない。PortalのDeployment Gate変数未定義を修正し、Adminに通知・Release Gate・approval・DEPLOY READY・Human Gate/production状態を表示。
+- Added migration: `20260908010406_add_notification_approval_idempotency.sql`（approvals/notificationsへのadditive idempotency/delivery-status列・unique index）。**本番DBへは未適用。**
+- PASS: Core `npm test` **88/88**、Admin `npm run build` PASS、Portal `npm run build` PASS。
+- Unfinished: migrationを安全に本番適用してPR #43のCI/review、main merge、Render deploy、その後E2E TESTでDB/Portal/Admin/authorization/failure/consoleを確認すること。
+- Production: 未反映。production publish・DNS・実顧客通知は未実行。
+- Human Gate: 現時点NO。production publish/DNSまたは実顧客通知はYES。

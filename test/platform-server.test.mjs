@@ -115,7 +115,38 @@ test('v2 registration creates a Supabase user and provisions a customer account'
     assert.equal(result.status, 201);
     assert.equal(body.token, 'new-access-token');
     assert.equal(provisioned, true);
+    assert.equal(result.headers.get('access-control-allow-origin'), '*');
     assert.ok(calls.some((call) => call.url.endsWith('/auth/v1/signup')));
+  } finally {
+    await close(server);
+  }
+});
+
+test('v2 register/login allow cross-origin calls from the marketing site, other v2 routes do not', async () => {
+  const supabaseFetch = async (url) => {
+    const value = String(url);
+    if (value.endsWith('/auth/v1/user')) {
+      return new Response(JSON.stringify({ id: 'user-1', email: 'owner@example.com' }), { status: 200 });
+    }
+    throw new Error(`unexpected Supabase request: ${value}`);
+  };
+  const server = createApp({ env, fetchImpl: supabaseFetch });
+  const baseUrl = await listen(server);
+  try {
+    const preflight = await fetch(`${baseUrl}/api/v2/auth/register`, {
+      method: 'OPTIONS',
+      headers: { origin: 'https://example-marketing-site.test' }
+    });
+    assert.equal(preflight.status, 204);
+    assert.equal(preflight.headers.get('access-control-allow-origin'), '*');
+    assert.match(preflight.headers.get('access-control-allow-methods') || '', /POST/);
+
+    const loginPreflight = await fetch(`${baseUrl}/api/v2/auth/login`, { method: 'OPTIONS' });
+    assert.equal(loginPreflight.status, 204);
+    assert.equal(loginPreflight.headers.get('access-control-allow-origin'), '*');
+
+    const unrelated = await fetch(`${baseUrl}/api/v2/auth/me`, { headers: { authorization: 'Bearer token' } });
+    assert.equal(unrelated.headers.get('access-control-allow-origin'), null);
   } finally {
     await close(server);
   }

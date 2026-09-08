@@ -57,8 +57,23 @@ const adminRepositorySelect = 'id,project_id,provider,repository_full_name,defau
 const adminDeploymentSelect = 'id,project_id,repository_id,environment,status,url,provider_reference,commit_sha,created_at,published_at';
 const adminAuditSelect = 'id,actor_user_id,actor_type,action,resource_type,resource_id,metadata,created_at';
 const adminNotificationSelect = 'id,user_id,project_id,type,message,read_at,created_at';
+const gateTaskSelect = 'id,project_id,task_key,status,result';
 const requestTypes = new Set(['general', 'web_new', 'web_change', 'copy', 'social', 'image', 'research', 'automation', 'seo', 'other']);
 const priorities = new Set(['low', 'normal', 'high', 'urgent']);
+
+const deploymentGateFor = ({ gateTasks = [], approvals = [], deployments = [] }) => {
+  const releaseGate = gateTasks.find((task) => task.task_key === 'release_gate');
+  const releasePassed = releaseGate?.status === 'completed' && releaseGate?.result?.review?.status === 'PASS';
+  const deliveryApproval = approvals.find((approval) => approval.type === 'delivery' && approval.status === 'approved');
+  const productionPublished = deployments.some((deployment) => deployment.environment === 'production' && deployment.status === 'published');
+  return {
+    releasePassed,
+    customerApproved: Boolean(deliveryApproval),
+    deployReady: Boolean(releasePassed && deliveryApproval),
+    humanGateRequired: true,
+    productionPublished
+  };
+};
 
 export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {}) => {
   const admin = createSupabaseAdmin({ env, fetchImpl });
@@ -289,18 +304,20 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
     const identity = await adminIdentity(accessToken);
     const project = await getProjectForIdentity(identity, projectId);
     const scope = `&project_id=eq.${encodeURIComponent(project.id)}`;
-    const [customers, requests, messages, workflows, tasks, artifacts, qualityChecks, approvals, payments, repositories, deployments, auditLogs] = await Promise.all([
+    const [customers, requests, messages, workflows, tasks, gateTasks, artifacts, qualityChecks, approvals, payments, repositories, deployments, notifications, auditLogs] = await Promise.all([
       tenantRows(identity, 'customers', 'id,name,created_at,updated_at', `&id=eq.${encodeURIComponent(project.customer_id)}&limit=1`),
       tenantRows(identity, 'requests', requestSelect, `${scope}&order=created_at.desc`),
       tenantRows(identity, 'messages', messageSelect, `${scope}&order=created_at.asc`),
       tenantRows(identity, 'workflow_runs', customerWorkflowSelect, `${scope}&order=created_at.desc`),
       tenantRows(identity, 'tasks', customerTaskSelect, `${scope}&order=sequence.asc`),
+      tenantRows(identity, 'tasks', gateTaskSelect, `${scope}&task_key=eq.release_gate&order=sequence.asc`),
       tenantRows(identity, 'artifacts', adminArtifactSelect, `${scope}&order=created_at.desc`),
       tenantRows(identity, 'quality_checks', adminQualityCheckSelect, `${scope}&order=created_at.desc`),
       tenantRows(identity, 'approvals', customerApprovalSelect, `${scope}&order=created_at.desc`),
       tenantRows(identity, 'payments', adminPaymentSelect, `${scope}&order=created_at.desc`),
       tenantRows(identity, 'repositories', adminRepositorySelect, `${scope}&order=created_at.desc`),
       tenantRows(identity, 'deployments', adminDeploymentSelect, `${scope}&order=created_at.desc`),
+      tenantRows(identity, 'notifications', adminNotificationSelect, `${scope}&order=created_at.desc&limit=100`),
       tenantRows(identity, 'audit_logs', adminAuditSelect, `&metadata->>project_id=eq.${encodeURIComponent(project.id)}&order=created_at.desc&limit=100`)
     ]);
     const previewBase = String(env.PUBLIC_URL || 'https://akinael-ai.com').replace(/\/+$/, '');
@@ -317,6 +334,8 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
       payments,
       repositories,
       deployments,
+      notifications,
+      deploymentGate: deploymentGateFor({ gateTasks, approvals, deployments }),
       auditLogs
     };
   };
@@ -484,15 +503,39 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
       }));
       if (!requestItem) throw new PlatformStoreError('request not found', { status: 404, code: 'request_not_found' });
     }
-    const note = requiredText(input.note, 'approval note', 10000);\n    const existing = first(await admin.request('/rest/v1/approvals', {\n      query: `tenant_id=eq.${encodeURIComponent(identity.tenantId)}&project_id=eq.${encodeURIComponent(project.id)}&request_id=eq.${encodeURIComponent(requestId || '')}&type=eq.delivery&status=eq.approved&select=${customerApprovalSelect}&limit=1`\n    }));\n    if (existing) return { ...existing, duplicate: true };
+    const note = requiredText(input.note, 'approval note', 10000);
+    const requestFilter = requestId ? `request_id=eq.${encodeURIComponent(requestId)}` : 'request_id=is.null';
+    const existing = first(await admin.request('/rest/v1/approvals', {
+      query: `tenant_id=eq.${encodeURIComponent(identity.tenantId)}&project_id=eq.${encodeURIComponent(project.id)}&${requestFilter}&type=eq.delivery&status=eq.approved&select=${customerApprovalSelect}&limit=1`
+    }));
+    if (existing) return { ...existing, duplicate: true, notification: { status: 'already_recorded' } };
+    const idempotencyKey = `delivery_approved:${project.id}:${requestId || 'project'}`;
     const rows = await admin.request('/rest/v1/approvals', {
-      method: 'POST', query: `select=${customerApprovalSelect}`,
-      headers: { Prefer: 'return=representation' },
-      body: { tenant_id: identity.tenantId, project_id: project.id, request_id: requestId, type: 'delivery', status: 'approved', requested_by: identity.id, decided_by: identity.id, payload: { note, source: 'customer_portal_e2e' }, decided_at: new Date().toISOString() }
+      method: 'POST', query: `on_conflict=idempotency_key&select=${customerApprovalSelect}`,
+      headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+      body: { tenant_id: identity.tenantId, project_id: project.id, request_id: requestId, type: 'delivery', status: 'approved', requested_by: identity.id, decided_by: identity.id, idempotency_key: idempotencyKey, payload: { note, source: 'customer_portal' }, decided_at: new Date().toISOString() }
     });
     const approval = first(rows);
     if (!approval) throw new PlatformStoreError('approval could not be recorded', { status: 502, code: 'approval_create_failed' });
-    return approval;
+    let notification = { status: 'recorded' };
+    try {
+      await admin.request('/rest/v1/notifications', {
+        method: 'POST', query: 'on_conflict=idempotency_key&select=id',
+        headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+        body: { tenant_id: identity.tenantId, user_id: identity.id, project_id: project.id, type: 'delivery_approved', message: '成果物の承認を記録しました。本番公開はオーナー承認待ちです。', idempotency_key: idempotencyKey, delivery_status: 'in_app', delivery_attempts: 0 }
+      });
+    } catch {
+      notification = { status: 'pending_retry' };
+    }
+    try {
+      await admin.request('/rest/v1/audit_logs', {
+        method: 'POST', query: 'select=id', headers: { Prefer: 'return=representation' },
+        body: { tenant_id: identity.tenantId, actor_user_id: identity.id, actor_type: 'customer', action: notification.status === 'recorded' ? 'delivery_approval_recorded' : 'delivery_approval_notification_pending_retry', resource_type: 'approval', resource_id: approval.id, metadata: { project_id: project.id, request_id: requestId, idempotency_key: idempotencyKey } }
+      });
+    } catch {
+      // Approval is durable; a best-effort audit failure must not convert it into a failed approval.
+    }
+    return { ...approval, notification };
   };
 
   const getProductionStatus = async (accessToken, projectId) => {
@@ -500,18 +543,30 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
     const project = await getProjectForIdentity(identity, projectId);
     const scope = `tenant_id=eq.${encodeURIComponent(identity.tenantId)}&project_id=eq.${encodeURIComponent(project.id)}`;
 
-    const [workflows, tasks, artifacts, qualityChecks, approvals, deployments, notifications] = await Promise.all([
+    const [workflows, tasks, gateTasks, artifacts, qualityChecks, approvals, deployments, notifications] = await Promise.all([
       admin.request('/rest/v1/workflow_runs', {
         query: `${scope}&select=${customerWorkflowSelect}&order=created_at.desc`
       }),
       admin.request('/rest/v1/tasks', {
         query: `${scope}&select=${customerTaskSelect}&order=sequence.asc`
       }),
+      admin.request('/rest/v1/tasks', {
+        query: `${scope}&task_key=eq.release_gate&select=${gateTaskSelect}&limit=1`
+      }),
       admin.request('/rest/v1/artifacts', {
         query: `${scope}&select=${customerArtifactSelect}&order=created_at.desc`
       }),
       admin.request('/rest/v1/quality_checks', {
         query: `${scope}&select=${customerQualityCheckSelect}&order=created_at.desc`
+      }),
+      admin.request('/rest/v1/approvals', {
+        query: `${scope}&select=${customerApprovalSelect}&order=created_at.desc`
+      }),
+      admin.request('/rest/v1/deployments', {
+        query: `${scope}&select=${adminDeploymentSelect}&order=created_at.desc`
+      }),
+      admin.request('/rest/v1/notifications', {
+        query: `${scope}&user_id=eq.${encodeURIComponent(identity.id)}&select=${adminNotificationSelect}&order=created_at.desc&limit=50`
       })
     ]);
 
@@ -526,7 +581,10 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
       workflows: Array.isArray(workflows) ? workflows : [],
       tasks: Array.isArray(tasks) ? tasks : [],
       artifacts: customerArtifacts,
-      qualityChecks: Array.isArray(qualityChecks) ? qualityChecks : [],\n      approvals: approvalRows,\n      notifications: Array.isArray(notifications) ? notifications : [],\n      deploymentGate: { releasePassed, customerApproved: Boolean(deliveryApproval), deployReady, humanGateRequired: true, productionPublished }
+      qualityChecks: Array.isArray(qualityChecks) ? qualityChecks : [],
+      approvals: Array.isArray(approvals) ? approvals : [],
+      notifications: Array.isArray(notifications) ? notifications : [],
+      deploymentGate: deploymentGateFor({ gateTasks, approvals, deployments })
     };
   };
 

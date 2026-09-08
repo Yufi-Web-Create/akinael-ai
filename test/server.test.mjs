@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { createApp, resetStore, seedAdmin } from '../src/server.mjs';
 import { businessConfig } from '../src/business-config.mjs';
+
+const PORTAL_BUILD_DIR = fileURLToPath(new URL('../public/portal/', import.meta.url));
 
 let server;
 let baseUrl;
@@ -64,11 +68,26 @@ test('frontend pages and project assets are served with the expected indexing bo
 
   const robots = await fetch(`${baseUrl}/robots.txt`);
   assert.equal(robots.status, 200);
-  assert.match(await robots.text(), /Disallow: \/admin/);
+  const robotsText = await robots.text();
+  assert.match(robotsText, /Disallow: \/admin/);
+  assert.match(robotsText, /Disallow: \/portal/);
+  assert.match(robotsText, /Disallow: \/preview\//);
 
   const sitemap = await fetch(`${baseUrl}/sitemap.xml`);
   assert.equal(sitemap.status, 200);
   assert.match(sitemap.headers.get('content-type'), /application\/xml/);
+});
+
+test('customer portal build output is excluded from search indexing', async () => {
+  mkdirSync(PORTAL_BUILD_DIR, { recursive: true });
+  writeFileSync(`${PORTAL_BUILD_DIR}index.html`, '<!doctype html><title>portal</title>');
+  try {
+    const portalPage = await fetch(`${baseUrl}/portal/`, { redirect: 'manual' });
+    assert.equal(portalPage.status, 200);
+    assert.equal(portalPage.headers.get('x-robots-tag'), 'noindex, nofollow');
+  } finally {
+    rmSync(PORTAL_BUILD_DIR, { recursive: true, force: true });
+  }
 });
 
 test('homepage pricing and required trust answers stay aligned with formal business configuration', async () => {

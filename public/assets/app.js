@@ -37,7 +37,12 @@ if (reveals.length) {
 const customerTokenKey = 'customer-token';
 const authFragment = new URLSearchParams(location.hash.slice(1));
 const confirmedAccessToken = authFragment.get('access_token');
-if (confirmedAccessToken) {
+// A `type=recovery` hash belongs to recovery-redirect.js (loaded synchronously
+// earlier in this page), which is still resolving its own async role lookup
+// when this deferred script runs. Do not consume or strip the hash here, or
+// the recovery token is lost before that redirect fires and leaks into the
+// wrong localStorage key.
+if (confirmedAccessToken && authFragment.get('type') !== 'recovery') {
   localStorage.setItem(customerTokenKey, confirmedAccessToken);
   history.replaceState(null, '', `${location.pathname}${location.search}`);
 }

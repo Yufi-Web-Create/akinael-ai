@@ -1,6 +1,6 @@
 # NEXT_TASKS.md
 
-最終更新: 2026-09-09 JST（Work、PR #56 / migration 20260909013641反映、Production Browser再E2E待ち）
+最終更新: 2026-09-09 JST（Work、Production Browser再E2E notification privilege FAIL記録）
 
 ## 最優先: source-control driftを解消
 
@@ -165,3 +165,25 @@ PHASE 6 remains **IN PROGRESS**. Production publish and all other Human Gate act
 Evidence: PR #56 main `f12514a16aa8989d05e444c5c7749ff00ca57cd0`、Core Quality Run `34299851288` PASS、Core 105/105、Portal 4/4、Admin 3/3、migration `20260909013641` production適用・index確認済み。
 
 削除禁止: project `52beffb0-0c87-4949-af45-a36a8e155462`、request `746feb20-b98b-42ce-bc44-47218402534e`、workflow `eed70c53-ec31-4d8a-861a-262fb534f08c`、その他E2E/production data。production publish・実顧客notification・DNS・payment/refund・production data削除・Secret操作はHuman Gate。
+
+## BLOCKER — service_role notification/audit INSERT privilege (2026-09-09 UTC)
+
+PHASE 6 Production Browser再E2Eは1回目approval生成後に停止。**PHASE 6 remains IN PROGRESS.**
+
+### Claude Code exact next action
+
+1. production privilege evidenceを再確認: `service_role`は`approvals INSERT`あり、`notifications INSERT` / `audit_logs INSERT`なし。
+2. 新しいadditive migrationで、server-side approval flowに必要な最小権限として`GRANT INSERT ON public.notifications TO service_role;`と`GRANT INSERT ON public.audit_logs TO service_role;`を追加する。既存dataやapprovalを変更・削除しない。
+3. schema/permission regression test、Core tests、CI、independent reviewをPASSさせてmainへmergeし、本番適用後にgrantsをread-only確認する。
+4. Workへ戻す。既存approval `aa5c4245-fb07-4a27-a0aa-71b7f92b94aa`を削除しない。新規requestを作らない。
+
+### Work exact next action after fix
+
+1. 同じrequest `746feb20-b98b-42ce-bc44-47218402534e`へ同じapprovalを再送。existing approval pathがnotification retryを行うことを確認。
+2. DB: approval=1のまま、matching notification=1、audit evidence生成、deployment=0。Portalはfalse errorなしでnotificationを表示。
+3. さらに同一approvalをもう1回送信し、approval/notificationが各1件から増えないことを確認。
+4. AdminでRelease Gate PASS、Customer Approval approved、DEPLOY READY、Human Gate待ち、production not publishedを確認。
+5. Portal/Admin/DB整合、desktop/mobile、reload、navigation、application console error 0を確認。
+6. 全PASSの場合のみPHASE 6 COMPLETEへ更新。
+
+Retain IDs: project `52beffb0-0c87-4949-af45-a36a8e155462`、request `746feb20-b98b-42ce-bc44-47218402534e`、workflow `eed70c53-ec31-4d8a-861a-262fb534f08c`、approval `aa5c4245-fb07-4a27-a0aa-71b7f92b94aa`。削除には明示承認が必要。production publish等はHuman Gate。

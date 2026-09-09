@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-最終更新: 2026-09-09 JST（Work、PR #56 / migration 20260909013641反映、Production Browser再E2E待ち）
+最終更新: 2026-09-09 JST（Work、Production Browser再E2E notification privilege FAIL記録）
 
 ## 目的
 
@@ -303,3 +303,15 @@ Closed both technical-debt items from the checkpoint above. **This does not comp
 - Exact next action: 既存E2E request `746feb20-b98b-42ce-bc44-47218402534e`を使い、Customer Portalからapprovalを1回送信してapproval/notification/audit生成を確認。同一approvalを2回目送信して件数不変を確認。AdminのRelease Gate/Deployment Gate、Portal/Admin/DB整合、responsive/reload、application console error 0を確認し、全PASS時のみPHASE 6 COMPLETEへ更新する。production publishは禁止。
 - E2E data retention: project `52beffb0-0c87-4949-af45-a36a8e155462`、request `746feb20-b98b-42ce-bc44-47218402534e`、workflow `eed70c53-ec31-4d8a-861a-262fb534f08c`を削除しない。
 - Human Gate: production publish、実顧客notification、DNS変更、payment/refund、production data削除、Secret発行・再発行・失効、不可逆production変更。Human Gate操作は未実行。
+
+## Latest checkpoint — Production Browser notification privilege failure (2026-09-09 UTC, Work)
+
+- CURRENT PHASE: **PHASE 6 IN PROGRESS**。1回目approval生成はPASSしたがnotification/audit生成がFAILしたためCOMPLETE不可。
+- Target: project `52beffb0-0c87-4949-af45-a36a8e155462`、request `746feb20-b98b-42ce-bc44-47218402534e`、workflow `eed70c53-ec31-4d8a-861a-262fb534f08c`。
+- DB before: request approvals=0、matching notifications=0、matching audits=0、project deployments=0。latest relevant Release Gate=`expanded_release_gate` task `d8e1d6ec-864b-4b7e-8c64-7f0b591f18bc` completed/PASS。
+- Action/result: authenticated Portalからnote `E2E TEST PHASE 6 APPROVAL`を送信。Portal success。approval `aa5c4245-fb07-4a27-a0aa-71b7f92b94aa` がrequest_id一致で1件生成。after: approval=1、notification=0、audit=0、deployment=0。Portal通知表示も0。
+- Probable root cause confirmed by read-only privilege audit: `service_role` has INSERT on approvals; it lacks INSERT on notifications and audit_logs. Notification insert failure is intentionally non-fatal to the durable approval, and the audit insert then fails for the same privilege class.
+- Exact next action for Claude Code: add a new additive, non-destructive migration granting only the required INSERT privileges on `public.notifications` and `public.audit_logs` to `service_role`; add regression/schema permission coverage; test/CI/review/merge/apply; verify grants in production. Do not alter existing approval or create a new request.
+- Exact next action for Work after deploy: resend the same approval once. It must resolve existing approval, retry notification creation, leave approval count=1, create notification count=1 and audit evidence as designed without false error. Then send once more and verify approval/notification counts remain 1; continue Admin/DB/Portal consistency and browser QA.
+- Console: application error 0; only explicit Cloud Browser extension metadata errors. Second approval was not sent per failure policy.
+- Production publish: NO。Human Gate unchanged。E2E/production data must not be deleted。

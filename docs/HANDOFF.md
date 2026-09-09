@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-最終更新: 2026-09-08 JST（Claude Code、Admin/Portal stale-session recovery修正 — PR #53/#54 merge・production反映確認済み）
+最終更新: 2026-09-09 JST（Work、PR #56 / migration 20260909013641反映、Production Browser再E2E待ち）
 
 ## 目的
 
@@ -290,3 +290,16 @@ Closed both technical-debt items from the checkpoint above. **This does not comp
 - Console: application-origin errors 0 on Portal/Admin. Cloud Browser extension metadata errors only, isolated by `chrome-extension://kcdongibgcplmaagnmgpjhpjgmmaaaaa`. Portal/Admin authenticated reload PASS. Responsive completion remains unclaimed because the critical approval/gate path failed first.
 - **Exact next action:** fix the two code/schema defects above in Claude Code, add real PostgreSQL semantics regression coverage, deploy, then rerun approval creation, duplicate send, Portal/Admin/DB consistency, responsive, reload, and console checks. No production publish.
 - Human Gate unchanged. Never delete the E2E request/workflow or other production data without explicit owner approval.
+
+## Latest checkpoint — PHASE 6 production defect fix (2026-09-09 UTC, Work)
+
+- CURRENT PHASE: **PHASE 6 / Notification / Approval / Deployment Gate — IN PROGRESS**。PROJECT PROGRESSは**PHASE 5 / 9 COMPLETE**。PHASE 1〜5 COMPLETE、PHASE 6は再E2E待ち。
+- Implementation PR: [#56](https://github.com/Yufi-Web-Create/akinael-ai/pull/56) merged。main: `f12514a16aa8989d05e444c5c7749ff00ca57cd0`。Core Quality Run `34299851288` PASS。
+- Implemented: PostgREST互換の非partial UNIQUE idempotency index、duplicate approvalの非上書きupsert、notification failure後の同一approval再送による安全なnotification retry、latest relevant workflow + expanded gate優先のRelease Gate選択。
+- Production migration: `20260909013641_make_idempotency_indexes_postgrest_compatible.sql`。DB historyにもversion `20260909013641`で適用済み。既存production data削除なし。duplicate preflightは0/0、適用後のindex definitionを実DBで確認済み。
+- PASS: Core 105/105、Portal 4/4 + lint/build、Admin 3/3 + lint/build、independent re-review blocking finding 0、production Portal read-only browser表示。
+- Current error: applicationの未解決critical defectは0。Cloud Browser `/health` URL policy拒否のみ（既知・非blocker）。
+- Production reflected: DB migrationはYES。application main mergeはYES、Portalはmain merge後に表示復旧を確認。approval/gateのauthenticated production E2EはまだNO。
+- Exact next action: 既存E2E request `746feb20-b98b-42ce-bc44-47218402534e`を使い、Customer Portalからapprovalを1回送信してapproval/notification/audit生成を確認。同一approvalを2回目送信して件数不変を確認。AdminのRelease Gate/Deployment Gate、Portal/Admin/DB整合、responsive/reload、application console error 0を確認し、全PASS時のみPHASE 6 COMPLETEへ更新する。production publishは禁止。
+- E2E data retention: project `52beffb0-0c87-4949-af45-a36a8e155462`、request `746feb20-b98b-42ce-bc44-47218402534e`、workflow `eed70c53-ec31-4d8a-861a-262fb534f08c`を削除しない。
+- Human Gate: production publish、実顧客notification、DNS変更、payment/refund、production data削除、Secret発行・再発行・失効、不可逆production変更。Human Gate操作は未実行。

@@ -1,1 +1,1 @@
-import { defineConfig } from "vite"; import react from "@vitejs/plugin-react"; export default defineConfig({ base: "/portal/", plugins: [react()] });
+import { defineConfig } from "vite"; import react from "@vitejs/plugin-react"; export default defineConfig({ base: "/portal/", plugins: [react()], build: { cssTarget: "safari14" } });

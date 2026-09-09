@@ -508,15 +508,23 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
     const existing = first(await admin.request('/rest/v1/approvals', {
       query: `tenant_id=eq.${encodeURIComponent(identity.tenantId)}&project_id=eq.${encodeURIComponent(project.id)}&${requestFilter}&type=eq.delivery&status=eq.approved&select=${customerApprovalSelect}&limit=1`
     }));
-    if (existing) return { ...existing, duplicate: true, notification: { status: 'already_recorded' } };
     const idempotencyKey = `delivery_approved:${project.id}:${requestId || 'project'}`;
-    const rows = await admin.request('/rest/v1/approvals', {
-      method: 'POST', query: `on_conflict=idempotency_key&select=${customerApprovalSelect}`,
-      headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
-      body: { tenant_id: identity.tenantId, project_id: project.id, request_id: requestId, type: 'delivery', status: 'approved', requested_by: identity.id, decided_by: identity.id, idempotency_key: idempotencyKey, payload: { note, source: 'customer_portal' }, decided_at: new Date().toISOString() }
-    });
-    const approval = first(rows);
-    if (!approval) throw new PlatformStoreError('approval could not be recorded', { status: 502, code: 'approval_create_failed' });
+    let approval = existing;
+    const isNewApproval = !existing;
+    if (isNewApproval) {
+      const rows = await admin.request('/rest/v1/approvals', {
+        method: 'POST', query: `on_conflict=idempotency_key&select=${customerApprovalSelect}`,
+        headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+        body: { tenant_id: identity.tenantId, project_id: project.id, request_id: requestId, type: 'delivery', status: 'approved', requested_by: identity.id, decided_by: identity.id, idempotency_key: idempotencyKey, payload: { note, source: 'customer_portal' }, decided_at: new Date().toISOString() }
+      });
+      approval = first(rows);
+      if (!approval) throw new PlatformStoreError('approval could not be recorded', { status: 502, code: 'approval_create_failed' });
+    }
+    // The approval itself is durable once inserted/found above. Notification and audit are
+    // recorded on every call (not just when the approval is first created) because a prior
+    // call's approval insert can succeed while its notification/audit inserts fail (e.g. a
+    // missing service_role grant) — retrying the same idempotency_key must still be able to
+    // fill in whatever companion evidence is still missing, not just replay a cached "duplicate".
     let notification = { status: 'recorded' };
     try {
       await admin.request('/rest/v1/notifications', {
@@ -528,14 +536,24 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
       notification = { status: 'pending_retry' };
     }
     try {
-      await admin.request('/rest/v1/audit_logs', {
-        method: 'POST', query: 'select=id', headers: { Prefer: 'return=representation' },
-        body: { tenant_id: identity.tenantId, actor_user_id: identity.id, actor_type: 'customer', action: notification.status === 'recorded' ? 'delivery_approval_recorded' : 'delivery_approval_notification_pending_retry', resource_type: 'approval', resource_id: approval.id, metadata: { project_id: project.id, request_id: requestId, idempotency_key: idempotencyKey } }
-      });
+      // audit_logs has no idempotency_key/unique constraint (deliberately not added by the
+      // notification/approval idempotency migration, which only touched approvals/notifications),
+      // so a fresh approval skips straight to inserting (nothing can reference its brand-new id
+      // yet) while a pre-existing approval checks first — otherwise every retry of an
+      // already-fully-recorded approval would keep appending duplicate audit rows forever.
+      const alreadyAudited = isNewApproval ? null : first(await admin.request('/rest/v1/audit_logs', {
+        query: `resource_type=eq.approval&resource_id=eq.${encodeURIComponent(approval.id)}&action=in.(delivery_approval_recorded,delivery_approval_notification_pending_retry)&select=id&limit=1`
+      }));
+      if (!alreadyAudited) {
+        await admin.request('/rest/v1/audit_logs', {
+          method: 'POST', query: 'select=id', headers: { Prefer: 'return=representation' },
+          body: { tenant_id: identity.tenantId, actor_user_id: identity.id, actor_type: 'customer', action: notification.status === 'recorded' ? 'delivery_approval_recorded' : 'delivery_approval_notification_pending_retry', resource_type: 'approval', resource_id: approval.id, metadata: { project_id: project.id, request_id: requestId, idempotency_key: idempotencyKey } }
+        });
+      }
     } catch {
       // Approval is durable; a best-effort audit failure must not convert it into a failed approval.
     }
-    return { ...approval, notification };
+    return { ...approval, duplicate: !isNewApproval, notification };
   };
 
   const getProductionStatus = async (accessToken, projectId) => {

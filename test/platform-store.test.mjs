@@ -174,3 +174,52 @@ test('customer delivery approval is idempotent and notification failure does not
   assert.match(insert.url, /on_conflict=idempotency_key/);
   assert.equal(JSON.parse(insert.options.body).idempotency_key, 'delivery_approved:project-1:project');
 });
+
+test('CASE A: resending an approval that already exists but has no notification/audit yet recovers both', async () => {
+  const auditRows = [];
+  const { fetchImpl, calls } = routeFetch([
+    { match: (url) => url.endsWith('/auth/v1/user'), reply: async () => ({ id: 'user-1', email: 'owner@example.com' }) },
+    { match: (url) => url.includes('/rest/v1/user_profiles?'), reply: async () => [{ id: 'user-1', tenant_id: 'tenant-1', role: 'customer' }] },
+    { match: (url) => url.includes('/rest/v1/customer_members?'), reply: async () => [{ customer_id: 'customer-1' }] },
+    { match: (url, options) => url.includes('/rest/v1/projects?') && (!options.method || options.method === 'GET'), reply: async () => [{ id: 'project-1', tenant_id: 'tenant-1', customer_id: 'customer-1' }] },
+    // Baseline production state this fix targets: the approval already exists (a prior call
+    // succeeded before service_role lacked notifications/audit_logs INSERT), but nothing else does.
+    { match: (url, options) => url.includes('/rest/v1/approvals?') && (!options.method || options.method === 'GET'), reply: async () => [{ id: 'approval-1', project_id: 'project-1', type: 'delivery', status: 'approved' }] },
+    { match: (url, options) => url.includes('/rest/v1/notifications?') && options.method === 'POST', reply: async () => [{ id: 'notification-1' }] },
+    { match: (url, options) => url.includes('/rest/v1/audit_logs?') && (!options.method || options.method === 'GET'), reply: async () => auditRows.slice() },
+    { match: (url, options) => url.includes('/rest/v1/audit_logs?') && options.method === 'POST', reply: async () => { auditRows.push({ id: 'audit-1' }); return [{ id: 'audit-1' }]; } }
+  ]);
+
+  const approval = await createPlatformStore({ env, fetchImpl }).createCustomerApproval('access-token', 'project-1', { note: 'E2E TEST approval' });
+  assert.equal(approval.id, 'approval-1');
+  assert.equal(approval.duplicate, true);
+  assert.equal(approval.notification.status, 'recorded');
+  assert.equal(auditRows.length, 1);
+  const approvalInsert = calls.find((call) => call.url.includes('/rest/v1/approvals?') && call.options.method === 'POST');
+  assert.equal(approvalInsert, undefined, 'an existing approval must not be re-inserted');
+  const auditInsert = calls.find((call) => call.url.includes('/rest/v1/audit_logs?') && call.options.method === 'POST');
+  assert.equal(JSON.parse(auditInsert.options.body).action, 'delivery_approval_recorded');
+});
+
+test('CASE B: resending an already-fully-recorded approval is a clean no-op duplicate', async () => {
+  const auditRows = [{ id: 'audit-1' }];
+  const { fetchImpl, calls } = routeFetch([
+    { match: (url) => url.endsWith('/auth/v1/user'), reply: async () => ({ id: 'user-1', email: 'owner@example.com' }) },
+    { match: (url) => url.includes('/rest/v1/user_profiles?'), reply: async () => [{ id: 'user-1', tenant_id: 'tenant-1', role: 'customer' }] },
+    { match: (url) => url.includes('/rest/v1/customer_members?'), reply: async () => [{ customer_id: 'customer-1' }] },
+    { match: (url, options) => url.includes('/rest/v1/projects?') && (!options.method || options.method === 'GET'), reply: async () => [{ id: 'project-1', tenant_id: 'tenant-1', customer_id: 'customer-1' }] },
+    { match: (url, options) => url.includes('/rest/v1/approvals?') && (!options.method || options.method === 'GET'), reply: async () => [{ id: 'approval-1', project_id: 'project-1', type: 'delivery', status: 'approved' }] },
+    // Notification already exists; the idempotent upsert must still succeed (merge-duplicates), not fail.
+    { match: (url, options) => url.includes('/rest/v1/notifications?') && options.method === 'POST', reply: async () => [{ id: 'notification-1' }] },
+    { match: (url, options) => url.includes('/rest/v1/audit_logs?') && (!options.method || options.method === 'GET'), reply: async () => auditRows.slice() },
+    { match: (url, options) => url.includes('/rest/v1/audit_logs?') && options.method === 'POST', reply: async () => { auditRows.push({ id: 'audit-2' }); return [{ id: 'audit-2' }]; } }
+  ]);
+
+  const approval = await createPlatformStore({ env, fetchImpl }).createCustomerApproval('access-token', 'project-1', { note: 'E2E TEST approval' });
+  assert.equal(approval.id, 'approval-1');
+  assert.equal(approval.duplicate, true);
+  assert.equal(approval.notification.status, 'recorded');
+  assert.equal(auditRows.length, 1, 'an already-recorded approval must not accumulate duplicate audit rows on repeated resends');
+  const auditInsert = calls.find((call) => call.url.includes('/rest/v1/audit_logs?') && call.options.method === 'POST');
+  assert.equal(auditInsert, undefined, 'no new audit row should be inserted once one already exists for this approval');
+});

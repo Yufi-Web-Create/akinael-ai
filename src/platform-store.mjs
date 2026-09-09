@@ -538,6 +538,24 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
     };
     const recordAudit = async (approval, notification) => {
       try {
+        // audit_logs has no idempotency_key/unique constraint (the notification/approval
+        // idempotency migration only touched approvals/notifications), so "don't duplicate
+        // recorded evidence" is enforced at the application level: once a
+        // delivery_approval_recorded entry exists for this approval, later resends must not
+        // keep appending more of them. A pending_retry entry is allowed to recur across
+        // genuinely separate failed attempts — it documents real retry history, not a
+        // settled outcome, so it isn't deduped the same way.
+        // This existence check has a narrow, accepted race: two truly concurrent resends of
+        // the same already-approved request could both pass it before either INSERT lands,
+        // producing two delivery_approval_recorded rows. audit_logs is best-effort (errors
+        // here are already swallowed below) and this endpoint isn't a hot path, so that's
+        // treated as acceptable residual risk rather than something worth a code-level lock.
+        if (notification.status === 'recorded') {
+          const alreadyRecorded = first(await admin.request('/rest/v1/audit_logs', {
+            query: `tenant_id=eq.${encodeURIComponent(identity.tenantId)}&resource_type=eq.approval&resource_id=eq.${encodeURIComponent(approval.id)}&action=eq.delivery_approval_recorded&select=id&limit=1`
+          }));
+          if (alreadyRecorded) return;
+        }
         await admin.request('/rest/v1/audit_logs', {
           method: 'POST', query: 'select=id', headers: { Prefer: 'return=representation' },
           body: { tenant_id: identity.tenantId, actor_user_id: identity.id, actor_type: 'customer', action: notification.status === 'recorded' ? 'delivery_approval_recorded' : 'delivery_approval_notification_pending_retry', resource_type: 'approval', resource_id: approval.id, metadata: { project_id: project.id, request_id: requestId, idempotency_key: idempotencyKey } }
@@ -551,7 +569,12 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
     }));
     if (existing) {
       const notification = await recordNotification();
-      if (notification.status === 'pending_retry') await recordAudit(existing, notification);
+      // Unconditional (not gated on notification.status === 'pending_retry'): an approval
+      // that already exists but is still missing its notification/audit evidence — e.g.
+      // because service_role lacked INSERT on those tables when it was first created — must
+      // recover that evidence on retry, not just replay a cached "duplicate" response.
+      // recordAudit's own internal check keeps this a no-op once evidence already exists.
+      await recordAudit(existing, notification);
       return { ...existing, duplicate: true, notification };
     }
     const rows = await admin.request('/rest/v1/approvals', {
@@ -565,7 +588,10 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
     if (!approval) throw new PlatformStoreError('approval could not be recorded', { status: 502, code: 'approval_create_failed' });
     const inserted = Boolean(first(rows));
     const notification = await recordNotification();
-    if (inserted || notification.status === 'pending_retry') await recordAudit(approval, notification);
+    // Unconditional for the same reason as the `existing` branch above: recordAudit's own
+    // dedup check makes it safe to call every time, including the `!inserted` case (a
+    // concurrent insert won this row's on_conflict, so this call never actually created it).
+    await recordAudit(approval, notification);
     if (!inserted) return { ...approval, duplicate: true, notification };
     return { ...approval, notification };
   };

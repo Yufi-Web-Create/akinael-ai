@@ -175,11 +175,12 @@ test('customer delivery approval is idempotent and notification failure does not
   assert.equal(JSON.parse(insert.options.body).idempotency_key, 'delivery_approved:project-1:project');
 });
 
-const approvalHarness = ({ notificationFailure = false } = {}) => {
+const approvalHarness = ({ notificationFailure = false, auditFailure = false } = {}) => {
   const approvals = [];
   const notifications = [];
   const audits = [];
   let shouldFailNotification = notificationFailure;
+  let shouldFailAudit = auditFailure;
   let nextApprovalId = 1;
   const calls = [];
   const fetchImpl = async (url, options = {}) => {
@@ -212,17 +213,68 @@ const approvalHarness = ({ notificationFailure = false } = {}) => {
       return response(duplicate && options.headers?.Prefer?.includes('ignore-duplicates') ? [] : [row]);
     }
     if (value.includes('/rest/v1/audit_logs?') && options.method === 'POST') {
+      // service_role lacking INSERT on audit_logs (the actual production root cause) surfaces
+      // here exactly like the notification-outage simulation above: a 403-shaped failure.
+      if (shouldFailAudit) return response({ message: 'permission denied for table audit_logs' }, 403);
       const row = { id: `audit-${audits.length + 1}`, ...JSON.parse(options.body) };
       audits.push(row);
       return response([row]);
+    }
+    if (value.includes('/rest/v1/audit_logs?')) {
+      const params = new URLSearchParams(value.split('?')[1]);
+      const resourceId = params.get('resource_id')?.replace(/^eq\./, '');
+      const action = params.get('action')?.replace(/^eq\./, '');
+      return response(audits.filter((row) =>
+        (!resourceId || row.resource_id === resourceId) && (!action || row.action === action)
+      ));
     }
     throw new Error(`unexpected request: ${value}`);
   };
   return {
     store: createPlatformStore({ env, fetchImpl }), approvals, notifications, audits, calls,
-    setNotificationFailure: (value) => { shouldFailNotification = value; }
+    setNotificationFailure: (value) => { shouldFailNotification = value; },
+    setAuditFailure: (value) => { shouldFailAudit = value; }
   };
 };
+
+test('CASE A: an approval whose notification+audit grant was missing at creation time recovers both on retry', async () => {
+  // Reproduces the actual production incident: service_role could INSERT into approvals but
+  // not notifications/audit_logs, so the first call left approval=1, notification=0, audit=0.
+  const harness = approvalHarness({ notificationFailure: true, auditFailure: true });
+  const baseline = await harness.store.createCustomerApproval('access-token', 'project-1', { note: 'E2E TEST production baseline' });
+  assert.equal(baseline.notification.status, 'pending_retry');
+  assert.equal(harness.approvals.length, 1);
+  assert.equal(harness.notifications.length, 0);
+  assert.equal(harness.audits.length, 0);
+
+  // The migration grant is fixed; the same approval is resent.
+  harness.setNotificationFailure(false);
+  harness.setAuditFailure(false);
+  const recovered = await harness.store.createCustomerApproval('access-token', 'project-1', { note: 'E2E TEST production baseline' });
+
+  assert.equal(recovered.duplicate, true);
+  assert.equal(recovered.notification.status, 'recorded');
+  assert.equal(harness.approvals.length, 1, 'the existing approval must not be re-inserted');
+  assert.equal(harness.notifications.length, 1, 'notification recovers from 0 to 1');
+  assert.equal(harness.audits.length, 1, 'audit evidence recovers from 0 to 1');
+  assert.equal(harness.audits[0].action, 'delivery_approval_recorded');
+});
+
+test('CASE B: resending an approval whose evidence is already fully recorded is a clean no-op', async () => {
+  const harness = approvalHarness();
+  await harness.store.createCustomerApproval('access-token', 'project-1', { note: 'E2E TEST fully recorded' });
+  const before = harness.audits.length;
+
+  const again = await harness.store.createCustomerApproval('access-token', 'project-1', { note: 'E2E TEST fully recorded' });
+  const onceMore = await harness.store.createCustomerApproval('access-token', 'project-1', { note: 'E2E TEST fully recorded' });
+
+  assert.equal(again.duplicate, true);
+  assert.equal(again.notification.status, 'recorded');
+  assert.equal(onceMore.duplicate, true);
+  assert.equal(harness.approvals.length, 1);
+  assert.equal(harness.notifications.length, 1);
+  assert.equal(harness.audits.length, before, 'an already-recorded approval must not accumulate duplicate audit rows on repeated resends');
+});
 
 test('first approval creates one durable approval and one notification; a repeat creates neither', async () => {
   const harness = approvalHarness();
@@ -277,4 +329,9 @@ test('a duplicate approval retries a previously failed notification without dupl
   assert.equal(duplicate.notification.status, 'recorded');
   assert.equal(harness.approvals.length, 1);
   assert.equal(harness.notifications.length, 1);
+  // The recovery from pending_retry to recorded is itself worth one audit entry (on top of
+  // the original pending_retry entry from the initial failure) — and the further duplicate
+  // resend after that must not add a third.
+  assert.equal(harness.audits.length, 2);
+  assert.deepEqual(harness.audits.map((row) => row.action), ['delivery_approval_notification_pending_retry', 'delivery_approval_recorded']);
 });

@@ -1,6 +1,6 @@
 # NEXT_TASKS.md
 
-最終更新: 2026-09-08 JST（Claude Code、Admin/Portal stale-session recovery修正 — PR #53/#54 merge・production反映確認済み。Work向けexact next actionを更新）
+最終更新: 2026-09-09 JST（Work、PR #56 / migration 20260909013641反映、Production Browser再E2E待ち）
 
 ## 最優先: source-control driftを解消
 
@@ -146,3 +146,22 @@
 4. Deploy and have Work rerun the two approval submissions, DB count comparison, Portal/Admin/DB consistency, responsive/reload, and console checks.
 
 PHASE 6 remains **IN PROGRESS**. Production publish and all other Human Gate actions remain prohibited. Retain all E2E/production data.
+
+## Work向け exact next action — PR #56反映後のProduction Browser再E2E（2026-09-09 UTC）
+
+修正・CI・独立レビュー・main merge・production DB migrationは完了。**PHASE 6は以下がPASSするまでIN PROGRESSのまま。**
+
+1. 既存E2E project `52beffb0-0c87-4949-af45-a36a8e155462` / request `746feb20-b98b-42ce-bc44-47218402534e` を使用する。新規customer/request/workflowは作成しない。
+2. Customer Portalからapproval 1回目を送信する。
+3. DBで同requestのapprovalが1件新規生成され、notificationが1件、audit evidenceが既存設計どおり生成されたことを確認する。
+4. Portal表示にapproval / notificationが反映されることを確認する。
+5. 同一approvalを2回目送信し、false failureにならず、approval / notification / delivery stateの件数が増えないことを確認する。
+6. Adminで同projectを開き、`expanded_release_gate` PASS、Customer Approval approved、DEPLOY READY、Human Gate待ち、production not publishedを確認する。
+7. Portal / Admin / DBのapproval・notification・Release Gate・Deployment Gate状態が一致することを確認する。
+8. desktop/mobile、Portal/Admin reload、navigation、approval/Deployment Gate UIを確認する。
+9. JavaScript application console error 0を確認する。明確なCloud Browser extension errorはアプリ外として分離記録する。
+10. 全項目PASSの場合のみPHASE 6 COMPLETEとし、3文書を更新する。FAILなら再現手順・HTTP status・console・DB差分を記録しIN PROGRESSを維持する。
+
+Evidence: PR #56 main `f12514a16aa8989d05e444c5c7749ff00ca57cd0`、Core Quality Run `34299851288` PASS、Core 105/105、Portal 4/4、Admin 3/3、migration `20260909013641` production適用・index確認済み。
+
+削除禁止: project `52beffb0-0c87-4949-af45-a36a8e155462`、request `746feb20-b98b-42ce-bc44-47218402534e`、workflow `eed70c53-ec31-4d8a-861a-262fb534f08c`、その他E2E/production data。production publish・実顧客notification・DNS・payment/refund・production data削除・Secret操作はHuman Gate。

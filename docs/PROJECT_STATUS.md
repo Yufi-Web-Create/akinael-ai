@@ -1,6 +1,6 @@
 # PROJECT_STATUS.md
 
-最終更新: 2026-09-09 JST（Work、Production Browser再E2E notification privilege FAIL記録）
+最終更新: 2026-09-09 JST（Claude Code、notification/audit privilege + recordAudit gating bug修正 — PR #60 merge済み。production migration適用はWork/オーナー待ち）
 
 ## CURRENT PHASE
 
@@ -277,3 +277,17 @@ Both bugs recorded as unfixed technical debt in the checkpoint above are now fix
 - Console: application-origin error 0。記録されたerrorはすべて`chrome-extension://kcdongibgcplmaagnmgpjhpjgmmaaaaa`由来でアプリ外。
 - Retain: request `746feb20-b98b-42ce-bc44-47218402534e`、workflow `eed70c53-ec31-4d8a-861a-262fb534f08c`、new approval `aa5c4245-fb07-4a27-a0aa-71b7f92b94aa`。削除禁止。
 - Human Gate維持。production publish・実顧客notification・DNS・payment/refund・production data削除・Secret操作は未実行。
+
+## PHASE 6 notification/audit recovery fix (2026-09-09 JST, Claude Code, fifth session)
+
+上記BLOCKERで特定された`service_role`権限不足に加え、Workが指摘した通り**権限修正だけでは再E2Eでaudit evidenceが再び0件になり得る**structural gapを発見・修正した。**PHASE 6はまだCOMPLETEにしない。**
+
+- **重要な訂正の経緯**: このセッションは最初、直近の`origin/main`を取得せずにfix branchを作成してしまい、`fix/approval-notification-audit-recovery`（PR #59）としてPR化した。その後、PR #56（`f12514a`、別セッションによる既存merge済み修正）が同じ`createCustomerApproval`関数をすでに`recordNotification`/`recordAudit` helper closure構成へ書き換えていたことに気づき、PR #59を古い前提のコードとしてcloseし、`origin/main`最新（`7983c58`）から作り直した。
+- **root cause 1（grant不足）**: `service_role`は`approvals INSERT`のみ保持し、`notifications INSERT`/`audit_logs INSERT`を保持していなかった。新migration `20260909063434_grant_notification_audit_service_role_insert.sql` でこの2権限のみ追加（既存SELECT grant維持、ALL/UPDATE/DELETEは追加しない）。追加前にcodebase全体の`notifications`/`audit_logs`への書込み操作を監査し、INSERT以外の操作が存在しないことを確認済み。
+- **root cause 2（PR #56自体に残っていた欠陥、Workの指摘どおり）**: PR #56の`createCustomerApproval`は、既存approvalへの再送時に`if (notification.status === 'pending_retry') await recordAudit(existing, notification);`という条件でrecordAuditを呼んでいた。つまりnotificationが成功（`status === 'recorded'`）した瞬間、recordAuditは一切呼ばれない。grantを直しただけでは、retry時にnotificationは復旧してもauditは永遠に0件のままになるはずだった。新approval側にも同型の`if (inserted || notification.status === 'pending_retry')`という同じ欠陥があった。
+- **修正**: 両呼び出し箇所でrecordAuditを無条件呼び出しに変更し、「重複させない」ルールをrecordAudit内部へ移動した。具体的には、notification.status==='recorded'のときだけ、当該approvalに既存の`delivery_approval_recorded` audit行があるかをtenant_id/resource_type/resource_id/actionで確認し、あれば何もしない。`pending_retry`のaudit行は、実際に別々の失敗試行を記録するものとして重複排除の対象外とした（`delivery_approval_recorded`だけを無意味に増殖させないという指示に合わせた設計判断）。
+- **test**: production baselineを正確に再現するCASE A（notification/auditとも作成時に権限不足で失敗 → grant修正後の再送でnotification 0→1、audit 0→1、approval件数不変）、CASE B（すでに完全に記録済みのapprovalへの再送はaudit重複なしのno-op）を新規追加。既存の「a duplicate approval retries a previously failed notification...」testにaudit件数の明示assertion（2件：初回のpending_retry + recovery時のdelivery_approval_recorded）を追加。`src/platform-store.mjs`をgit stashで一時的に戻し、CASE Aと強化した既存testが修正前コードに対して実際にFAILすることを確認後、復元してPASSを確認済み。
+- **独立レビュー**: 2回実施（1回目は古いbase由来のため無効化・破棄、2回目を正しいdiffに対して実行）。並行性に関する残存リスク（同一approvalへの真の同時多重送信が`delivery_approval_recorded`を2件作る可能性）をコメントで明記のうえ、DB制約なしのbest-effort設計として許容と判断。verdict: safe to merge as-is。
+- **PR #60** (`4bd98cb` → merged `841bb93`)。CI PASS。Core tests **107/107 PASS**。`origin/main`は`841bb93`。
+- **production migration適用はこのセッションでは実行できていない**: このClaude Code環境にはSupabase CLI・DB接続文字列・Management API tokenのいずれも存在せず、GRANT文（DDL）を直接実行する手段がない。Work、またはSupabase SQL editorへアクセスできるセッション/オーナーが`supabase/migrations/20260909063434_grant_notification_audit_service_role_insert.sql`を本番へ適用する必要がある。適用前にWorkが同じapprovalを再送しても、notification/auditは依然として0件のままになる。
+- Human Gate: 影響なし。production data作成・変更・削除、実顧客notification、DNS、Secret操作のいずれも実行していない。

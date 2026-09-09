@@ -1,6 +1,6 @@
 # NEXT_TASKS.md
 
-最終更新: 2026-09-09 JST（Work、Production Browser再E2E notification privilege FAIL記録）
+最終更新: 2026-09-09 JST（Claude Code、notification/audit privilege + recordAudit gating bug修正 — PR #60 merge済み。production migration適用はWork/オーナー待ち）
 
 ## 最優先: source-control driftを解消
 
@@ -187,3 +187,40 @@ PHASE 6 Production Browser再E2Eは1回目approval生成後に停止。**PHASE 6
 6. 全PASSの場合のみPHASE 6 COMPLETEへ更新。
 
 Retain IDs: project `52beffb0-0c87-4949-af45-a36a8e155462`、request `746feb20-b98b-42ce-bc44-47218402534e`、workflow `eed70c53-ec31-4d8a-861a-262fb534f08c`、approval `aa5c4245-fb07-4a27-a0aa-71b7f92b94aa`。削除には明示承認が必要。production publish等はHuman Gate。
+
+## BLOCKER解消（コード側）— production migration適用がHuman Gate直前でstop（2026-09-09 JST, Claude Code, 第5セッション）
+
+上記BLOCKERの権限grantに加え、オーナーが指摘したとおり**権限修正だけでは不十分**だった。PR #56の`recordAudit`呼び出しが`notification.status === 'pending_retry'`のときだけ実行される条件になっており、grant修正後にnotificationが成功（`recorded`）した瞬間、auditは呼ばれずに0件のまま固定される構造的バグが残っていた。両方を修正しPR #60としてmerge済み。**PHASE 6はまだCOMPLETEにしない。**
+
+- [x] production privilege evidence再確認、migration作成（`supabase/migrations/20260909063434_grant_notification_audit_service_role_insert.sql`、INSERT のみ、既存SELECT維持）
+- [x] `recordAudit`の無条件呼び出し化 + `delivery_approval_recorded`のみを対象とした重複防止ロジックへ修正
+- [x] CASE A/B含む回帰test追加、fail-before/pass-after確認、Core 107/107 PASS
+- [x] 独立レビュー2回（1回目はbase不一致のため無効化・破棄、2回目で verdict: safe to merge as-is）
+- [x] PR #60 CI PASS・merge（`4bd98cb` → `841bb93`、squash、1回目のattemptで成功）
+- [ ] **production migration適用 — Claude Codeでは実行不可**。このセッションの環境にはSupabase CLI・DB接続文字列・Management API tokenが一切存在せず、GRANT文を直接実行する手段がない（`.env.example`・shell環境・`~/.supabase/`を確認済み）。過去の`20260908011350`/`20260909013641`適用は別のセッション/環境（Work、または異なるtoolingを持つセッション）が行ったもので、この環境では再現できない。
+
+### Human Gate直前の依頼（Work、またはSupabase SQL editorへアクセスできるオーナー）
+
+1. `supabase/migrations/20260909063434_grant_notification_audit_service_role_insert.sql`の内容（`grant insert on table public.notifications, public.audit_logs to service_role;`）を本番Supabaseへ適用する。
+2. 適用後、`service_role`が`notifications`/`audit_logs`両方へINSERT権限を持つことをread-only確認する（値の表示・secretの取得は不要）。
+
+### Work exact next action（migration適用後）
+
+**新しいrequestを作らない。既存を保持したまま実行する。**
+
+- 既存request: `746feb20-b98b-42ce-bc44-47218402534e`
+- 既存approval: `aa5c4245-fb07-4a27-a0aa-71b7f92b94aa`
+
+1. 同じapprovalを再送する（Customer Portalから）。
+2. notification retryが0→1になることを確認する。
+3. audit evidenceが作成されることを確認する（0→1）。
+4. approvalは1件のまま増えないことを確認する。
+5. さらに同一approvalをもう1回送信する。
+6. notificationも1件のまま増えないことを確認する（duplicate protection）。
+7. duplicate protectionが正常動作し、false errorがないことを確認する。
+8. Admin側で`expanded_release_gate` PASS、Customer Approval approved、DEPLOY READY、Human Gate待ち、production not publishedを確認する。
+9. Portal / Admin / DBのapproval・notification・audit・Deployment Gate状態が一致することを確認する。
+10. desktop/mobile responsive、Portal/Admin reload、JavaScript application console error 0を確認する（Cloud Browser拡張由来のerrorはアプリ外として分離）。
+11. 上記すべてPASSして初めてPHASE 6 COMPLETEと判定し、3文書を更新する。一つでもFAILがあれば再現手順・HTTP status・console・DB差分を記録し、PHASE 6はIN PROGRESSのまま維持する。
+
+Retain（削除禁止、削除には明示承認が必要）: project `52beffb0-0c87-4949-af45-a36a8e155462`、request `746feb20-b98b-42ce-bc44-47218402534e`、workflow `eed70c53-ec31-4d8a-861a-262fb534f08c`、approval `aa5c4245-fb07-4a27-a0aa-71b7f92b94aa`。production publish・実顧客notification・DNS・payment/refund・production data削除・Secret操作はHuman Gate。

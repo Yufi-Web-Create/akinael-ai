@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-最終更新: 2026-09-09 JST（Work、Production Browser再E2E notification privilege FAIL記録）
+最終更新: 2026-09-09 JST（Claude Code、notification/audit privilege + recordAudit gating bug修正 — PR #60 merge済み。production migration適用はWork/オーナー待ち）
 
 ## 目的
 
@@ -30,11 +30,11 @@ Claude Code / ChatGPT Workのどちらでも、チャット履歴に依存せず
 
 - PHASE 1〜5 COMPLETE。
 - `origin/main` HEAD:
-  `c2c328f`
-  git上で確認する現在のmain（2026-09-08、PR #53/#54 merge後）。今後mainが進んだらその都度更新する。
+  `841bb93`
+  git上で確認する現在のmain（2026-09-09、PR #60 merge後）。今後mainが進んだらその都度更新する。
 - Render Web Service `akinael-ai` live deploy commit:
-  `c2c328f`世代
-  2026-09-08に読み取り専用HTTP確認（bundle byte-diff）で確認済み。詳細は本ファイル末尾の最新checkpoint参照。`origin/main` HEADとは独立した運用上の事実として扱う。
+  未確認（このセッションでは`841bb93`のRender反映を読み取り確認していない）。この修正は`src/platform-store.mjs`のみでPortal/Admin bundleに変更はないため、`public/admin/`の非同期問題（技術的負債表参照）は影響しない — Renderのbuild自体はNode本体を毎回再構築するため、過去のcheckpointが確認した「mainへのpushで自動deployする」という事実に変わりはないはずだが、bundleのbyte-diffのような直接確認手段がこの変更には存在しない。**Workは再送前に、production dataではなく無害な手段（例えば明らかにエラーになる不正リクエストのresponse形状など）でこの修正が実際にliveか確認するか、単純に一度再送してみてFAILが解消しているかで判断すること。**
+  過去の確認手法は本ファイル末尾の各checkpoint参照。`origin/main` HEADとは独立した運用上の事実として扱う。
 - 2026-09-07のHTTP確認: `/`, `/portal/`, `/admin/`, PHASE 4 previewは200。
 - Admin実ログインはCloud BrowserでPASS。`kohayakawakohaya@gmail.com` / user `4b9af2d3-f500-4f5e-bced-0decf88f8feb` / role `admin`。
 - password/recovery token/OTPはどこにも保存していない。今後もsecure browser auth経由のみ。
@@ -132,7 +132,7 @@ to service_role;
 | `portal/app/` | Next.js版残骸。現行Vite build未参照。勝手に削除しない。 |
 | `Dockerfile` | Renderの実build手順と乖離。利用経路確認前に変更しない。 |
 | v1/v2 API共存 | `src/server.mjs` と `src/platform-api.mjs` が同居。段階移行課題。 |
-| frontend test不足 | Portal/Adminはunit/component testなし。build/lintと本番E2E依存。 |
+| ~~frontend test不足~~ — **2026-09-08解消（PR #53）** | Portal/AdminにVitest + Testing Library + jsdomのtest基盤を追加済み。`admin/src/Admin.test.tsx`（3 tests）、`portal/src/Portal.test.tsx`（4 tests）が現存し、CIではなくローカル`npx vitest run`で実行する運用。build/lintと本番E2Eへの依存は変わらず残る（frontend testはCI常時化されていない — 別項目「CI範囲」参照）。 |
 | CI範囲 | `core-quality.yml` はCore `npm test`中心。Portal/Admin build/lintを常時CI化していない。 |
 | build artifacts非対称 / Renderがpublic/admin/を自動更新しない（未解明） | `public/admin/` commit済み、`public/portal/`はRender生成。当初は「意図の明文化なし」という記述だったが、2026-09-08にこれが実害を伴う問題だと判明: `render.yaml`のbuildCommandは`cp -R admin/dist public/admin`を含み毎deployでcommit済みファイルを上書きするはずだが、実際には`public/admin/`は`7362090`/`7d78971`（2026-09-04）以降、Admin.tsxへの複数回の変更（password recovery UI、CSP対応、Deployment Gate UI、今回のstale-session修正）を経てもbundle hashが更新されなかった。一方`public/portal/`は同一deployで正しく最新化されていた（PR #53 merge後、数分でbyte-diff一致を確認）。原因はRenderのdashboard側実際のbuildCommand設定またはbuild logでの確認が必要で、このsessionはRender管理画面アクセスがなく特定できていない。**暫定対応（PR #54）**: `public/admin/`のbuild出力を`admin/`のsource commitと手動で同期させ、production反映をbyte-diffで確認。**今後、admin側のcode変更を行うたびに、production反映をportal同様の自動更新に頼らず、byte-diff等で明示的に確認すること。**根本原因（Renderのbuild設定）の特定と恒久修正は未着手。 |
 | Project statusの混在 | PHASE 4 projectには初回failed workflowと最終completed workflowが共存し、project自体は`intake`のまま。Admin集計では20/23等に見える場合がある。最新workflow単位で判定する。DB statusを手動補正しない。 |
@@ -315,3 +315,55 @@ Closed both technical-debt items from the checkpoint above. **This does not comp
 - Exact next action for Work after deploy: resend the same approval once. It must resolve existing approval, retry notification creation, leave approval count=1, create notification count=1 and audit evidence as designed without false error. Then send once more and verify approval/notification counts remain 1; continue Admin/DB/Portal consistency and browser QA.
 - Console: application error 0; only explicit Cloud Browser extension metadata errors. Second approval was not sent per failure policy.
 - Production publish: NO。Human Gate unchanged。E2E/production data must not be deleted。
+
+## PHASE 6 notification/audit recovery fix (2026-09-09, Claude Code, fifth session)
+
+Fixes the grant gap from the BLOCKER above, plus a structural bug in PR #56's own fix that the owner explicitly flagged before this session started: a grant fix alone would not have been sufficient.
+
+### Correction to this session's own process
+
+This session initially branched without fetching latest `origin/main`, producing a fix (PR #59) built against a stale copy of `createCustomerApproval` that predated PR #56's (`f12514a`) rewrite of the same function into `recordNotification`/`recordAudit` helper closures. The mismatch was caught before merging — `gh pr checks 59` reported no CI runs at all, which prompted a `git fetch`/`gh run list` check that revealed `origin/main` was six commits ahead. PR #59 was closed with an explanatory comment; the real fix was redone from scratch against current `main`. Lesson for future sessions: always `git fetch origin main` and diff against it — not just trust a locally-cached `main` — immediately before branching, especially after any gap in activity (this session had been idle on unrelated docs work between reading `main` and branching).
+
+### Root cause 1 — missing grants
+
+`service_role` had INSERT on `approvals` but not on `notifications`/`audit_logs`. New migration `supabase/migrations/20260909063434_grant_notification_audit_service_role_insert.sql`:
+
+```sql
+grant insert on table
+  public.notifications,
+  public.audit_logs
+to service_role;
+```
+
+Existing SELECT grants (from `20260904004834`) untouched; no UPDATE/DELETE/ALL added. Verified by grepping every `/rest/v1/notifications` and `/rest/v1/audit_logs` call in `src/*.mjs`: INSERT (and, after this fix, one new read-only existence-check GET) are the only operations performed anywhere in the codebase — there is no UPDATE path for `read_at` or `delivery_status` yet.
+
+### Root cause 2 — PR #56's own recordAudit gating bug (this is what the owner's message was quoting verbatim)
+
+PR #56 already reworked the approval flow into `recordNotification`/`recordAudit` closures, but both call sites in `createCustomerApproval` gated the `recordAudit` call:
+
+- Existing-approval branch: `if (notification.status === 'pending_retry') await recordAudit(existing, notification);`
+- New-approval branch: `if (inserted || notification.status === 'pending_retry') await recordAudit(approval, notification);`
+
+Once notification succeeds (`status === 'recorded'`) for an *already-existing* approval, `recordAudit` is never called. So even after the grant fix, resending the production approval would have recorded the notification (0→1) but left audit stuck at 0 forever, replaying the same gap under a different cause. This is exactly the scenario in the owner's message.
+
+Fix: both call sites now call `recordAudit` unconditionally. The "don't duplicate" rule moved inside `recordAudit` itself — but scoped specifically to the `delivery_approval_recorded` outcome, not to "any audit already exists": when `notification.status === 'recorded'`, it first checks (tenant-scoped) for an existing `delivery_approval_recorded` row for this approval and no-ops if found; `pending_retry` entries are not deduped this way, since they're meant to document a real history of separate failed attempts rather than a settled outcome. This design was deliberately chosen to satisfy the owner's specific instruction — "don't let `delivery_approval_recorded` uselessly proliferate" — without silently discarding legitimate retry-failure evidence.
+
+### Tests
+
+- New `CASE A` (`test/platform-store.test.mjs`): reproduces the exact production baseline — both notification and audit blocked at creation (simulated as 403s) → approval=1/notification=0/audit=0 → after the grant is "fixed" mid-test, a resend recovers both (notification 0→1, audit 0→1), approval count unchanged.
+- New `CASE B`: an approval whose evidence is already fully recorded stays a clean no-op across two more resends — no duplicate audit rows.
+- Strengthened the pre-existing "a duplicate approval retries a previously failed notification..." test (from PR #56) with an explicit audit-count assertion: exactly 2 entries (the original `pending_retry` + one `delivery_approval_recorded` on recovery), and a further duplicate resend adds no third.
+- Extended the shared `approvalHarness` test helper (used by 4 of PR #56's own tests) with a GET handler for `audit_logs` (filters by `resource_id`/`action` parsed from the real query string, not a canned response) and an `auditFailure` toggle — neither existed before this fix needed them. All 4 pre-existing tests using this harness still pass unchanged.
+- **Verified with teeth**: `git stash` on just `src/platform-store.mjs`, confirmed CASE A and the strengthened retry test fail against the pre-fix (PR #56) code while everything else stays green, `git stash pop`, confirmed all 11 tests in the file pass.
+- Full Core suite: **107/107 PASS**.
+
+### Independent review
+
+Dispatched twice. The first review ran against the stale PR #59 diff and was explicitly voided (told to disregard its own findings) once the base-branch mismatch was discovered. The second review, against the actual `4bd98cb` diff, confirmed: the tenant-scoped existence-check query is correctly wired; the race-condition reasoning (two truly concurrent resends of an *existing* approval could both pass the dedup check before either INSERT lands, producing two `delivery_approval_recorded` rows) is real but accepted as documented residual risk, since `audit_logs` has no unique constraint by design (grants-only migration) and audit failures are already best-effort/swallowed; the new test-harness GET handler meaningfully validates query-string correctness rather than returning a canned response. One non-blocking note: `pending_retry` audit rows aren't deduped and could accumulate unboundedly under a sustained outage or an automated client retry loop — judged acceptable since this endpoint is customer-click-driven, not auto-retried anywhere in the current codebase. **Verdict: safe to merge as-is.**
+
+### Merge and production state
+
+- **PR #60** (`4bd98cb` → merged `841bb93`, squash, first attempt — no classifier block this time). `origin/main` is now `841bb93`.
+- **This session cannot apply the migration to production.** No Supabase CLI, no `DATABASE_URL`/Postgres connection string, no Supabase Management API token exist anywhere in this environment (`.env.example`, shell env, `~/.supabase/` were all checked). Every prior migration application recorded in this repo's history was performed by a different session/environment (Work, or a Claude Code session with different tooling) — this VS Code extension environment genuinely lacks that capability. **`supabase/migrations/20260909063434_grant_notification_audit_service_role_insert.sql` must be applied to production by Work or the owner (Supabase SQL editor, or whatever mechanism previously applied `20260908011350`/`20260909013641`) before any retry of the existing approval will actually succeed.** Retrying before the grant is live will reproduce the identical FAIL.
+- Render deploy of `841bb93` itself was not verified via read-only HTTP checks this session — this change has no static-asset surface to byte-diff against (backend-only, `src/platform-store.mjs`), unlike the Portal/Admin bundle checks used in earlier checkpoints. Render is expected to auto-deploy on push to `main` as established previously, but Work should treat "the fix isn't live yet" as a live possibility if a retry still shows the old FAIL pattern even after the migration is confirmed applied.
+- Human Gate: unaffected. No production data created/changed/deleted; no real-customer notification; no DNS change; no Secret issued, viewed, or rotated.

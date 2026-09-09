@@ -1,6 +1,6 @@
 # PROJECT_STATUS.md
 
-最終更新: 2026-09-09 JST（Work、PR #56 / migration 20260909013641反映、Production Browser再E2E待ち）
+最終更新: 2026-09-09 JST（Work、Production Browser再E2E notification privilege FAIL記録）
 
 ## CURRENT PHASE
 
@@ -264,3 +264,16 @@ Both bugs recorded as unfixed technical debt in the checkpoint above are now fix
 - Render/application: main merge後の一時502を経てCustomer Portal `/portal/` は実ブラウザ表示成功。Cloud Browserの`/health` URL policy拒否は既知の非blocker。Production Browserのapproval再E2Eは未実行。
 - E2E data（削除禁止、削除にはオーナー承認が必要）: request `746feb20-b98b-42ce-bc44-47218402534e`、workflow `eed70c53-ec31-4d8a-861a-262fb534f08c`、project `52beffb0-0c87-4949-af45-a36a8e155462`。
 - Human Gate: production publish、実顧客notification、DNS、payment/refund、production data削除、Secret操作。今回いずれも未実行。
+
+## PHASE 6 Production Browser再E2E — notification privilege FAIL (2026-09-09 UTC, Work)
+
+- **RESULT: FAIL。PHASE 6はIN PROGRESSのまま。** PHASE 1〜5 COMPLETE。
+- Baseline（request `746feb20-b98b-42ce-bc44-47218402534e`）: approvals 0、対応notifications 0、audit 0、project deployments 0。workflow `eed70c53-ec31-4d8a-861a-262fb534f08c` completed。latest relevant Release Gateはtask `d8e1d6ec-864b-4b7e-8c64-7f0b591f18bc` / `expanded_release_gate` / completed / PASS。
+- Portal Auth / project / request: PASS。通常login成功、E2E projectと対象requestを確認。PortalはRelease Gate修正後の「公開候補です」「本番公開にはオーナーの明示承認が必要です」を表示。
+- 1回目approval: Portalは「最終承認を記録しました。」を表示。DBにapproval `aa5c4245-fb07-4a27-a0aa-71b7f92b94aa` がrequest_id一致、delivery/approvedで1件作成された。APIはPortalの`r.ok`成功分岐に入ったため2xxと判断できるが、数値status/bodyはCloud Browser surfaceでは未取得。
+- **FAIL:** 対応notification 0、audit 0。Portal通知欄も「新しい通知はありません」。deployment 0は期待どおり。
+- Root cause: production table privilegeで`service_role`は`approvals INSERT`を保持するが、`notifications INSERT`と`audit_logs INSERT`を保持しない。server-side PostgREST insertが権限拒否され、applicationはdurable approval維持のためnotificationを`pending_retry`として握り、auditもbest-effortで失敗していると判断。
+- Failure policyに従い2回目approval、Admin整合、responsive最終判定には進んでいない。duplicate protectionは未検証。
+- Console: application-origin error 0。記録されたerrorはすべて`chrome-extension://kcdongibgcplmaagnmgpjhpjgmmaaaaa`由来でアプリ外。
+- Retain: request `746feb20-b98b-42ce-bc44-47218402534e`、workflow `eed70c53-ec31-4d8a-861a-262fb534f08c`、new approval `aa5c4245-fb07-4a27-a0aa-71b7f92b94aa`。削除禁止。
+- Human Gate維持。production publish・実顧客notification・DNS・payment/refund・production data削除・Secret操作は未実行。

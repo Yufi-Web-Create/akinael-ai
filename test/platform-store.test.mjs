@@ -174,3 +174,107 @@ test('customer delivery approval is idempotent and notification failure does not
   assert.match(insert.url, /on_conflict=idempotency_key/);
   assert.equal(JSON.parse(insert.options.body).idempotency_key, 'delivery_approved:project-1:project');
 });
+
+const approvalHarness = ({ notificationFailure = false } = {}) => {
+  const approvals = [];
+  const notifications = [];
+  const audits = [];
+  let shouldFailNotification = notificationFailure;
+  let nextApprovalId = 1;
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    const value = String(url);
+    calls.push({ url: value, options });
+    if (value.endsWith('/auth/v1/user')) return response({ id: 'user-1', email: 'owner@example.com' });
+    if (value.includes('/rest/v1/user_profiles?')) return response([{ id: 'user-1', tenant_id: 'tenant-1', role: 'customer' }]);
+    if (value.includes('/rest/v1/customer_members?')) return response([{ customer_id: 'customer-1' }]);
+    if (value.includes('/rest/v1/projects?')) return response([{ id: 'project-1', tenant_id: 'tenant-1', customer_id: 'customer-1' }]);
+    if (value.includes('/rest/v1/approvals?') && options.method === 'POST') {
+      const body = JSON.parse(options.body);
+      let row = approvals.find((item) => item.idempotency_key === body.idempotency_key);
+      const duplicate = Boolean(row);
+      if (!row) {
+        row = { id: `approval-${nextApprovalId++}`, created_at: new Date().toISOString(), ...body };
+        approvals.push(row);
+      }
+      return response(duplicate && options.headers?.Prefer?.includes('ignore-duplicates') ? [] : [row]);
+    }
+    if (value.includes('/rest/v1/approvals?')) return response(approvals);
+    if (value.includes('/rest/v1/notifications?') && options.method === 'POST') {
+      if (shouldFailNotification) return response({ message: 'temporary notification outage' }, 500);
+      const body = JSON.parse(options.body);
+      let row = notifications.find((item) => item.idempotency_key === body.idempotency_key);
+      const duplicate = Boolean(row);
+      if (!row) {
+        row = { id: `notification-${notifications.length + 1}`, ...body };
+        notifications.push(row);
+      }
+      return response(duplicate && options.headers?.Prefer?.includes('ignore-duplicates') ? [] : [row]);
+    }
+    if (value.includes('/rest/v1/audit_logs?') && options.method === 'POST') {
+      const row = { id: `audit-${audits.length + 1}`, ...JSON.parse(options.body) };
+      audits.push(row);
+      return response([row]);
+    }
+    throw new Error(`unexpected request: ${value}`);
+  };
+  return {
+    store: createPlatformStore({ env, fetchImpl }), approvals, notifications, audits, calls,
+    setNotificationFailure: (value) => { shouldFailNotification = value; }
+  };
+};
+
+test('first approval creates one durable approval and one notification; a repeat creates neither', async () => {
+  const harness = approvalHarness();
+  const firstApproval = await harness.store.createCustomerApproval('access-token', 'project-1', { note: 'E2E TEST PHASE 6 APPROVAL' });
+  const duplicate = await harness.store.createCustomerApproval('access-token', 'project-1', { note: 'E2E TEST PHASE 6 APPROVAL' });
+
+  assert.equal(firstApproval.notification.status, 'recorded');
+  assert.equal(duplicate.duplicate, true);
+  assert.equal(duplicate.notification.status, 'recorded');
+  assert.equal(harness.approvals.length, 1);
+  assert.equal(harness.notifications.length, 1);
+  assert.equal(harness.audits.length, 1);
+  const inserts = harness.calls.filter((call) => call.url.includes('/rest/v1/approvals?') && call.options.method === 'POST');
+  assert.equal(inserts.length, 1);
+  assert.match(inserts[0].url, /on_conflict=idempotency_key/);
+});
+
+test('concurrent identical approvals converge on one approval and one notification', async () => {
+  const harness = approvalHarness();
+  const results = await Promise.all([
+    harness.store.createCustomerApproval('access-token', 'project-1', { note: 'E2E TEST concurrent approval' }),
+    harness.store.createCustomerApproval('access-token', 'project-1', { note: 'E2E TEST concurrent approval' })
+  ]);
+
+  assert.equal(harness.approvals.length, 1);
+  assert.equal(harness.notifications.length, 1);
+  assert.equal(new Set(results.map((item) => item.id)).size, 1);
+});
+
+test('notification failure returns retry evidence without rolling back the approval', async () => {
+  const harness = approvalHarness({ notificationFailure: true });
+  const approval = await harness.store.createCustomerApproval('access-token', 'project-1', { note: 'E2E TEST notification failure' });
+
+  assert.equal(approval.notification.status, 'pending_retry');
+  assert.equal(harness.approvals.length, 1);
+  assert.equal(harness.notifications.length, 0);
+  assert.equal(harness.audits.length, 1);
+  assert.equal(harness.audits[0].action, 'delivery_approval_notification_pending_retry');
+});
+
+test('a duplicate approval retries a previously failed notification without duplicating approval or notification', async () => {
+  const harness = approvalHarness({ notificationFailure: true });
+  const firstApproval = await harness.store.createCustomerApproval('access-token', 'project-1', { note: 'E2E TEST notification retry' });
+  assert.equal(firstApproval.notification.status, 'pending_retry');
+  harness.setNotificationFailure(false);
+  const retry = await harness.store.createCustomerApproval('access-token', 'project-1', { note: 'E2E TEST notification retry' });
+  const duplicate = await harness.store.createCustomerApproval('access-token', 'project-1', { note: 'E2E TEST notification retry' });
+
+  assert.equal(retry.duplicate, true);
+  assert.equal(retry.notification.status, 'recorded');
+  assert.equal(duplicate.duplicate, true);
+  assert.equal(duplicate.notification.status, 'recorded');
+  assert.equal(harness.approvals.length, 1);
+  assert.equal(harness.notifications.length, 1);
+});

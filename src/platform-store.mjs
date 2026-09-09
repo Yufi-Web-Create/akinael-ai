@@ -57,12 +57,30 @@ const adminRepositorySelect = 'id,project_id,provider,repository_full_name,defau
 const adminDeploymentSelect = 'id,project_id,repository_id,environment,status,url,provider_reference,commit_sha,created_at,published_at';
 const adminAuditSelect = 'id,actor_user_id,actor_type,action,resource_type,resource_id,metadata,created_at';
 const adminNotificationSelect = 'id,user_id,project_id,type,message,read_at,created_at';
-const gateTaskSelect = 'id,project_id,task_key,status,result';
+const gateTaskSelect = 'id,project_id,workflow_run_id,task_key,mode,status,result,sequence,created_at';
 const requestTypes = new Set(['general', 'web_new', 'web_change', 'copy', 'social', 'image', 'research', 'automation', 'seo', 'other']);
 const priorities = new Set(['low', 'normal', 'high', 'urgent']);
 
-const deploymentGateFor = ({ gateTasks = [], approvals = [], deployments = [] }) => {
-  const releaseGate = gateTasks.find((task) => task.task_key === 'release_gate');
+const deploymentGateFor = ({ workflows = [], gateTasks = [], approvals = [], deployments = [] }) => {
+  const workflowOrder = new Map(workflows.map((workflow, index) => [workflow.id, index]));
+  const relevantWorkflowId = workflows.find((workflow) =>
+    gateTasks.some((task) => task.workflow_run_id === workflow.id)
+  )?.id;
+  const candidates = relevantWorkflowId
+    ? gateTasks.filter((task) => task.workflow_run_id === relevantWorkflowId)
+    : [...gateTasks].sort((left, right) => {
+        const workflowDelta = (workflowOrder.get(left.workflow_run_id) ?? Number.MAX_SAFE_INTEGER)
+          - (workflowOrder.get(right.workflow_run_id) ?? Number.MAX_SAFE_INTEGER);
+        if (workflowDelta) return workflowDelta;
+        return String(right.created_at || '').localeCompare(String(left.created_at || ''));
+      });
+  const releaseGate = [...candidates].sort((left, right) => {
+    const priority = (task) => task.task_key === 'expanded_release_gate' ? 0 : task.task_key === 'release_gate' ? 1 : 2;
+    return priority(left) - priority(right)
+      || Number(right.sequence || 0) - Number(left.sequence || 0)
+      || String(right.created_at || '').localeCompare(String(left.created_at || ''))
+      || String(left.id || '').localeCompare(String(right.id || ''));
+  })[0];
   const releasePassed = releaseGate?.status === 'completed' && releaseGate?.result?.review?.status === 'PASS';
   const deliveryApproval = approvals.find((approval) => approval.type === 'delivery' && approval.status === 'approved');
   const productionPublished = deployments.some((deployment) => deployment.environment === 'production' && deployment.status === 'published');
@@ -310,7 +328,7 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
       tenantRows(identity, 'messages', messageSelect, `${scope}&order=created_at.asc`),
       tenantRows(identity, 'workflow_runs', customerWorkflowSelect, `${scope}&order=created_at.desc`),
       tenantRows(identity, 'tasks', customerTaskSelect, `${scope}&order=sequence.asc`),
-      tenantRows(identity, 'tasks', gateTaskSelect, `${scope}&task_key=eq.release_gate&order=sequence.asc`),
+      tenantRows(identity, 'tasks', gateTaskSelect, `${scope}&mode=eq.release_gate&order=created_at.desc,sequence.desc`),
       tenantRows(identity, 'artifacts', adminArtifactSelect, `${scope}&order=created_at.desc`),
       tenantRows(identity, 'quality_checks', adminQualityCheckSelect, `${scope}&order=created_at.desc`),
       tenantRows(identity, 'approvals', customerApprovalSelect, `${scope}&order=created_at.desc`),
@@ -335,7 +353,7 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
       repositories,
       deployments,
       notifications,
-      deploymentGate: deploymentGateFor({ gateTasks, approvals, deployments }),
+      deploymentGate: deploymentGateFor({ workflows, gateTasks, approvals, deployments }),
       auditLogs
     };
   };
@@ -505,36 +523,50 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
     }
     const note = requiredText(input.note, 'approval note', 10000);
     const requestFilter = requestId ? `request_id=eq.${encodeURIComponent(requestId)}` : 'request_id=is.null';
+    const idempotencyKey = `delivery_approved:${project.id}:${requestId || 'project'}`;
+    const recordNotification = async () => {
+      try {
+        await admin.request('/rest/v1/notifications', {
+          method: 'POST', query: 'on_conflict=idempotency_key&select=id',
+          headers: { Prefer: 'resolution=ignore-duplicates,return=representation' },
+          body: { tenant_id: identity.tenantId, user_id: identity.id, project_id: project.id, type: 'delivery_approved', message: '成果物の承認を記録しました。本番公開はオーナー承認待ちです。', idempotency_key: idempotencyKey, delivery_status: 'in_app', delivery_attempts: 0 }
+        });
+        return { status: 'recorded' };
+      } catch {
+        return { status: 'pending_retry' };
+      }
+    };
+    const recordAudit = async (approval, notification) => {
+      try {
+        await admin.request('/rest/v1/audit_logs', {
+          method: 'POST', query: 'select=id', headers: { Prefer: 'return=representation' },
+          body: { tenant_id: identity.tenantId, actor_user_id: identity.id, actor_type: 'customer', action: notification.status === 'recorded' ? 'delivery_approval_recorded' : 'delivery_approval_notification_pending_retry', resource_type: 'approval', resource_id: approval.id, metadata: { project_id: project.id, request_id: requestId, idempotency_key: idempotencyKey } }
+        });
+      } catch {
+        // Approval is durable; a best-effort audit failure must not convert it into a failed approval.
+      }
+    };
     const existing = first(await admin.request('/rest/v1/approvals', {
       query: `tenant_id=eq.${encodeURIComponent(identity.tenantId)}&project_id=eq.${encodeURIComponent(project.id)}&${requestFilter}&type=eq.delivery&status=eq.approved&select=${customerApprovalSelect}&limit=1`
     }));
-    if (existing) return { ...existing, duplicate: true, notification: { status: 'already_recorded' } };
-    const idempotencyKey = `delivery_approved:${project.id}:${requestId || 'project'}`;
+    if (existing) {
+      const notification = await recordNotification();
+      if (notification.status === 'pending_retry') await recordAudit(existing, notification);
+      return { ...existing, duplicate: true, notification };
+    }
     const rows = await admin.request('/rest/v1/approvals', {
       method: 'POST', query: `on_conflict=idempotency_key&select=${customerApprovalSelect}`,
-      headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+      headers: { Prefer: 'resolution=ignore-duplicates,return=representation' },
       body: { tenant_id: identity.tenantId, project_id: project.id, request_id: requestId, type: 'delivery', status: 'approved', requested_by: identity.id, decided_by: identity.id, idempotency_key: idempotencyKey, payload: { note, source: 'customer_portal' }, decided_at: new Date().toISOString() }
     });
-    const approval = first(rows);
+    const approval = first(rows) || first(await admin.request('/rest/v1/approvals', {
+      query: `tenant_id=eq.${encodeURIComponent(identity.tenantId)}&project_id=eq.${encodeURIComponent(project.id)}&idempotency_key=eq.${encodeURIComponent(idempotencyKey)}&select=${customerApprovalSelect}&limit=1`
+    }));
     if (!approval) throw new PlatformStoreError('approval could not be recorded', { status: 502, code: 'approval_create_failed' });
-    let notification = { status: 'recorded' };
-    try {
-      await admin.request('/rest/v1/notifications', {
-        method: 'POST', query: 'on_conflict=idempotency_key&select=id',
-        headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
-        body: { tenant_id: identity.tenantId, user_id: identity.id, project_id: project.id, type: 'delivery_approved', message: '成果物の承認を記録しました。本番公開はオーナー承認待ちです。', idempotency_key: idempotencyKey, delivery_status: 'in_app', delivery_attempts: 0 }
-      });
-    } catch {
-      notification = { status: 'pending_retry' };
-    }
-    try {
-      await admin.request('/rest/v1/audit_logs', {
-        method: 'POST', query: 'select=id', headers: { Prefer: 'return=representation' },
-        body: { tenant_id: identity.tenantId, actor_user_id: identity.id, actor_type: 'customer', action: notification.status === 'recorded' ? 'delivery_approval_recorded' : 'delivery_approval_notification_pending_retry', resource_type: 'approval', resource_id: approval.id, metadata: { project_id: project.id, request_id: requestId, idempotency_key: idempotencyKey } }
-      });
-    } catch {
-      // Approval is durable; a best-effort audit failure must not convert it into a failed approval.
-    }
+    const inserted = Boolean(first(rows));
+    const notification = await recordNotification();
+    if (inserted || notification.status === 'pending_retry') await recordAudit(approval, notification);
+    if (!inserted) return { ...approval, duplicate: true, notification };
     return { ...approval, notification };
   };
 
@@ -551,7 +583,7 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
         query: `${scope}&select=${customerTaskSelect}&order=sequence.asc`
       }),
       admin.request('/rest/v1/tasks', {
-        query: `${scope}&task_key=eq.release_gate&select=${gateTaskSelect}&limit=1`
+        query: `${scope}&mode=eq.release_gate&select=${gateTaskSelect}&order=created_at.desc,sequence.desc`
       }),
       admin.request('/rest/v1/artifacts', {
         query: `${scope}&select=${customerArtifactSelect}&order=created_at.desc`
@@ -584,7 +616,7 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
       qualityChecks: Array.isArray(qualityChecks) ? qualityChecks : [],
       approvals: Array.isArray(approvals) ? approvals : [],
       notifications: Array.isArray(notifications) ? notifications : [],
-      deploymentGate: deploymentGateFor({ gateTasks, approvals, deployments })
+      deploymentGate: deploymentGateFor({ workflows, gateTasks, approvals, deployments })
     };
   };
 

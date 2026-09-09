@@ -13,3 +13,5 @@ admin/vite.config.d.ts
 admin/vite.config.js
 portal/vite.config.d.ts
 portal/vite.config.js
+admin/test-results/
+admin/playwright-report/

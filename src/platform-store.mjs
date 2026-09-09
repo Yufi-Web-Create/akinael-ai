@@ -523,11 +523,37 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
     }
     const note = requiredText(input.note, 'approval note', 10000);
     const requestFilter = requestId ? `request_id=eq.${encodeURIComponent(requestId)}` : 'request_id=is.null';
+    const idempotencyKey = `delivery_approved:${project.id}:${requestId || 'project'}`;
+    const recordNotification = async () => {
+      try {
+        await admin.request('/rest/v1/notifications', {
+          method: 'POST', query: 'on_conflict=idempotency_key&select=id',
+          headers: { Prefer: 'resolution=ignore-duplicates,return=representation' },
+          body: { tenant_id: identity.tenantId, user_id: identity.id, project_id: project.id, type: 'delivery_approved', message: '成果物の承認を記録しました。本番公開はオーナー承認待ちです。', idempotency_key: idempotencyKey, delivery_status: 'in_app', delivery_attempts: 0 }
+        });
+        return { status: 'recorded' };
+      } catch {
+        return { status: 'pending_retry' };
+      }
+    };
+    const recordAudit = async (approval, notification) => {
+      try {
+        await admin.request('/rest/v1/audit_logs', {
+          method: 'POST', query: 'select=id', headers: { Prefer: 'return=representation' },
+          body: { tenant_id: identity.tenantId, actor_user_id: identity.id, actor_type: 'customer', action: notification.status === 'recorded' ? 'delivery_approval_recorded' : 'delivery_approval_notification_pending_retry', resource_type: 'approval', resource_id: approval.id, metadata: { project_id: project.id, request_id: requestId, idempotency_key: idempotencyKey } }
+        });
+      } catch {
+        // Approval is durable; a best-effort audit failure must not convert it into a failed approval.
+      }
+    };
     const existing = first(await admin.request('/rest/v1/approvals', {
       query: `tenant_id=eq.${encodeURIComponent(identity.tenantId)}&project_id=eq.${encodeURIComponent(project.id)}&${requestFilter}&type=eq.delivery&status=eq.approved&select=${customerApprovalSelect}&limit=1`
     }));
-    if (existing) return { ...existing, duplicate: true, notification: { status: 'already_recorded' } };
-    const idempotencyKey = `delivery_approved:${project.id}:${requestId || 'project'}`;
+    if (existing) {
+      const notification = await recordNotification();
+      if (notification.status === 'pending_retry') await recordAudit(existing, notification);
+      return { ...existing, duplicate: true, notification };
+    }
     const rows = await admin.request('/rest/v1/approvals', {
       method: 'POST', query: `on_conflict=idempotency_key&select=${customerApprovalSelect}`,
       headers: { Prefer: 'resolution=ignore-duplicates,return=representation' },
@@ -537,25 +563,10 @@ export const createPlatformStore = ({ env = process.env, fetchImpl = fetch } = {
       query: `tenant_id=eq.${encodeURIComponent(identity.tenantId)}&project_id=eq.${encodeURIComponent(project.id)}&idempotency_key=eq.${encodeURIComponent(idempotencyKey)}&select=${customerApprovalSelect}&limit=1`
     }));
     if (!approval) throw new PlatformStoreError('approval could not be recorded', { status: 502, code: 'approval_create_failed' });
-    if (!first(rows)) return { ...approval, duplicate: true, notification: { status: 'already_recorded' } };
-    let notification = { status: 'recorded' };
-    try {
-      await admin.request('/rest/v1/notifications', {
-        method: 'POST', query: 'on_conflict=idempotency_key&select=id',
-        headers: { Prefer: 'resolution=ignore-duplicates,return=representation' },
-        body: { tenant_id: identity.tenantId, user_id: identity.id, project_id: project.id, type: 'delivery_approved', message: '成果物の承認を記録しました。本番公開はオーナー承認待ちです。', idempotency_key: idempotencyKey, delivery_status: 'in_app', delivery_attempts: 0 }
-      });
-    } catch {
-      notification = { status: 'pending_retry' };
-    }
-    try {
-      await admin.request('/rest/v1/audit_logs', {
-        method: 'POST', query: 'select=id', headers: { Prefer: 'return=representation' },
-        body: { tenant_id: identity.tenantId, actor_user_id: identity.id, actor_type: 'customer', action: notification.status === 'recorded' ? 'delivery_approval_recorded' : 'delivery_approval_notification_pending_retry', resource_type: 'approval', resource_id: approval.id, metadata: { project_id: project.id, request_id: requestId, idempotency_key: idempotencyKey } }
-      });
-    } catch {
-      // Approval is durable; a best-effort audit failure must not convert it into a failed approval.
-    }
+    const inserted = Boolean(first(rows));
+    const notification = await recordNotification();
+    if (inserted || notification.status === 'pending_retry') await recordAudit(approval, notification);
+    if (!inserted) return { ...approval, duplicate: true, notification };
     return { ...approval, notification };
   };
 

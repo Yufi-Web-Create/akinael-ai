@@ -1,6 +1,6 @@
 # PROJECT_STATUS.md
 
-最終更新: 2026-09-09 JST（Claude Code、notification/audit privilege + recordAudit gating bug修正 — PR #60 merge済み。production migration適用はWork/オーナー待ち）
+最終更新: 2026-09-09 JST（Claude Code、Admin mobile CSS browser互換性修正 — PR #62/#63 merge・production反映確認済み。Admin mobile再QA待ち）
 
 ## CURRENT PHASE
 
@@ -291,3 +291,18 @@ Both bugs recorded as unfixed technical debt in the checkpoint above are now fix
 - **PR #60** (`4bd98cb` → merged `841bb93`)。CI PASS。Core tests **107/107 PASS**。`origin/main`は`841bb93`。
 - **production migration適用はこのセッションでは実行できていない**: このClaude Code環境にはSupabase CLI・DB接続文字列・Management API tokenのいずれも存在せず、GRANT文（DDL）を直接実行する手段がない。Work、またはSupabase SQL editorへアクセスできるセッション/オーナーが`supabase/migrations/20260909063434_grant_notification_audit_service_role_insert.sql`を本番へ適用する必要がある。適用前にWorkが同じapprovalを再送しても、notification/auditは依然として0件のままになる。
 - Human Gate: 影響なし。production data作成・変更・削除、実顧客notification、DNS、Secret操作のいずれも実行していない。
+
+## PHASE 6 Admin mobile QA investigation (2026-09-09 JST, Claude Code, 第6セッション)
+
+Gemini mobile visual QAで、Portal PASS・Admin FAILという結果が報告された（Adminのsidebarが画面幅の約30〜40%を固定占有し、主要コンテンツ・tabsが右側で見切れる）。指示どおり推測で修正せず、再現・root cause特定を先に行った。**PHASE 6はまだCOMPLETEにしない。**
+
+- **再現できなかった**: 実ブラウザ2種（ローカルcache済みChromium、および本番`https://akinael-ai.com/admin/`直接）で390x844・375x812をPlaywrightで検証したところ、いずれも正常表示（横方向overflowなし、sidebarはfull-width・stacked、`matchMedia`はtrue）。Portalの報告どおりのPASS挙動と一致し、報告されたAdmin FAILとは矛盾する結果だった。
+- **数値的に一致する仮説（未確定、推測として明記）**: viewport幅828pxで検証すると、sidebar幅がちょうど画面の32.6%となり、「約30〜40%」という報告と正確に一致した（760pxのbreakpointを超えているためmobile CSSが適用されない状態）。QAツールが`<meta name="viewport">`を正しく解釈せず、より広いlayout viewportへfallbackしていた可能性が高いと推測されるが、Gemini側の実際のbrowser/viewport設定はこのセッションから確認できず、証明はできていない。
+- **原因を問わず修正した実在の互換性gap**: Viteの既定CSS minifierが、source側の`max-width:760px`等のclassic media query構文を、実行時ブラウザ対応がより狭いCSS Media Queries Level 4のrange構文（`width<=760px`）へ自動変換していたことが判明。未対応browserでは`@media`ブロック全体が無効になるため、報告された症状（sidebar・tabs・metrics・textすべて同時におかしくなる）と整合する。`admin/vite.config.ts`・`portal/vite.config.ts`へ`build.cssTarget:"safari14"`を追加し、classic構文へ回帰させた（build出力のbyte diffで、この1点以外に差分がないことを確認済み）。
+- **新規test**: `admin/e2e/mobile-responsive.spec.ts`（Playwright、このrepo初の実ブラウザtest。既存のVitest/jsdomでは実CSS layoutを検証できないため）。390x844・375x812での横overflowなし・sidebar非固定・主要panelがviewport内・console error 0、および1280pxでのdesktop layout回帰確認をカバー。mobile breakpointを一時的に破壊してtestがFAILすることを確認後、復元してPASSを確認済み（fail-before/pass-after）。CIには組み込まず、ローカル`npm run test:mobile`実行の運用（既存frontend testと同じ扱い）。
+- **overflow:hiddenのband-aidは使用していない**: 実際のlayoutは複数engineで正しいことを確認済みのため、隠す必要のあるoverflowは存在しなかった。
+- **PR #62**（`2b47168` → merged `9eb989b`）・**PR #63**（`1064264` → merged `34d2cc0`、`public/admin/`の既知の静的asset非同期問題への追加対応、PR #54と同一パターン）。独立レビュー実施、verdict: safe to merge as-is。
+- **production反映確認**: `GET /admin/assets/index-B6rBGd6d.css`が200・ローカルbuildとbyte一致・classic構文を含むことを確認。旧bundleは404。本番へPlaywright再実行し、390x844・375x812とも横overflowなし・console error 0を確認。
+- Core tests 107/107 PASS（今回は影響なし、frontend限定の変更）。`origin/main`は`34d2cc0`。
+- **正直な限界の明記**: このcssTarget修正がGemini再検証を確実にPASSさせると断言はできない。確認できたのは、(a) 実際のresponsive実装は複数engine・本番環境で正しく動作していること、(b) 報告された症状と整合する実在のbrowser互換性gapを1件発見・修正したこと、の2点のみ。再検証後も再現する場合は、Gemini側が実際に使用しているbrowser/viewport emulationの確認が次の手がかりとなる。
+- Human Gate: 影響なし。production data・実顧客notification・DNS・Secretの変更は一切なし。approval再送・notification生成・request作成は今回のtaskの範囲外として実行していない。

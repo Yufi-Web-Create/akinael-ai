@@ -1,6 +1,6 @@
 # NEXT_TASKS.md
 
-最終更新: 2026-09-09 JST（Claude Code、notification/audit privilege + recordAudit gating bug修正 — PR #60 merge済み。production migration適用はWork/オーナー待ち）
+最終更新: 2026-09-09 JST（Claude Code、Admin mobile CSS browser互換性修正 — PR #62/#63 merge・production反映確認済み。Admin mobile再QA待ち）
 
 ## 最優先: source-control driftを解消
 
@@ -224,3 +224,26 @@ Retain IDs: project `52beffb0-0c87-4949-af45-a36a8e155462`、request `746feb20-b
 11. 上記すべてPASSして初めてPHASE 6 COMPLETEと判定し、3文書を更新する。一つでもFAILがあれば再現手順・HTTP status・console・DB差分を記録し、PHASE 6はIN PROGRESSのまま維持する。
 
 Retain（削除禁止、削除には明示承認が必要）: project `52beffb0-0c87-4949-af45-a36a8e155462`、request `746feb20-b98b-42ce-bc44-47218402534e`、workflow `eed70c53-ec31-4d8a-861a-262fb534f08c`、approval `aa5c4245-fb07-4a27-a0aa-71b7f92b94aa`。production publish・実顧客notification・DNS・payment/refund・production data削除・Secret操作はHuman Gate。
+
+## Admin mobile CSS修正 — production反映済み、Gemini再QA待ち（2026-09-09 JST, Claude Code, 第6セッション）
+
+Gemini mobile visual QAのAdmin FAIL（sidebar固定・content見切れ）を調査。再現できなかったが（実ブラウザ2種・本番直接で正常動作を確認）、報告症状と整合する実在のCSS browser互換性gap（Viteが`max-width:`をrange構文`width<=`へ自動変換していた）を発見・修正した。**PHASE 6はまだCOMPLETEにしない。**
+
+- [x] STEP 1 REPRODUCE: Playwright実ブラウザで390x844/375x812を検証(ローカルbuild・本番直接の両方)。横overflowなし、sidebar非固定、matchMedia true — 再現せず。
+- [x] STEP 2 ROOT CAUSE: static asset drift(B)は否定。media queryの browser互換性(C)に該当する実在のgapを発見(Vite CSS minifierによるrange構文への自動変換)。
+- [x] STEP 3 STATIC ASSET DRIFT確認: production配信CSSとlocal buildをbyte-diffし一致を確認(修正前・修正後とも)。
+- [x] STEP 4 FIX: `build.cssTarget:"safari14"`をadmin/portal両方のvite.config.tsへ追加。overflow:hiddenのband-aidは使用していない。
+- [x] STEP 5 回帰test: `admin/e2e/mobile-responsive.spec.ts`(Playwright)追加。fail-before/pass-after確認済み。
+- [x] STEP 6 VALIDATION: Admin/Portal lint・build・既存vitest、Core tests 107/107、独立レビュー、すべてPASS。`public/admin/`静的asset再同期(PR #63)、production反映をbyte-diff・Playwright実ブラウザで確認済み。
+
+### STEP 7 — オーナーへのhand back
+
+production反映済み(`origin/main` `34d2cc0`、Render live deploy確認済み)。**オーナー側で実ブラウザmobile画面を再度Geminiへ見せてください。**
+
+- Gemini Admin mobile再確認: PASS/FAILを確認する。
+- 主要Production E2E(notification/audit、上記セクション参照)の既存PASSが維持されていることも合わせて確認する。
+- 両方PASSして初めてPHASE 6 COMPLETEとする。
+
+**正直な限界（オーナー・Geminiへの申し送り）**: 今回の修正はGemini再検証を確実にPASSさせると断言できるものではない。確認できたのは、(a) 実際のresponsive実装が複数browser engine・本番環境で正しく動作していること、(b) 報告症状と整合する実在のbrowser互換性gapを1件発見・修正したこと、の2点。**再検証後も同じ症状が再現する場合**、次の手がかりはGemini側が実際に使用しているbrowser/viewport emulationの確認になる(このセッションからは確認不可)。
+
+今回のtaskでは、approval再送・notification生成・request作成・production publish・DNS変更・payment・production data削除・Secret操作のいずれも行っていない。既存E2E dataは保持済み。

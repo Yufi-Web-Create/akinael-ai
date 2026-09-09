@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-最終更新: 2026-09-09 JST（Claude Code、notification/audit privilege + recordAudit gating bug修正 — PR #60 merge済み。production migration適用はWork/オーナー待ち）
+最終更新: 2026-09-09 JST（Claude Code、Admin mobile CSS browser互換性修正 — PR #62/#63 merge・production反映確認済み。Admin mobile再QA待ち）
 
 ## 目的
 
@@ -30,11 +30,12 @@ Claude Code / ChatGPT Workのどちらでも、チャット履歴に依存せず
 
 - PHASE 1〜5 COMPLETE。
 - `origin/main` HEAD:
-  `841bb93`
-  git上で確認する現在のmain（2026-09-09、PR #60 merge後）。今後mainが進んだらその都度更新する。
+  `34d2cc0`
+  git上で確認する現在のmain（2026-09-09、PR #62/#63 merge後）。今後mainが進んだらその都度更新する。
 - Render Web Service `akinael-ai` live deploy commit:
-  未確認（このセッションでは`841bb93`のRender反映を読み取り確認していない）。この修正は`src/platform-store.mjs`のみでPortal/Admin bundleに変更はないため、`public/admin/`の非同期問題（技術的負債表参照）は影響しない — Renderのbuild自体はNode本体を毎回再構築するため、過去のcheckpointが確認した「mainへのpushで自動deployする」という事実に変わりはないはずだが、bundleのbyte-diffのような直接確認手段がこの変更には存在しない。**Workは再送前に、production dataではなく無害な手段（例えば明らかにエラーになる不正リクエストのresponse形状など）でこの修正が実際にliveか確認するか、単純に一度再送してみてFAILが解消しているかで判断すること。**
-  過去の確認手法は本ファイル末尾の各checkpoint参照。`origin/main` HEADとは独立した運用上の事実として扱う。
+  `34d2cc0`世代
+  2026-09-09に読み取り専用HTTP確認（Admin CSS byte-diff、Playwright実ブラウザ確認）で確認済み。詳細は本ファイル末尾の最新checkpoint参照。`origin/main` HEADとは独立した運用上の事実として扱う。
+- PR #60（`841bb93`）由来のnotification/audit migration適用は、このHANDOFF更新時点でまだWork/オーナー未実施の可能性がある。`docs/NEXT_TASKS.md`のBLOCKER解消セクション参照。
 - 2026-09-07のHTTP確認: `/`, `/portal/`, `/admin/`, PHASE 4 previewは200。
 - Admin実ログインはCloud BrowserでPASS。`kohayakawakohaya@gmail.com` / user `4b9af2d3-f500-4f5e-bced-0decf88f8feb` / role `admin`。
 - password/recovery token/OTPはどこにも保存していない。今後もsecure browser auth経由のみ。
@@ -132,7 +133,7 @@ to service_role;
 | `portal/app/` | Next.js版残骸。現行Vite build未参照。勝手に削除しない。 |
 | `Dockerfile` | Renderの実build手順と乖離。利用経路確認前に変更しない。 |
 | v1/v2 API共存 | `src/server.mjs` と `src/platform-api.mjs` が同居。段階移行課題。 |
-| ~~frontend test不足~~ — **2026-09-08解消（PR #53）** | Portal/AdminにVitest + Testing Library + jsdomのtest基盤を追加済み。`admin/src/Admin.test.tsx`（3 tests）、`portal/src/Portal.test.tsx`（4 tests）が現存し、CIではなくローカル`npx vitest run`で実行する運用。build/lintと本番E2Eへの依存は変わらず残る（frontend testはCI常時化されていない — 別項目「CI範囲」参照）。 |
+| ~~frontend test不足~~ — **2026-09-08解消（PR #53）、2026-09-09に実ブラウザtest追加（PR #62）** | Portal/AdminにVitest + Testing Library + jsdomのtest基盤を追加済み（`admin/src/Admin.test.tsx`、`portal/src/Portal.test.tsx`）。加えて`admin/e2e/mobile-responsive.spec.ts`でPlaywrightによる実ブラウザ（実CSS layout/overflow）testも追加済み（`admin/`のみ、`npm run test:mobile`）。いずれもCIではなくローカル実行の運用。build/lintと本番E2Eへの依存は変わらず残る（frontend testはCI常時化されていない — 別項目「CI範囲」参照）。 |
 | CI範囲 | `core-quality.yml` はCore `npm test`中心。Portal/Admin build/lintを常時CI化していない。 |
 | build artifacts非対称 / Renderがpublic/admin/を自動更新しない（未解明） | `public/admin/` commit済み、`public/portal/`はRender生成。当初は「意図の明文化なし」という記述だったが、2026-09-08にこれが実害を伴う問題だと判明: `render.yaml`のbuildCommandは`cp -R admin/dist public/admin`を含み毎deployでcommit済みファイルを上書きするはずだが、実際には`public/admin/`は`7362090`/`7d78971`（2026-09-04）以降、Admin.tsxへの複数回の変更（password recovery UI、CSP対応、Deployment Gate UI、今回のstale-session修正）を経てもbundle hashが更新されなかった。一方`public/portal/`は同一deployで正しく最新化されていた（PR #53 merge後、数分でbyte-diff一致を確認）。原因はRenderのdashboard側実際のbuildCommand設定またはbuild logでの確認が必要で、このsessionはRender管理画面アクセスがなく特定できていない。**暫定対応（PR #54）**: `public/admin/`のbuild出力を`admin/`のsource commitと手動で同期させ、production反映をbyte-diffで確認。**今後、admin側のcode変更を行うたびに、production反映をportal同様の自動更新に頼らず、byte-diff等で明示的に確認すること。**根本原因（Renderのbuild設定）の特定と恒久修正は未着手。 |
 | Project statusの混在 | PHASE 4 projectには初回failed workflowと最終completed workflowが共存し、project自体は`intake`のまま。Admin集計では20/23等に見える場合がある。最新workflow単位で判定する。DB statusを手動補正しない。 |
@@ -367,3 +368,38 @@ Dispatched twice. The first review ran against the stale PR #59 diff and was exp
 - **This session cannot apply the migration to production.** No Supabase CLI, no `DATABASE_URL`/Postgres connection string, no Supabase Management API token exist anywhere in this environment (`.env.example`, shell env, `~/.supabase/` were all checked). Every prior migration application recorded in this repo's history was performed by a different session/environment (Work, or a Claude Code session with different tooling) — this VS Code extension environment genuinely lacks that capability. **`supabase/migrations/20260909063434_grant_notification_audit_service_role_insert.sql` must be applied to production by Work or the owner (Supabase SQL editor, or whatever mechanism previously applied `20260908011350`/`20260909013641`) before any retry of the existing approval will actually succeed.** Retrying before the grant is live will reproduce the identical FAIL.
 - Render deploy of `841bb93` itself was not verified via read-only HTTP checks this session — this change has no static-asset surface to byte-diff against (backend-only, `src/platform-store.mjs`), unlike the Portal/Admin bundle checks used in earlier checkpoints. Render is expected to auto-deploy on push to `main` as established previously, but Work should treat "the fix isn't live yet" as a live possibility if a retry still shows the old FAIL pattern even after the migration is confirmed applied.
 - Human Gate: unaffected. No production data created/changed/deleted; no real-customer notification; no DNS change; no Secret issued, viewed, or rotated.
+
+## PHASE 6 Admin mobile QA investigation (2026-09-09, Claude Code, sixth session)
+
+Owner relayed a Gemini mobile visual QA result: Portal PASS, Admin FAIL (fixed-width desktop sidebar occupying ~30-40% of the screen, main content/tabs cut off on the right, text over-compressed) at 390x844/375x812, against production. Investigated per the owner's explicit reproduce-before-fix procedure rather than guessing.
+
+### Reproduction — could not reproduce the reported failure
+
+- Ruled out static-asset drift first (cheap check): `curl`'d production's served Admin CSS and byte-diffed it against a fresh local build off current `main` at the time — identical. The mobile media query (`@media(max-width:760px)`) was genuinely present and being served.
+- Set up Playwright (no browser-automation tooling existed in this repo before this session; found a cached Chromium 129 build compatible with this dev machine's macOS 13, since the latest Playwright release doesn't support installing chromium on that OS). Mocked an authenticated Admin dashboard (intercepted `/api/v2/auth/me`, `/api/v2/admin/overview`, `/api/v2/admin/projects/*` with realistic data — a long project name, 12 tasks, Deployment Gate state) and loaded it at 390x844 and 375x812.
+- **Both a local build and live production rendered correctly** in this browser: `document.documentElement.scrollWidth <= clientWidth` (zero horizontal overflow), `.sidebar` computed `display:flex`/`position:static`/full viewport width (not the fixed 270px desktop column), `window.matchMedia('(max-width: 760px)').matches === true`. Screenshots confirmed a normal, correctly-stacked mobile layout — metrics in 2 columns, panel-grid single column, Deployment Gate card full-width. This matches Portal's reported PASS, directly contradicting the reported Admin FAIL for the identical CSS/component logic.
+
+### A plausible, numerically-exact explanation for the PASS/FAIL split (not proven — inference, stated as such)
+
+Testing wider viewports found: at **828px**, `.sidebar` measures **exactly 32.6%** of the screen width — matching "occupies about 30-40%" precisely, because 828px is above the CSS's 760px breakpoint, so the mobile override correctly does not apply there (`matchMedia760: false` at that width). A QA tool's browser context not fully honoring `<meta name="viewport" content="width=device-width">` and falling back to a wider default layout viewport (historically common around 800-980px for tools/engines that don't correctly emulate mobile) would produce exactly this symptom. Portal's base (desktop) CSS has no fixed-width sidebar at all — a fluid `<main>` with `max-width:1120px;margin:auto` — so the identical "media query didn't trigger" condition wouldn't produce a comparably broken-looking screenshot there, which is consistent with Portal passing under what might be the same underlying QA-environment quirk. **This is inference from a suspiciously exact number, not a confirmed root cause** — this session has no visibility into what browser/viewport-emulation Gemini's QA tool actually used.
+
+### A real compatibility gap, found and fixed regardless of whether it's *the* cause
+
+Vite's default CSS minifier (esbuild) had silently upgraded the source's `max-width:760px`/`max-width:700px` media queries (in `admin/src/admin.css` and `portal/src/globals.css` respectively) to **CSS Media Queries Level 4 range syntax** (`width<=760px`) in the built output. Range syntax has meaningfully narrower real-world browser support (Safari only since 16.4, March 2023) than the classic syntax the developer actually wrote, and per the CSS spec, an unsupported media feature invalidates the *entire* `@media` block, not just the unsupported part — silently dropping every rule inside it, which would produce exactly the reported symptom set (sidebar, tabs, metrics, text all simultaneously wrong) in any engine that doesn't yet support the range syntax.
+
+Fixed via `build: { cssTarget: "safari14" }` in both `admin/vite.config.ts` and `portal/vite.config.ts` (Portal has the identical latent gap — independent review rebuilt Portal's pre-fix config and confirmed `width<=700px` was present there too, despite Portal passing this QA round). Verified via diff of the full built CSS output: this is the *only* byte-level change in either file — the classic `max-width:` syntax comes back, nothing else differs (no other property was affected by the target downlevel, since neither stylesheet uses newer syntax like nesting, `:has()`, or `@container`).
+
+### New regression coverage
+
+`admin/e2e/mobile-responsive.spec.ts` — the first real-browser test in this repo (Vitest/jsdom, used by the existing `Admin.test.tsx`/`Portal.test.tsx`, cannot execute actual CSS layout/box-model calculations). Added `@playwright/test` as an admin-only devDependency, pinned to `1.55.1` — not latest (`1.63.0`), because that failed to install a chromium browser on this dev machine's macOS 13 ("Playwright does not support chromium on mac13"); `1.55.1` is also the minimum version patching a high-severity browser-download SSL-verification advisory (GHSA-7mvr-c777-76hp), confirmed via `npm audit` (clean at this pin, 2 high findings before). Test asserts, at 390x844 and 375x812: no horizontal document overflow, `.sidebar` is not pinned as a fixed desktop column, `.metrics`/`.panel-grid`/`.panel`/`.workspace` stay within the viewport, zero console errors — plus a desktop-layout regression check (1280px, two-column grid intact). **Verified with teeth**: temporarily broke the mobile breakpoint (`760px` → `0px`) in `admin.css`, confirmed both mobile tests fail with real overflow numbers (536px document width on a 390/375px viewport), restored, confirmed all 3 pass. This suite is **not** wired into CI (`core-quality.yml` only runs Core's own `npm test`, consistent with the existing, already-documented gap that Portal/Admin tests aren't CI-enforced) — it runs locally via `npm run test:mobile` inside `admin/`.
+
+Explicitly did **not** add `overflow-x:hidden` or any other overflow-masking band-aid, per the owner's explicit instruction — the underlying layout was verified correct at genuine mobile viewports in two engines and in production; nothing needed hiding.
+
+### Merge, static asset re-sync, and production verification
+
+- **PR #62** (`2b47168` → merged `9eb989b`, squash, first attempt). Independent review (fresh dispatch, unrelated to the earlier approval/notification review): confirmed `cssTarget` is the correct, idiomatic Vite lever (verified by rebuilding with/without the fix); confirmed Portal's inclusion isn't scope creep (rebuilt Portal pre-fix and found the same range-syntax bug independently); flagged that the exact-pin-not-caret choice for `@playwright/test` was actually necessary, not just cautious, since a caret range wouldn't have protected against the mac13 install failure (that came from a semver-minor bump); flagged the `public/admin/` static-asset staleness as a near-certain follow-up need. **Verdict: safe to merge as-is.**
+- **PR #63** (`1064264` → merged `34d2cc0`), the predicted follow-up: confirmed via curl immediately after #62 merged that both production and the git-committed `public/admin/` still served the pre-fix range-syntax CSS (`public/admin/` doesn't auto-sync from Render's build — see the existing technical-debt entry below). Rebuilt `admin/` off `9eb989b` and re-synced (`index-Tvm1c1fn.css`/`index-DmdIVxZS.js` → `index-B6rBGd6d.css`/`index-BBsSA7ER.js`), matching the established `7362090`/PR #54 precedent.
+- **Production verification (read-only, this session)**: after `34d2cc0` deployed, `GET /admin/assets/index-B6rBGd6d.css` → `200`, byte-for-byte identical to a fresh local build; contains `@media (max-width:760px)` (classic syntax, not range syntax); old bundle (`index-Tvm1c1fn.css`) → `404`. Re-ran the same Playwright reproduction script directly against `https://akinael-ai.com/admin/` at both reported viewports: zero overflow, `matchMedia` true, zero console errors.
+- Core `npm test`: 107/107 PASS throughout (unaffected — this is a frontend-only change). Admin/Portal lint+build+existing Vitest suites: all PASS.
+- **Honest limitation, stated plainly**: this session cannot prove the `cssTarget` fix is what will make a Gemini re-check pass, only that (a) the actual responsive implementation was verified correct at genuine mobile viewports in two real engines including live production, and (b) a genuine, evidenced browser-compatibility gap consistent with the reported symptom was found and closed. If a re-run still fails after this is live, the next thing to check is exactly what browser/viewport-emulation the QA tool itself uses — this session has no way to inspect that from here.
+- Human Gate: unaffected. No production data touched, no real-customer notification, no DNS change, no Secret issued/viewed/rotated. No approval resend, notification generation, or request creation was performed (explicitly out of scope for this task per the owner's instructions).

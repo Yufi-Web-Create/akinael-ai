@@ -6,7 +6,7 @@ const migrationUrl = new URL('../supabase/migrations/20260908112917_make_idempot
 
 test('approval and notification idempotency keys use PostgREST-inferable unique indexes', async () => {
   const sql = await readFile(migrationUrl, 'utf8');
-  assert.match(sql, /create unique index approvals_idempotency_key_unique\s+on public\.approvals \(idempotency_key\)/i);
-  assert.match(sql, /create unique index notifications_idempotency_key_unique\s+on public\.notifications \(idempotency_key\)/i);
+  assert.match(sql, /create unique index approvals_idempotency_key_unique\s+on public\.approvals \(idempotency_key\)\s*;/i);
+  assert.match(sql, /create unique index notifications_idempotency_key_unique\s+on public\.notifications \(idempotency_key\)\s*;/i);
   assert.match(sql, /having count\(\*\) > 1/i);
 });

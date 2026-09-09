@@ -1,6 +1,6 @@
 # PROJECT_STATUS.md
 
-最終更新: 2026-09-08 JST（Claude Code、Admin/Portal stale-session recovery修正 — PR #53/#54 merge・production反映確認済み）
+最終更新: 2026-09-09 JST（Work、PR #56 / migration 20260909013641反映、Production Browser再E2E待ち）
 
 ## CURRENT PHASE
 
@@ -251,3 +251,16 @@ Both bugs recorded as unfixed technical debt in the checkpoint above are now fix
 - Browser QA: Portal/Admin authenticated reload PASS; Admin six-tab navigation available; application-origin console errors 0. Only `chrome-extension://kcdongibgcplmaagnmgpjhpjgmmaaaaa` metadata errors were present and were classified as browser-extension errors. Full responsive PASS was not claimed after the critical E2E failure.
 - **Exact next action:** Claude Code should fix the PostgREST idempotency/index mismatch for approvals and notifications, fix Release Gate task-key lookup to match persisted `expanded_release_gate` records (with deterministic ordering), add regression tests that use PostgreSQL semantics rather than mocks alone, deploy, then rerun this Production Browser E2E.
 - Human Gate unchanged: production publish, real-customer notification, DNS, payment/refund, production-data deletion, Secret operations, and irreversible production changes. None were performed.
+
+## PHASE 6 production defect fix checkpoint (2026-09-09 UTC, Work)
+
+- **CURRENT PHASE: PHASE 6 / Notification / Approval / Deployment Gate — IN PROGRESS.** PHASE 1〜5はCOMPLETE。Production Browser再E2Eが全項目PASSするまでPHASE 6 COMPLETEにしない。
+- Production E2E FAILの原因2件を修正し、PR #56をmainへmerge。main commit: `f12514a16aa8989d05e444c5c7749ff00ca57cd0`。
+- Approval/Notification: partial unique indexを通常のUNIQUE indexへ安全に変更し、PostgREST `on_conflict=idempotency_key` とDB制約を一致。duplicate insertは`ignore-duplicates`で既存actor/note/timestampを上書きせず、競合時は既存approvalを再取得する。
+- Notification failure: durable approvalをfalse failureにせず`pending_retry`を返し、同一approval再送時にnotification insertを再試行。approval/notificationはいずれも1件へ収束する。
+- Deployment Gate: `mode=release_gate`から候補を取得し、Release Gateを含む最新workflowを選択。そのworkflow内では`expanded_release_gate`をlegacy `release_gate`より優先。古いworkflowのPASSを新しいpending/FAILより優先しない。
+- Tests: Core **105/105 PASS**、Portal **4/4 PASS** + lint/build PASS、Admin **3/3 PASS** + lint/build PASS。Core Quality Run `34299851288` PASS。独立レビューは初回のnotification retry欠落を検出、修正後再レビューでblocking finding 0。
+- Production DB: migration history version `20260909013641` / `make_idempotency_indexes_postgrest_compatible` 適用済み。source fileは同version名へ整合。適用前duplicate non-null key groupはapprovals/notificationsとも0。適用後、両indexはWHERE句なしのUNIQUE btreeであることを確認。
+- Render/application: main merge後の一時502を経てCustomer Portal `/portal/` は実ブラウザ表示成功。Cloud Browserの`/health` URL policy拒否は既知の非blocker。Production Browserのapproval再E2Eは未実行。
+- E2E data（削除禁止、削除にはオーナー承認が必要）: request `746feb20-b98b-42ce-bc44-47218402534e`、workflow `eed70c53-ec31-4d8a-861a-262fb534f08c`、project `52beffb0-0c87-4949-af45-a36a8e155462`。
+- Human Gate: production publish、実顧客notification、DNS、payment/refund、production data削除、Secret操作。今回いずれも未実行。

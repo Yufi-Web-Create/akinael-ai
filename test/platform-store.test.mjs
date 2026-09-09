@@ -179,6 +179,7 @@ const approvalHarness = ({ notificationFailure = false } = {}) => {
   const approvals = [];
   const notifications = [];
   const audits = [];
+  let shouldFailNotification = notificationFailure;
   let nextApprovalId = 1;
   const calls = [];
   const fetchImpl = async (url, options = {}) => {
@@ -200,7 +201,7 @@ const approvalHarness = ({ notificationFailure = false } = {}) => {
     }
     if (value.includes('/rest/v1/approvals?')) return response(approvals);
     if (value.includes('/rest/v1/notifications?') && options.method === 'POST') {
-      if (notificationFailure) return response({ message: 'temporary notification outage' }, 500);
+      if (shouldFailNotification) return response({ message: 'temporary notification outage' }, 500);
       const body = JSON.parse(options.body);
       let row = notifications.find((item) => item.idempotency_key === body.idempotency_key);
       const duplicate = Boolean(row);
@@ -217,7 +218,10 @@ const approvalHarness = ({ notificationFailure = false } = {}) => {
     }
     throw new Error(`unexpected request: ${value}`);
   };
-  return { store: createPlatformStore({ env, fetchImpl }), approvals, notifications, audits, calls };
+  return {
+    store: createPlatformStore({ env, fetchImpl }), approvals, notifications, audits, calls,
+    setNotificationFailure: (value) => { shouldFailNotification = value; }
+  };
 };
 
 test('first approval creates one durable approval and one notification; a repeat creates neither', async () => {
@@ -227,7 +231,7 @@ test('first approval creates one durable approval and one notification; a repeat
 
   assert.equal(firstApproval.notification.status, 'recorded');
   assert.equal(duplicate.duplicate, true);
-  assert.equal(duplicate.notification.status, 'already_recorded');
+  assert.equal(duplicate.notification.status, 'recorded');
   assert.equal(harness.approvals.length, 1);
   assert.equal(harness.notifications.length, 1);
   assert.equal(harness.audits.length, 1);
@@ -257,4 +261,20 @@ test('notification failure returns retry evidence without rolling back the appro
   assert.equal(harness.notifications.length, 0);
   assert.equal(harness.audits.length, 1);
   assert.equal(harness.audits[0].action, 'delivery_approval_notification_pending_retry');
+});
+
+test('a duplicate approval retries a previously failed notification without duplicating approval or notification', async () => {
+  const harness = approvalHarness({ notificationFailure: true });
+  const firstApproval = await harness.store.createCustomerApproval('access-token', 'project-1', { note: 'E2E TEST notification retry' });
+  assert.equal(firstApproval.notification.status, 'pending_retry');
+  harness.setNotificationFailure(false);
+  const retry = await harness.store.createCustomerApproval('access-token', 'project-1', { note: 'E2E TEST notification retry' });
+  const duplicate = await harness.store.createCustomerApproval('access-token', 'project-1', { note: 'E2E TEST notification retry' });
+
+  assert.equal(retry.duplicate, true);
+  assert.equal(retry.notification.status, 'recorded');
+  assert.equal(duplicate.duplicate, true);
+  assert.equal(duplicate.notification.status, 'recorded');
+  assert.equal(harness.approvals.length, 1);
+  assert.equal(harness.notifications.length, 1);
 });

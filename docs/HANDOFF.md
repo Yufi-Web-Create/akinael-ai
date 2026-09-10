@@ -13,7 +13,7 @@ Claude Code / ChatGPT Workのどちらでも、チャット履歴に依存せず
 
 - CURRENT PHASE: **PHASE 7 / Akinael Reference Production — IN PROGRESS**
 - PROJECT PROGRESS: **PHASE 6 / 9 COMPLETE**
-- Core main at completion work start: `2283c177519b7907283a833e8887075b43302be5`（PR #64後）。本checkpointのdocs merge後はGitHub mainを再確認する。
+- Core main after PHASE 6 completion docs merge: `28aca6103b336b7f2ea116ef0886eb65fb36a7da`（PR #65）。これはcheckpoint基準SHAであり、作業開始時は必ずremote mainを再取得する。
 - PHASE 6 code: PR #60 merge `841bb93a76bb9837feb3e030cffe3bcfacea0c56`、Admin mobile fixes PR #62/#63、docs checkpoint PR #64。
 - CI: Core Quality Run `34319792739` PASS、Core tests 107/107 PASS、Admin/Portal tests・lint・build PASS。
 - Production migration: `20260909065849 / grant_notification_audit_service_role_insert` applied and verified。approvals / notifications / audit_logsのservice_role SELECT・INSERT=YES、UPDATE・DELETE=NO。
@@ -51,13 +51,11 @@ PHASE 7は別repo `Yufi-Web-Create/akinael-ai-web` の `phase7/reference-site-bu
 ## 3. 本番source of truth
 
 - PHASE 1〜6 COMPLETE。
-- `origin/main` HEAD:
-  `34d2cc0`
-  git上で確認する現在のmain（2026-09-09、PR #62/#63 merge後）。今後mainが進んだらその都度更新する。
+- `origin/main` checkpoint baseline: `28aca6103b336b7f2ea116ef0886eb65fb36a7da`（PR #65、PHASE 6 completion docs merge）。固定の「現在HEAD」ではないため、次セッションは必ずremote mainを再取得する。`34d2cc0`はPR #62/#63時点のhistorical application baseline。
 - Render Web Service `akinael-ai` live deploy commit:
   `34d2cc0`世代
   2026-09-09に読み取り専用HTTP確認（Admin CSS byte-diff、Playwright実ブラウザ確認）で確認済み。詳細は本ファイル末尾の最新checkpoint参照。`origin/main` HEADとは独立した運用上の事実として扱う。
-- PR #60（`841bb93`）由来のnotification/audit migrationは本番へ適用・検証済み（production version `20260909065849`）。再適用しない。
+- PR #60（`841bb93`）由来のnotification/audit migrationは本番へ適用・検証済み（production version `20260909065849`）。Git source filenameは`20260909063434_grant_notification_audit_service_role_insert.sql`でversion identityが一致しない。機能上はPASSだがsource/history driftは未解消technical debtとして保持し、自動再適用・rename・履歴repairはしない。正式なSupabase migration-repairとオーナー承認を得るまでHuman Gate扱い。
 - 2026-09-07のHTTP確認: `/`, `/portal/`, `/admin/`, PHASE 4 previewは200。
 - Admin実ログインはCloud BrowserでPASS。`kohayakawakohaya@gmail.com` / user `4b9af2d3-f500-4f5e-bced-0decf88f8feb` / role `admin`。
 - password/recovery token/OTPはどこにも保存していない。今後もsecure browser auth経由のみ。

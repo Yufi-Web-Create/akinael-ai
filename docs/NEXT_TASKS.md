@@ -1,8 +1,36 @@
 # NEXT_TASKS.md
 
-最終更新: 2026-09-09 JST（Claude Code、Admin mobile CSS browser互換性修正 — PR #62/#63 merge・production反映確認済み。Admin mobile再QA待ち）
+最終更新: 2026-09-09 JST（ChatGPT Work、PHASE 6 COMPLETE・PHASE 7 exact next action確定）
 
-## 最優先: source-control driftを解消
+
+## CURRENT PHASE: PHASE 7 / Akinael Reference Production — IN PROGRESS
+
+PHASE 1〜6はCOMPLETE。以下のPHASE 6待機・再送・migration・mobile再QA項目はすべて完了済みで、再実行しない。
+
+### Exact next action
+
+1. 別repo `Yufi-Web-Create/akinael-ai-web` の最新main、branch `phase7/reference-site-build`、PR #4、`docs/PHASE7_HANDOFF.md`、CIを確認する。
+2. Astro homepage + 4業種ページの未完Playwright E2Eを原因切り分けしてPASSさせる。
+3. lint / typecheck / unit / build / Playwright / independent reviewをPASSさせ、PR #4をmerge可能状態へ進める。
+4. Core repoのhomepage CTA `/mypage`→`/portal/`（既に承認済み）をmainから別branchで実装し、影響範囲をtestする。
+5. production publishはHuman Gateとして停止し、Reference Productionのpreview/QA evidenceまで進める。
+
+### PHASE 6で再実行不要
+
+- production migration `20260909065849` の再適用
+- approval再送、notification生成、audit生成
+- 新規request / customer / E2E data作成
+- PHASE 1〜5の再E2E
+- Admin mobile再確認（Portal/AdminともPASS）
+- E2E data削除（明示承認まで禁止）
+
+### Retain / Human Gate
+
+保持対象: project `52beffb0-0c87-4949-af45-a36a8e155462`、request `746feb20-b98b-42ce-bc44-47218402534e`、workflow `eed70c53-ec31-4d8a-861a-262fb534f08c`、approval `aa5c4245-fb07-4a27-a0aa-71b7f92b94aa`、notification `cb7245d1-7f61-499c-a5a9-ec0ce7e5b132`、audit `6c6dc0bb-6481-49bd-ba55-690e6fb5a81b`。
+
+production publish、DNS、payment/refund、実顧客notification、production data削除、Secret操作はHuman Gate。
+
+## 履歴: source-control drift解消済み
 
 - [x] `origin/main` から作業branchを作る（既存branchは削除しない）。→ 既存の `docs/shared-handoff-foundation`（PR #42）を継続利用。
 - [x] Supabase本番migration `20260904004834 / grant_admin_read_service_role_access` の存在と4つのSELECT grantを読み取り確認する（ChatGPT Work本番照合により確認済み）。
@@ -47,7 +75,7 @@
 - 修正・deploy: 今回の最終E2Eでは不要（本番コード変更なし）。
 - E2Eデータ、production data、remote branchは削除していない。削除にはオーナー確認が必要。
 
-## PHASE 6 / Notification / Approval / Deployment Gate — IN PROGRESS
+## HISTORICAL CHECKPOINT / PHASE 6（当時IN PROGRESS、現在COMPLETE）
 
 - [x] Branch / Draft PR #43を作成し、v2 deploymentGate／Portal通知表示の初期実装を保存
 - [x] Core tests 87/87、Portal/Admin build
@@ -149,7 +177,7 @@ PHASE 6 remains **IN PROGRESS**. Production publish and all other Human Gate act
 
 ## Work向け exact next action — PR #56反映後のProduction Browser再E2E（2026-09-09 UTC）
 
-修正・CI・独立レビュー・main merge・production DB migrationは完了。**PHASE 6は以下がPASSするまでIN PROGRESSのまま。**
+修正・CI・独立レビュー・main merge・production DB migrationは完了。**履歴注記: 以下はすべてPASS済みで、現在はPHASE 6 COMPLETE。**
 
 1. 既存E2E project `52beffb0-0c87-4949-af45-a36a8e155462` / request `746feb20-b98b-42ce-bc44-47218402534e` を使用する。新規customer/request/workflowは作成しない。
 2. Customer Portalからapproval 1回目を送信する。
@@ -188,9 +216,9 @@ PHASE 6 Production Browser再E2Eは1回目approval生成後に停止。**PHASE 6
 
 Retain IDs: project `52beffb0-0c87-4949-af45-a36a8e155462`、request `746feb20-b98b-42ce-bc44-47218402534e`、workflow `eed70c53-ec31-4d8a-861a-262fb534f08c`、approval `aa5c4245-fb07-4a27-a0aa-71b7f92b94aa`。削除には明示承認が必要。production publish等はHuman Gate。
 
-## BLOCKER解消（コード側）— production migration適用がHuman Gate直前でstop（2026-09-09 JST, Claude Code, 第5セッション）
+## 履歴（解消済み）— notification/audit権限・recovery修正（2026-09-09 JST, Claude Code, 第5セッション）
 
-上記BLOCKERの権限grantに加え、オーナーが指摘したとおり**権限修正だけでは不十分**だった。PR #56の`recordAudit`呼び出しが`notification.status === 'pending_retry'`のときだけ実行される条件になっており、grant修正後にnotificationが成功（`recorded`）した瞬間、auditは呼ばれずに0件のまま固定される構造的バグが残っていた。両方を修正しPR #60としてmerge済み。**PHASE 6はまだCOMPLETEにしない。**
+上記BLOCKERの権限grantに加え、オーナーが指摘したとおり**権限修正だけでは不十分**だった。PR #56の`recordAudit`呼び出しが`notification.status === 'pending_retry'`のときだけ実行される条件になっており、grant修正後にnotificationが成功（`recorded`）した瞬間、auditは呼ばれずに0件のまま固定される構造的バグが残っていた。両方を修正しPR #60としてmerge済み。**履歴注記: この時点では未完了だったが、現在はPHASE 6 COMPLETE。**
 
 - [x] production privilege evidence再確認、migration作成（`supabase/migrations/20260909063434_grant_notification_audit_service_role_insert.sql`、INSERT のみ、既存SELECT維持）
 - [x] `recordAudit`の無条件呼び出し化 + `delivery_approval_recorded`のみを対象とした重複防止ロジックへ修正
@@ -225,9 +253,9 @@ Retain IDs: project `52beffb0-0c87-4949-af45-a36a8e155462`、request `746feb20-b
 
 Retain（削除禁止、削除には明示承認が必要）: project `52beffb0-0c87-4949-af45-a36a8e155462`、request `746feb20-b98b-42ce-bc44-47218402534e`、workflow `eed70c53-ec31-4d8a-861a-262fb534f08c`、approval `aa5c4245-fb07-4a27-a0aa-71b7f92b94aa`。production publish・実顧客notification・DNS・payment/refund・production data削除・Secret操作はHuman Gate。
 
-## Admin mobile CSS修正 — production反映済み、Gemini再QA待ち（2026-09-09 JST, Claude Code, 第6セッション）
+## 履歴（完了済み）— Admin mobile CSS修正・production QA（2026-09-09 JST, Claude Code, 第6セッション）
 
-Gemini mobile visual QAのAdmin FAIL（sidebar固定・content見切れ）を調査。再現できなかったが（実ブラウザ2種・本番直接で正常動作を確認）、報告症状と整合する実在のCSS browser互換性gap（Viteが`max-width:`をrange構文`width<=`へ自動変換していた）を発見・修正した。**PHASE 6はまだCOMPLETEにしない。**
+Gemini mobile visual QAのAdmin FAIL（sidebar固定・content見切れ）を調査。再現できなかったが（実ブラウザ2種・本番直接で正常動作を確認）、報告症状と整合する実在のCSS browser互換性gap（Viteが`max-width:`をrange構文`width<=`へ自動変換していた）を発見・修正した。**履歴注記: この時点では未完了だったが、現在はPHASE 6 COMPLETE。**
 
 - [x] STEP 1 REPRODUCE: Playwright実ブラウザで390x844/375x812を検証(ローカルbuild・本番直接の両方)。横overflowなし、sidebar非固定、matchMedia true — 再現せず。
 - [x] STEP 2 ROOT CAUSE: static asset drift(B)は否定。media queryの browser互換性(C)に該当する実在のgapを発見(Vite CSS minifierによるrange構文への自動変換)。

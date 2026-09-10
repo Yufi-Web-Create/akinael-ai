@@ -1,10 +1,32 @@
 # HANDOFF.md
 
-最終更新: 2026-09-09 JST（Claude Code、Admin mobile CSS browser互換性修正 — PR #62/#63 merge・production反映確認済み。Admin mobile再QA待ち）
+最終更新: 2026-09-09 JST（ChatGPT Work、PHASE 6 COMPLETE・PHASE 7へ移行）
 
 ## 目的
 
 Claude Code / ChatGPT Workのどちらでも、チャット履歴に依存せず同じ状態から再開するための詳細引継ぎ。要約は `PROJECT_STATUS.md`、実行順は `NEXT_TASKS.md`。
+
+
+## CURRENT CHECKPOINT — PHASE 6 COMPLETE / PHASE 7 IN PROGRESS
+
+この節が現在のsource of truth。後続のPHASE 6 IN PROGRESS、migration/approval/mobile待ちの記述は調査履歴としてのみ参照する。
+
+- CURRENT PHASE: **PHASE 7 / Akinael Reference Production — IN PROGRESS**
+- PROJECT PROGRESS: **PHASE 6 / 9 COMPLETE**
+- Core main at completion work start: `2283c177519b7907283a833e8887075b43302be5`（PR #64後）。本checkpointのdocs merge後はGitHub mainを再確認する。
+- PHASE 6 code: PR #60 merge `841bb93a76bb9837feb3e030cffe3bcfacea0c56`、Admin mobile fixes PR #62/#63、docs checkpoint PR #64。
+- CI: Core Quality Run `34319792739` PASS、Core tests 107/107 PASS、Admin/Portal tests・lint・build PASS。
+- Production migration: `20260909065849 / grant_notification_audit_service_role_insert` applied and verified。approvals / notifications / audit_logsのservice_role SELECT・INSERT=YES、UPDATE・DELETE=NO。
+- Production E2E: approval recovery、notification 0→1、audit 0→1、duplicate resend後も各1件、Release Gate PASS、Deployment Gate DEPLOY READY、deployments=0 / not published。
+- Portal/Admin/DB consistency、reload/auth persistence、desktop/mobile、application console error 0: PASS。
+- Admin mobile: 全6タブへ到達可能、horizontal scroll正常、承認・運用記録を操作可能、document全体の致命的横overflowなし。
+- Retain: project `52beffb0-0c87-4949-af45-a36a8e155462`、request `746feb20-b98b-42ce-bc44-47218402534e`、workflow `eed70c53-ec31-4d8a-861a-262fb534f08c`、approval `aa5c4245-fb07-4a27-a0aa-71b7f92b94aa`、notification `cb7245d1-7f61-499c-a5a9-ec0ce7e5b132`、audit `6c6dc0bb-6481-49bd-ba55-690e6fb5a81b`。削除禁止。
+- Human Gate: production publish、DNS、payment/refund、実顧客notification、production data削除、Secret発行/再発行/失効、不可逆変更。
+- Production publishは未実行。PHASE 6 COMPLETE条件ではなく、Human Gateが止めることを確認済み。
+
+### Exact next action
+
+PHASE 7は別repo `Yufi-Web-Create/akinael-ai-web` の `phase7/reference-site-build` / PR #4 をsource of truthとして再開する。まず同repoの `docs/PHASE7_HANDOFF.md` とPR/CI最新状態を確認し、未完のPlaywright E2EをPASSさせる。続いてPR #4のreview/merge可否を判断し、Core側homepage CTA（`/mypage`→`/portal/`）の承認済み変更を別branchで実装・検証する。Reference Productionのproduction publishはHuman Gate。
 
 ## 1. Architecture / runtime
 
@@ -28,14 +50,14 @@ Claude Code / ChatGPT Workのどちらでも、チャット履歴に依存せず
 
 ## 3. 本番source of truth
 
-- PHASE 1〜5 COMPLETE。
+- PHASE 1〜6 COMPLETE。
 - `origin/main` HEAD:
   `34d2cc0`
   git上で確認する現在のmain（2026-09-09、PR #62/#63 merge後）。今後mainが進んだらその都度更新する。
 - Render Web Service `akinael-ai` live deploy commit:
   `34d2cc0`世代
   2026-09-09に読み取り専用HTTP確認（Admin CSS byte-diff、Playwright実ブラウザ確認）で確認済み。詳細は本ファイル末尾の最新checkpoint参照。`origin/main` HEADとは独立した運用上の事実として扱う。
-- PR #60（`841bb93`）由来のnotification/audit migration適用は、このHANDOFF更新時点でまだWork/オーナー未実施の可能性がある。`docs/NEXT_TASKS.md`のBLOCKER解消セクション参照。
+- PR #60（`841bb93`）由来のnotification/audit migrationは本番へ適用・検証済み（production version `20260909065849`）。再適用しない。
 - 2026-09-07のHTTP確認: `/`, `/portal/`, `/admin/`, PHASE 4 previewは200。
 - Admin実ログインはCloud BrowserでPASS。`kohayakawakohaya@gmail.com` / user `4b9af2d3-f500-4f5e-bced-0decf88f8feb` / role `admin`。
 - password/recovery token/OTPはどこにも保存していない。今後もsecure browser auth経由のみ。

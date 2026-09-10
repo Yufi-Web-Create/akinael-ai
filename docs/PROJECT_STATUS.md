@@ -1,14 +1,14 @@
 # PROJECT_STATUS.md
 
-最終更新: 2026-09-09 JST（Claude Code、Admin mobile CSS browser互換性修正 — PR #62/#63 merge・production反映確認済み。Admin mobile再QA待ち）
+最終更新: 2026-09-09 JST（ChatGPT Work、PHASE 6 Production E2E・mobile QA完了）
 
 ## CURRENT PHASE
 
-**PHASE 6 / Notification / Approval / Deployment Gate — IN PROGRESS**
+**PHASE 7 / Akinael Reference Production — IN PROGRESS**
 
 ## PROJECT PROGRESS
 
-**PHASE 5 / 9 COMPLETE**
+**PHASE 6 / 9 COMPLETE**
 
 | PHASE | 内容 | 状態 | 根拠 |
 |---|---|---|---|
@@ -17,10 +17,33 @@
 | 3 | Image / Asset Production | COMPLETE | 画像生成→Storage→顧客repo反映→Visual Reviewを本番完走 |
 | 4 | Customer Portal完成 | COMPLETE | Supabase Authから実preview表示、最終承認、console error 0まで本番E2E PASS |
 | 5 | Admin完成 | **COMPLETE** | 実Supabase Auth、PHASE 4案件の6タブ、Admin起点preview、reload、desktop/tablet/mobile、application console error 0を本番E2Eで確認 |
-| 6 | Notification / Approval / Deployment Gate | IN PROGRESS | 実装・migration・password recovery（PR #43, #44, #45）すべてmain反映済みかつRender Live deploy確認済み。残るのはCloud Browser E2Eのみ |
-| 7 | Akinael Reference Production | Research/Direction + 実装計画完了、Build未着手 | `docs/web-production/AKINAEL_PROJECT_SPEC.md`（PR #46）・`AKINAEL_IMPLEMENTATION_PLAN.md`（PR #48）。オーナー判断待ちの項目あり（各文書11節参照） |
+| 6 | Notification / Approval / Deployment Gate | **COMPLETE** | 本番migration、approval/notification/audit recovery、duplicate protection、Release Gate、Deployment Gate、Portal/Admin/DB整合、mobile、reload、console error 0をProduction E2Eで確認 |
+| 7 | Akinael Reference Production | **IN PROGRESS** | Research/Direction・実装計画完了。別repo `Yufi-Web-Create/akinael-ai-web` のAstro Build/PR #4を継続 |
 | 8 | Full Production QA | NOT STARTED | 受入条件未確定 |
 | 9 | Production Release | NOT STARTED | Human Gate対象を含む |
+
+
+## PHASE 6 / Notification / Approval / Deployment Gate — COMPLETE（最新確定）
+
+2026-09-09の本番Production E2Eおよび最終mobile QAをもってPHASE 6をCOMPLETEと正式判定した。これより下に残る「IN PROGRESS」「migration適用待ち」「approval再送待ち」「mobile再QA待ち」等の記述は履歴であり、現在状態ではない。
+
+- Production migration: `20260909065849 / grant_notification_audit_service_role_insert` 適用済み。source migrationは `20260909063434_grant_notification_audit_service_role_insert.sql`。service_roleは approvals / notifications / audit_logs のSELECT・INSERTを保持し、UPDATE・DELETEは付与していない。
+- E2E request: `746feb20-b98b-42ce-bc44-47218402534e`
+- E2E workflow: `eed70c53-ec31-4d8a-861a-262fb534f08c`
+- Approval: `aa5c4245-fb07-4a27-a0aa-71b7f92b94aa`（1件を維持）
+- Notification: `cb7245d1-7f61-499c-a5a9-ec0ce7e5b132`（0→1、duplicate resend後も1件）
+- Audit evidence: `6c6dc0bb-6481-49bd-ba55-690e6fb5a81b` / `delivery_approval_recorded`（0→1、duplicate resend後も1件）
+- Release Gate: `expanded_release_gate` / PASS
+- Deployment Gate: `DEPLOY READY`
+- Production deployment: 0 / `not published`。DEPLOY READYとPRODUCTION DEPLOYEDは分離され、Human Gateを維持。
+- Portal / Admin / DB consistency: PASS
+- Portal mobile: PASS
+- Admin mobile: PASS。全6タブへ到達可能、タブ領域horizontal scroll正常、document全体の致命的overflowなし、主要cards・文字表示に重大defectなし。
+- reload / auth persistence: PASS
+- JavaScript application console error: 0（Cloud Browser拡張由来を除外）
+- E2E/production dataは保持。削除には明示承認が必要。
+- 再実行不要: migration、approval再送、notification/audit生成、新規request、新規E2E data。
+- Human Gate: production publish、DNS、payment/refund、実顧客notification、production data削除、Secret操作。
 
 ## URLs / production endpoints
 
@@ -171,7 +194,7 @@
 
 ## PHASE 6 final Claude Code handoff checkpoint (2026-09-08 UTC)
 
-- **CURRENT PHASE: PHASE 6 / Notification / Approval / Deployment Gate — IN PROGRESS.** PHASE 6 is **not** COMPLETE; PHASE 1–5 are COMPLETE.
+- **HISTORICAL STATE: 当時PHASE 6 IN PROGRESS、現在COMPLETE。** PHASE 6 is **not** COMPLETE; PHASE 1–5 are COMPLETE.
 - This supersedes the earlier historical Render-old-asset note: owner confirmed Render Web main `a6d3e828ad89148448ee02b4520c46b631dc1009` is Deploy succeeded / Live and fresh `/admin/` displays the PHASE 6 UI.
 - PHASE 6 implementation is merged to main at `45e449e94ee6275285438d5d2ad2a87c1bc419fa`; production migration `20260908011350_add_notification_approval_idempotency.sql` is applied and verified. Core tests **88/88 PASS**; Portal/Admin builds PASS.
 - **Only blocker:** authenticated Customer Portal production-browser E2E. Existing E2E customer: `yuchi.info.contact@gmail.com`. No Portal session exists, and Portal exposes no supported safe password-recovery or passwordless route. Cloud Browser rejected new-customer creation under policy; no bypass/workaround was used and no data was created.
@@ -254,7 +277,7 @@ Both bugs recorded as unfixed technical debt in the checkpoint above are now fix
 
 ## PHASE 6 production defect fix checkpoint (2026-09-09 UTC, Work)
 
-- **CURRENT PHASE: PHASE 6 / Notification / Approval / Deployment Gate — IN PROGRESS.** PHASE 1〜5はCOMPLETE。Production Browser再E2Eが全項目PASSするまでPHASE 6 COMPLETEにしない。
+- **HISTORICAL STATE: 当時PHASE 6 IN PROGRESS、現在COMPLETE。** PHASE 1〜5はCOMPLETE。Production Browser再E2Eが全項目PASSするまでPHASE 6 COMPLETEにしない。
 - Production E2E FAILの原因2件を修正し、PR #56をmainへmerge。main commit: `f12514a16aa8989d05e444c5c7749ff00ca57cd0`。
 - Approval/Notification: partial unique indexを通常のUNIQUE indexへ安全に変更し、PostgREST `on_conflict=idempotency_key` とDB制約を一致。duplicate insertは`ignore-duplicates`で既存actor/note/timestampを上書きせず、競合時は既存approvalを再取得する。
 - Notification failure: durable approvalをfalse failureにせず`pending_retry`を返し、同一approval再送時にnotification insertを再試行。approval/notificationはいずれも1件へ収束する。
@@ -280,7 +303,7 @@ Both bugs recorded as unfixed technical debt in the checkpoint above are now fix
 
 ## PHASE 6 notification/audit recovery fix (2026-09-09 JST, Claude Code, fifth session)
 
-上記BLOCKERで特定された`service_role`権限不足に加え、Workが指摘した通り**権限修正だけでは再E2Eでaudit evidenceが再び0件になり得る**structural gapを発見・修正した。**PHASE 6はまだCOMPLETEにしない。**
+上記BLOCKERで特定された`service_role`権限不足に加え、Workが指摘した通り**権限修正だけでは再E2Eでaudit evidenceが再び0件になり得る**structural gapを発見・修正した。**履歴注記: この時点では未完了だったが、現在はPHASE 6 COMPLETE。**
 
 - **重要な訂正の経緯**: このセッションは最初、直近の`origin/main`を取得せずにfix branchを作成してしまい、`fix/approval-notification-audit-recovery`（PR #59）としてPR化した。その後、PR #56（`f12514a`、別セッションによる既存merge済み修正）が同じ`createCustomerApproval`関数をすでに`recordNotification`/`recordAudit` helper closure構成へ書き換えていたことに気づき、PR #59を古い前提のコードとしてcloseし、`origin/main`最新（`7983c58`）から作り直した。
 - **root cause 1（grant不足）**: `service_role`は`approvals INSERT`のみ保持し、`notifications INSERT`/`audit_logs INSERT`を保持していなかった。新migration `20260909063434_grant_notification_audit_service_role_insert.sql` でこの2権限のみ追加（既存SELECT grant維持、ALL/UPDATE/DELETEは追加しない）。追加前にcodebase全体の`notifications`/`audit_logs`への書込み操作を監査し、INSERT以外の操作が存在しないことを確認済み。
@@ -294,7 +317,7 @@ Both bugs recorded as unfixed technical debt in the checkpoint above are now fix
 
 ## PHASE 6 Admin mobile QA investigation (2026-09-09 JST, Claude Code, 第6セッション)
 
-Gemini mobile visual QAで、Portal PASS・Admin FAILという結果が報告された（Adminのsidebarが画面幅の約30〜40%を固定占有し、主要コンテンツ・tabsが右側で見切れる）。指示どおり推測で修正せず、再現・root cause特定を先に行った。**PHASE 6はまだCOMPLETEにしない。**
+Gemini mobile visual QAで、Portal PASS・Admin FAILという結果が報告された（Adminのsidebarが画面幅の約30〜40%を固定占有し、主要コンテンツ・tabsが右側で見切れる）。指示どおり推測で修正せず、再現・root cause特定を先に行った。**履歴注記: この時点では未完了だったが、現在はPHASE 6 COMPLETE。**
 
 - **再現できなかった**: 実ブラウザ2種（ローカルcache済みChromium、および本番`https://akinael-ai.com/admin/`直接）で390x844・375x812をPlaywrightで検証したところ、いずれも正常表示（横方向overflowなし、sidebarはfull-width・stacked、`matchMedia`はtrue）。Portalの報告どおりのPASS挙動と一致し、報告されたAdmin FAILとは矛盾する結果だった。
 - **数値的に一致する仮説（未確定、推測として明記）**: viewport幅828pxで検証すると、sidebar幅がちょうど画面の32.6%となり、「約30〜40%」という報告と正確に一致した（760pxのbreakpointを超えているためmobile CSSが適用されない状態）。QAツールが`<meta name="viewport">`を正しく解釈せず、より広いlayout viewportへfallbackしていた可能性が高いと推測されるが、Gemini側の実際のbrowser/viewport設定はこのセッションから確認できず、証明はできていない。

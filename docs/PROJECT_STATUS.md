@@ -1,14 +1,14 @@
 # PROJECT_STATUS.md
 
-最終更新: 2026-09-09 JST（ChatGPT Work、PHASE 6 Production E2E・mobile QA完了）
+最終更新: 2026-09-10 JST（Claude Code、PHASE 8 Full Production QA統合監査 — PASS）
 
 ## CURRENT PHASE
 
-**PHASE 7 / Akinael Reference Production — IN PROGRESS**
+**PHASE 8 / Full Production QA — COMPLETE**
 
 ## PROJECT PROGRESS
 
-**PHASE 6 / 9 COMPLETE**
+**PHASE 8 / 9 COMPLETE**
 
 | PHASE | 内容 | 状態 | 根拠 |
 |---|---|---|---|
@@ -16,10 +16,10 @@
 | 2 | Production Runtime監査・安定化 | COMPLETE | runtime timeout/cost guard、GitHub runtime、Worker、Review/QA再試行経路を本番で安定化 |
 | 3 | Image / Asset Production | COMPLETE | 画像生成→Storage→顧客repo反映→Visual Reviewを本番完走 |
 | 4 | Customer Portal完成 | COMPLETE | Supabase Authから実preview表示、最終承認、console error 0まで本番E2E PASS |
-| 5 | Admin完成 | **COMPLETE** | 実Supabase Auth、PHASE 4案件の6タブ、Admin起点preview、reload、desktop/tablet/mobile、application console error 0を本番E2Eで確認 |
-| 6 | Notification / Approval / Deployment Gate | **COMPLETE** | 本番migration、approval/notification/audit recovery、duplicate protection、Release Gate、Deployment Gate、Portal/Admin/DB整合、mobile、reload、console error 0をProduction E2Eで確認 |
-| 7 | Akinael Reference Production | **IN PROGRESS** | Research/Direction・実装計画完了。別repo `Yufi-Web-Create/akinael-ai-web` のAstro Build/PR #4を継続 |
-| 8 | Full Production QA | NOT STARTED | 受入条件未確定 |
+| 5 | Admin完成 | COMPLETE | 実Supabase Auth、PHASE 4案件の6タブ、Admin起点preview、reload、desktop/tablet/mobile、application console error 0を本番E2Eで確認 |
+| 6 | Notification / Approval / Deployment Gate | COMPLETE | 本番migration、approval/notification/audit recovery、duplicate protection、Release Gate、Deployment Gate、Portal/Admin/DB整合、mobile、reload、console error 0をProduction E2Eで確認 |
+| 7 | Akinael Reference Production | COMPLETE | 別repo `Yufi-Web-Create/akinael-ai-web`。Release Candidate / Preview Ready。Quality Gate PASS、独立レビューblocking 0。production publishはHuman Gateのまま未実行 |
+| 8 | Full Production QA | **COMPLETE** | Core・Official site・Portal・Admin横断の統合監査。新規P0/P1 defectなし。詳細は本ファイル末尾のPHASE 8チェックポイント参照 |
 | 9 | Production Release | NOT STARTED | Human Gate対象を含む |
 
 
@@ -330,3 +330,46 @@ Gemini mobile visual QAで、Portal PASS・Admin FAILという結果が報告さ
 - Core tests 107/107 PASS（今回は影響なし、frontend限定の変更）。`origin/main`は`34d2cc0`。
 - **正直な限界の明記**: このcssTarget修正がGemini再検証を確実にPASSさせると断言はできない。確認できたのは、(a) 実際のresponsive実装は複数engine・本番環境で正しく動作していること、(b) 報告された症状と整合する実在のbrowser互換性gapを1件発見・修正したこと、の2点のみ。再検証後も再現する場合は、Gemini側が実際に使用しているbrowser/viewport emulationの確認が次の手がかりとなる。
 - Human Gate: 影響なし。production data・実顧客notification・DNS・Secretの変更は一切なし。approval再送・notification生成・request作成は今回のtaskの範囲外として実行していない。
+
+## PHASE 8 / Full Production QA — COMPLETE（2026-09-10 JST, Claude Code）
+
+Core repo（`Yufi-Web-Create/akinael-ai`, main `0ddb862`）とOfficial site repo（`Yufi-Web-Create/akinael-ai-web`, main `d4d5385`）を1つのproduction systemとして統合監査した。新規bugは発見されず、修正PRはこのセッションでは発生していない。
+
+### 監査範囲と方法
+
+指示どおりの優先順位（static/code audit → unit/integration → build/lint/typecheck → 既存Playwright/browser tests → production read-only確認 → 不足時のみ新規E2E）で進めた。新規production E2E dataは作成していない。既存PHASE 1〜7のevidenceと既存testsを最大限再利用した。
+
+- **Core**: `npm test` 108/108 PASS（直近のCORS修正PR #67分を含む）。
+- **Official site**: fresh `npm ci` → lint（0 warnings）、`astro check`（0 errors）、`vitest run`（3/3）、`astro build`（5 pages）すべてPASS。直近のmain post-merge Quality Gate（Run `34477041641`、Playwright含む）が38分前にPASS済みであることを確認し、ローカルでのPlaywright再実行は行わなかった（このdev機のmacOS 13ではlatest Playwrightのchromiumがinstall不可という既知の制約があり、かつ直近のfresh CI evidenceがあるため、再実行は重複作業と判断）。
+- **Admin/Portal**: 直近のPHASE 6チェックポイント（commit `34d2cc0`時点で確認済み）以降、`admin/`・`portal/`ディレクトリに変更がないことを`git diff`で確認し、既存test結果（lint/build/vitest/Playwright mobile test）を再利用した。
+- **Tenant isolation（コード監査）**: `getProjectForIdentity`が全project-scoped操作（`getProject`/`listRequests`/`listMessages`/`listApprovals`/`createCustomerApproval`/`getProductionStatus`/`createRequest`/`addMessage`等）の入口で一元的にtenant_id一致とcustomer membership制限を強制していることを確認。個別クエリが素通しでtenant scopingを外れている箇所は発見されなかった。
+- **Secrets漏洩監査**: Admin/Portal/Official siteのbuild済みJS・HTML全ファイルを`service_role`/`sb_secret_`/`sk-`等のパターンでgrepし、漏洩なしを確認。
+- **DB並行性監査**: `claim_next_workflow_task` RPC（`20260829123605_add_workflow_execution_queue.sql`）が`for update of t skip locked`によるrow-level lockingで同一task二重claimを防いでいることを確認。
+- **Production read-only確認**: `/`, `/portal/`, `/admin/`, `/robots.txt`, `/health`すべて200。CORS preflight（`OPTIONS /api/v2/auth/register`）とerror response CORS（PR #67修正）を実際にcurlで確認し、両方production live。Admin/Portalの現在配信bundleがPHASE 6修正後の期待値と一致することをbyte-diffで再確認。
+- **Config drift**: `render.yaml`のbuildCommandは`public/admin/`・`public/portal/`両方を毎回re-syncする設計だが、`public/admin/`は過去複数回（PR #54, #63）実際には自動更新されなかった既知の未解明driftとして`docs/HANDOFF.md`技術的負債表に既に記録済み。今回はその他の設定（Worker buildCommand等）に新たなdriftは発見されなかった。
+
+### 発見事項
+
+新規のP0/P1 defectは発見されなかった。Official siteの`RegisterWidget.astro`が登録成功後に`localStorage`のtokenを（現状は別origin上にある）marketing site側へ保存してから`{coreOrigin}/portal/`へ遷移する設計は、Portal側の同一originでは有効なtokenを引き継げないという既知の制約であり、`docs/PHASE7_HANDOFF.md`に「同一originで公開された時点のproduction smoke testが必要」として既に正しく記録・計画されている。新規の発見事項ではなく、確認のうえ現状の計画（production publish後のsmoke test）を支持する。
+
+既存の技術的負債「Homepage registration CTAが`/mypage`のまま」も再確認した。`/mypage`は現行v2 API（`/api/v2/auth/me`等）と一致した実装で、rottedしていない機能する並行dashboardであることを確認済み — 破損した箇所ではない。Official site（PHASE 7 Release Candidate）がこのhomepage自体を置き換える形で`/portal/`への正しい導線を既に実装済みのため、Core側を今個別に書き換えるのはAstro site公開時に無駄になる重複作業と判断し、意図的に今回は着手しなかった。詳細は`docs/HANDOFF.md`技術的負債表参照。
+
+### PHASE 8 COMPLETE判定根拠
+
+- Core QA PASS（108/108、CORS fix live確認）
+- Official site QA PASS（lint/typecheck/unit/build clean、fresh CI Playwright PASS）
+- Portal QA PASS（既存test・build不変、regression確認）
+- Admin QA PASS（既存test・mobile CSS修正がproduction liveであることを再確認）
+- Auth QA PASS（CORS preflight・error response CORS実機確認）
+- Workflow QA PASS（task claimのDB row-level locking確認、既存extensive test coverage）
+- Artifact/Preview QA: PHASE 4〜6の既存evidenceを再利用（新規browser click-throughはこのセッションのtool制約上実施せず、コード変更もこの領域になし）
+- Approval/Notification/Audit regression PASS（PR #60修正が本番E2Eで成功したことをWork記録で確認済み）
+- Release Gate / Deployment Gate PASS（`expanded_release_gate`ロジック確認、production evidence一致）
+- security/isolation audit PASS（tenant scoping一元化確認、secrets漏洩なし）
+- failure paths: 既存test（notification failure retry、review reconciliation、billing/credit exhaustion terminal化等）で広範にカバー済みであることを確認
+- responsive PASS（Official site 8-viewport matrix既存evidence、Admin mobile修正確認）
+- console application error 0（既存PHASE 6/7 evidence）
+- production config drift確認（`public/admin/`の既知driftのみ、新規driftなし）
+- blocking review finding 0（新規PRなし）
+- unresolved P0/P1 defect 0
+- Human Gate: 影響なし。production publish・DNS・実顧客通知・payment・production data削除・Secret操作のいずれも実行していない。Official siteのproduction公開も実行していない。

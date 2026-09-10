@@ -1,18 +1,30 @@
 # NEXT_TASKS.md
 
-最終更新: 2026-09-09 JST（ChatGPT Work、PHASE 6 COMPLETE・PHASE 7 exact next action確定）
+最終更新: 2026-09-10 JST（Claude Code、PHASE 8 Full Production QA統合監査 — COMPLETE）
 
 
-## CURRENT PHASE: PHASE 7 / Akinael Reference Production — IN PROGRESS
+## CURRENT PHASE: PHASE 8 / Full Production QA — COMPLETE
 
-PHASE 1〜6はCOMPLETE。以下のPHASE 6待機・再送・migration・mobile再QA項目はすべて完了済みで、再実行しない。
+PHASE 1〜8はCOMPLETE。以下のPHASE 6待機・再送・migration・mobile再QA・PHASE 7 Astro build項目はすべて完了済みで、再実行しない。
 
-### Exact next action
+### PHASE 8監査結果の要約
 
-1. 別repo `Yufi-Web-Create/akinael-ai-web` の最新main、branch `phase7/reference-site-build`、PR #4、`docs/PHASE7_HANDOFF.md`、CIを確認する。
-2. Astro homepage + 4業種ページの未完Playwright E2Eを原因切り分けしてPASSさせる。
-3. lint / typecheck / unit / build / Playwright / independent reviewをPASSさせ、PR #4をmerge可能状態へ進める。
-4. Core repoのhomepage CTA `/mypage`→`/portal/`（既に承認済み）をmainから別branchで実装し、影響範囲をtestする。
+Core・Official site（別repo）を1つのproduction systemとして統合監査し、新規P0/P1 defectは発見されなかった。詳細は`docs/PROJECT_STATUS.md`・`docs/HANDOFF.md`のPHASE 8節参照。
+
+### Exact next action — PHASE 9 / Production Release（Human Gate）
+
+技術面でのblockerはない。以下はすべてオーナー判断・Human Gate対象であり、Claude Code側からは進められない。
+
+1. 正式な運営者名・所在地・連絡先・利用規約・プライバシーポリシー・特定商取引法表記を確定する（`docs/PHASE7_HANDOFF.md`参照）。
+2. Official siteのproduction publish先（`akinael-ai.com`置換か、別ドメインか）とDNS切替方法を決定する。
+3. オーナーが上記を明示承認した場合のみ、production publish・DNS切替を実行する。
+4. 公開後、Official site → Core Portal間の同一origin認証handoff smoke test（`docs/PHASE7_HANDOFF.md`に既記載）を実施する。
+5. 公開後、8 viewport・CTA・register・Portal遷移・console/page error・metadata・内部linkのsmoke testを行う。
+
+### 保留中・意図的に未着手（tech debt、blocker ではない）
+
+- Core homepage（`public/index.html`）のCTAが`/mypage`のまま。Official site公開でCore homepageごと置き換わるため、今は個別修正しない。詳細は`docs/HANDOFF.md`技術的負債表。
+- `public/admin/`がRenderのbuildで自動更新されないことがある（既知、原因未特定）。Admin側のcode変更時は必ずbyte-diffで本番反映を確認すること。
 5. production publishはHuman Gateとして停止し、Reference Productionのpreview/QA evidenceまで進める。
 
 ### PHASE 6で再実行不要

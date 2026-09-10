@@ -1,32 +1,27 @@
 # HANDOFF.md
 
-最終更新: 2026-09-09 JST（ChatGPT Work、PHASE 6 COMPLETE・PHASE 7へ移行）
+最終更新: 2026-09-10 JST（Claude Code、PHASE 8 Full Production QA統合監査 — COMPLETE）
 
 ## 目的
 
 Claude Code / ChatGPT Workのどちらでも、チャット履歴に依存せず同じ状態から再開するための詳細引継ぎ。要約は `PROJECT_STATUS.md`、実行順は `NEXT_TASKS.md`。
 
 
-## CURRENT CHECKPOINT — PHASE 6 COMPLETE / PHASE 7 IN PROGRESS
+## CURRENT CHECKPOINT — PHASE 8 COMPLETE
 
-この節が現在のsource of truth。後続のPHASE 6 IN PROGRESS、migration/approval/mobile待ちの記述は調査履歴としてのみ参照する。
+この節が現在のsource of truth。後続の「PHASE 6 COMPLETE / PHASE 7 IN PROGRESS」以下の節は調査履歴としてのみ参照する（PHASE 7は現在COMPLETE、PHASE 8も現在COMPLETE）。
 
-- CURRENT PHASE: **PHASE 7 / Akinael Reference Production — IN PROGRESS**
-- PROJECT PROGRESS: **PHASE 6 / 9 COMPLETE**
-- Core main after PHASE 6 completion docs merge: `28aca6103b336b7f2ea116ef0886eb65fb36a7da`（PR #65）。これはcheckpoint基準SHAであり、作業開始時は必ずremote mainを再取得する。
-- PHASE 6 code: PR #60 merge `841bb93a76bb9837feb3e030cffe3bcfacea0c56`、Admin mobile fixes PR #62/#63、docs checkpoint PR #64。
-- CI: Core Quality Run `34319792739` PASS、Core tests 107/107 PASS、Admin/Portal tests・lint・build PASS。
-- Production migration: `20260909065849 / grant_notification_audit_service_role_insert` applied and verified。approvals / notifications / audit_logsのservice_role SELECT・INSERT=YES、UPDATE・DELETE=NO。
-- Production E2E: approval recovery、notification 0→1、audit 0→1、duplicate resend後も各1件、Release Gate PASS、Deployment Gate DEPLOY READY、deployments=0 / not published。
-- Portal/Admin/DB consistency、reload/auth persistence、desktop/mobile、application console error 0: PASS。
-- Admin mobile: 全6タブへ到達可能、horizontal scroll正常、承認・運用記録を操作可能、document全体の致命的横overflowなし。
-- Retain: project `52beffb0-0c87-4949-af45-a36a8e155462`、request `746feb20-b98b-42ce-bc44-47218402534e`、workflow `eed70c53-ec31-4d8a-861a-262fb534f08c`、approval `aa5c4245-fb07-4a27-a0aa-71b7f92b94aa`、notification `cb7245d1-7f61-499c-a5a9-ec0ce7e5b132`、audit `6c6dc0bb-6481-49bd-ba55-690e6fb5a81b`。削除禁止。
-- Human Gate: production publish、DNS、payment/refund、実顧客notification、production data削除、Secret発行/再発行/失効、不可逆変更。
-- Production publishは未実行。PHASE 6 COMPLETE条件ではなく、Human Gateが止めることを確認済み。
+- CURRENT PHASE: **PHASE 8 / Full Production QA — COMPLETE**
+- PROJECT PROGRESS: **PHASE 8 / 9 COMPLETE**
+- Core main: `0ddb862c569626a791e3f826decd402e55c82bc5`（PR #67、auth CORS error-response fix。作業開始時は必ずremote mainを再取得する）
+- Official site main: `d4d5385834f2ade878e0f8c47a0becd1493c5956`（`Yufi-Web-Create/akinael-ai-web`、PR #5/#6/#7 merge後、Release Candidate / Preview Ready）
+- PHASE 7完了根拠: Official site独自の `docs/PHASE7_HANDOFF.md` が正式なsource of truth。lint/typecheck/unit/build/Playwright全PASS、独立レビューblocking 0、Core CORS修正込み。production publishはHuman Gateのまま未実行。
+- PHASE 8完了根拠: Core・Official site・Portal・Adminを1つのproduction systemとして統合監査。詳細な監査範囲・方法・発見事項・判定根拠は `docs/PROJECT_STATUS.md` の「PHASE 8 / Full Production QA — COMPLETE」節を参照。新規P0/P1 defectなし、修正PRなし。
+- Human Gate: production publish（Core・Official site双方）、DNS、payment/refund、実顧客notification、production data削除、Secret発行/再発行/失効、不可逆変更。いずれも未実行。
 
 ### Exact next action
 
-PHASE 7は別repo `Yufi-Web-Create/akinael-ai-web` の `phase7/reference-site-build` / PR #4 をsource of truthとして再開する。まず同repoの `docs/PHASE7_HANDOFF.md` とPR/CI最新状態を確認し、未完のPlaywright E2EをPASSさせる。続いてPR #4のreview/merge可否を判断し、Core側homepage CTA（`/mypage`→`/portal/`）の承認済み変更を別branchで実装・検証する。Reference Productionのproduction publishはHuman Gate。
+PHASE 9 / Production Releaseへ進むには、オーナーによる正式な運営者・法務情報の確定とHuman Gate承認が必要（`docs/PHASE7_HANDOFF.md`のEXACT NEXT ACTION参照）。技術面でのblockerはない。
 
 ## 1. Architecture / runtime
 
@@ -159,7 +154,7 @@ to service_role;
 | Project statusの混在 | PHASE 4 projectには初回failed workflowと最終completed workflowが共存し、project自体は`intake`のまま。Admin集計では20/23等に見える場合がある。最新workflow単位で判定する。DB statusを手動補正しない。 |
 | Advisor | Leaked Password Protection disabled警告。プラン/運用影響を確認して別途判断。今回勝手に有効化しない。 |
 | DB indexes | `executor_jobs.project_id` FKのcovering indexなし、unused index情報あり。性能問題の実測なしに削除・再構築しない。 |
-| Homepage registration CTAが`/mypage`のまま | `public/index.html`の無料相談登録CTA（`data-auth-open="register"`）は`public/assets/app.js`経由で旧`/mypage`ダイアログを開く。PHASE 4で完成した Customer Portal（`/portal/`）へは未接続。本番の新規顧客獲得導線に影響するため、修正はオーナー確認後に行う（`docs/web-production/AKINAEL_PROJECT_SPEC.md` 11節）。 |
+| Homepage registration CTAが`/mypage`のまま — **PHASE 8で再確認、意図的に未着手のまま維持** | `public/index.html`の無料相談登録CTA（`data-auth-open="register"`）は`public/assets/app.js`経由で旧`/mypage`ダイアログ・dashboardを開く。PHASE 4で完成したCustomer Portal（`/portal/`）へは未接続。2026-09-10のPHASE 8監査で`/mypage`側の実装（`/api/v2/auth/me`・`/api/v2/onboarding`・`/api/v2/projects`等、現行v2 APIと一致）を確認し、rotted/brokenではなく現在も機能する並行dashboardであることを確認した — 「壊れているので直す」対象ではない。この項目を今回のPHASE 8では修正しなかった理由: 別repo `Yufi-Web-Create/akinael-ai-web`（PHASE 7、Release Candidate）が、まさにこのhomepage全体を置き換える形で`/portal/`への正しい導線（`RegisterWidget.astro`）を既に実装済みであり、Core側の`public/index.html`を今個別に書き換えるのは、Astro site公開時に不要になる重複作業になる。オーナーがOfficial siteのproduction publishを承認するまでは、この状態を維持するのが合理的。 |
 | Portal/Adminのrecovery UI重複 | `portal/src/Portal.tsx`と`admin/src/Admin.tsx`のpassword recovery state/handler/JSXがほぼ同一のまま複製されている。両者は別々のVite package（別node_modules）のため、共有には内部package/workspace化が必要。今回は複製のまま実装（PR #44）。**この重複が直接原因で、Admin.tsxには次の行の未修正バグが残っている。** |
 | ~~Admin.tsxのstale-session recovery不可バグ~~ — **修正済み（2026-09-08、PR #53）** | `admin/src/Admin.tsx`が`Portal.tsx`の`9233e79`と同種のバグを持っていた問題。`if(recoveryMode\|\|!token\|\|!me)`へゲートを修正。回帰test `admin/src/Admin.test.tsx`で修正前FAIL・修正後PASSを確認。production反映もPR #54でbyte-diff確認済み。 |
 | ~~Portal/Adminのpassword更新後にセッションが残る~~ — **修正済み（2026-09-08、PR #53）** | `updatePassword`成功後に既存の`logout()`を呼び、token/localStorage/Reactステートをクリアするよう両ファイルを修正。回帰test（`portal/src/Portal.test.tsx`・`admin/src/Admin.test.tsx`）で修正前FAIL・修正後PASSを確認。 |
@@ -423,3 +418,40 @@ Explicitly did **not** add `overflow-x:hidden` or any other overflow-masking ban
 - Core `npm test`: 107/107 PASS throughout (unaffected — this is a frontend-only change). Admin/Portal lint+build+existing Vitest suites: all PASS.
 - **Honest limitation, stated plainly**: this session cannot prove the `cssTarget` fix is what will make a Gemini re-check pass, only that (a) the actual responsive implementation was verified correct at genuine mobile viewports in two real engines including live production, and (b) a genuine, evidenced browser-compatibility gap consistent with the reported symptom was found and closed. If a re-run still fails after this is live, the next thing to check is exactly what browser/viewport-emulation the QA tool itself uses — this session has no way to inspect that from here.
 - Human Gate: unaffected. No production data touched, no real-customer notification, no DNS change, no Secret issued/viewed/rotated. No approval resend, notification generation, or request creation was performed (explicitly out of scope for this task per the owner's instructions).
+
+## PHASE 8 Full Production QA — system-wide audit (2026-09-10, Claude Code)
+
+Owner asked for PHASE 8: not new feature work, but an integrated audit of Core + the separate Official site repo (`akinael-ai-web`) as one production system, following an explicit reproduce-before-fix, reuse-existing-evidence-first methodology. Full completion-criteria breakdown is in `docs/PROJECT_STATUS.md`; this entry records the technical detail behind it.
+
+### Source-of-truth audit finding
+
+Before this session, `docs/PROJECT_STATUS.md`'s top-level "CURRENT PHASE" line and progress table still said "PHASE 7 IN PROGRESS" even though Official site's own `docs/PHASE7_HANDOFF.md` (dated 2026-09-10, more recent) already recorded PHASE 7 as COMPLETE / Release Candidate, and Core's `docs/HANDOFF.md`'s own "CURRENT CHECKPOINT" block agreed PHASE 7 was in progress too. This was exactly the kind of stale-top-line-vs-accurate-narrative inconsistency the owner asked this audit to catch. Fixed by updating both files' headers/tables to PHASE 8, treating Official site's own handoff doc as authoritative for PHASE 7's status (per "実装・production evidenceを優先し、docsを更新" — implementation/evidence over stale docs).
+
+### What was actually run vs. reused
+
+Per the requested priority order (static/code audit → unit/integration → build/lint/typecheck → existing browser tests → production read-only → new E2E only if insufficient):
+
+- **Core**: fresh `npm test` on current main (`0ddb862`) — 108/108 PASS, including the very recent PR #67 CORS-on-errors fix.
+- **Official site**: fresh clone sync, `npm ci`, then `lint` (0 warnings, `--max-warnings=0`), `astro check` (0 errors/warnings/hints), `vitest run` (3/3), `astro build` (5 static pages, sitemap/robots generated correctly). Did **not** re-run Playwright locally — this dev machine's macOS 13 can't install the pinned `@playwright/test` version's chromium (same class of constraint hit in the PHASE 6 mobile work), and the repo's own CI (`gh run view 34477041641`) had already passed, including Playwright, 38 minutes before this check — re-running would have been pure duplication against fresh, trustworthy evidence.
+- **Admin/Portal**: `git diff 34d2cc0..0ddb862 --stat -- admin/ portal/` returned empty — nothing changed in either package since the last PHASE 6 checkpoint where their full lint/build/Vitest/Playwright suites were already verified. Reused that evidence rather than re-running.
+- **Tenant isolation** (code audit, no new tests written): traced every `admin.request('/rest/v1/...')` call site in `src/platform-store.mjs` and confirmed the customer-facing read/write functions (`getProject`, `listRequests`, `listMessages`, `listApprovals`, `createCustomerApproval`, `getProductionStatus`, `createRequest`, `addMessage`, etc.) all route through `getProjectForIdentity`, which enforces `tenant_id` match and, for customer-role identities, restricts to their own `customer_id` memberships (line ~182-197). No project-scoped query was found bypassing this chokepoint.
+- **Secrets-in-bundle audit**: grepped every built JS/HTML file across `admin/dist`, `portal/dist`, and `akinael-ai-web/dist` for `service_role`, `sb_secret_`, `sk-...`-shaped tokens — clean across all three.
+- **DB concurrency audit**: read `supabase/migrations/20260829123605_add_workflow_execution_queue.sql`'s `claim_next_workflow_task` function — uses `for update of t skip locked`, the correct Postgres pattern preventing two workers from claiming the same task. Addresses the "同一task二重実行" risk category structurally, not just via application-level checks.
+- **Production read-only verification**: `/`, `/portal/`, `/admin/`, `/robots.txt`, `/health` all `200`; `OPTIONS /api/v2/auth/register` preflight correct (`204`, `access-control-allow-origin: *`, `allow-methods`, `allow-headers`); a live `POST` with invalid input confirmed PR #67's error-response CORS fix is genuinely deployed (`400` with `access-control-allow-origin: *` present, where before that fix it would have been missing); Admin's live CSS (`index-B6rBGd6d.css`) still contains the classic `max-width:` media query syntax from the PHASE 6 mobile fix, byte-consistent with expectations; Portal's live bundle hash matches the expected post-`cssTarget`-fix build.
+- **Config drift**: `render.yaml`'s buildCommand does resync both `public/portal/` and `public/admin/` on every deploy in principle (`rm -rf ... && cp -R ...`), but `public/admin/` has empirically failed to auto-sync at least twice before (PR #54, PR #63) for reasons this session still cannot diagnose without Render dashboard/build-log access — this remains the single standing, understood-but-unresolved piece of config drift, already in the technical-debt table below. No other drift was found this session (Worker's buildCommand is a plain `npm ci --omit=dev`, low risk, unchanged).
+
+### What was deliberately not (re-)done, and why
+
+- No new production E2E data was created. The existing PHASE 4/6 E2E project/request/workflow/approval/notification/audit records, already retained, were treated as sufficient standing evidence for Artifact/Preview and Approval/Notification/Audit regression coverage — this session made no code change in either area, so there was nothing new to prove.
+- No destructive or adversarial security testing was performed (explicitly prohibited by the task). Isolation was audited via code tracing and existing test coverage (e.g. the pre-existing "payment records are visible to the owning customer and to admins, not to other customers" test), not new penetration-style probing.
+- No new Playwright run against Official site or a fresh authenticated Cloud-Browser-style walkthrough of Admin/Portal was performed — this session's tools can run headless Chromium against mocked or public endpoints, but cannot drive an interactive, credentialed session the way a Cloud Browser tool can. Everything requiring real customer/admin credentials was verified via existing recorded evidence (this repo's own docs, git history, CI runs) rather than re-created.
+
+### Finding: Official site → Portal auth handoff (not a new bug — confirms existing documented plan)
+
+`akinael-ai-web/src/components/RegisterWidget.astro` stores the post-registration `customer-token` in `localStorage` under the **marketing site's own origin**, then redirects to `${coreOrigin}/portal/` — a different origin (until Official site is actually published to `akinael-ai.com`). Since `localStorage` is origin-scoped, Portal won't see that token and the user lands on Portal's normal login screen instead of an authenticated dashboard. This is **not a newly discovered defect** — `docs/PHASE7_HANDOFF.md` already documents this exact mechanism and explicitly schedules a same-origin smoke test for after production publish. This audit traced the code and confirms that plan is correct and necessary; no fix is possible or appropriate before the two sites share an origin, and no Human Gate action (publish) was taken to test it further.
+
+### No PRs this session
+
+This audit found no P0/P1 defect and no code change was made. All verification was read-only (tests, curl, git diff, code tracing). Consistent with "問題を発見した場合は... 自律修正" — there was no problem requiring the fix loop (root cause → minimal fix → regression test → QA → review → PR → merge) to be invoked.
+
+Human Gate: unaffected throughout. No production data created/changed/deleted, no real-customer notification, no DNS change, no Secret issued/viewed/rotated, no production publish (Core or Official site).

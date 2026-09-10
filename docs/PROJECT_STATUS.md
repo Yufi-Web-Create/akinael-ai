@@ -28,6 +28,7 @@
 2026-09-09の本番Production E2Eおよび最終mobile QAをもってPHASE 6をCOMPLETEと正式判定した。これより下に残る「IN PROGRESS」「migration適用待ち」「approval再送待ち」「mobile再QA待ち」等の記述は履歴であり、現在状態ではない。
 
 - Production migration: `20260909065849 / grant_notification_audit_service_role_insert` 適用済み。source migrationは `20260909063434_grant_notification_audit_service_role_insert.sql`。service_roleは approvals / notifications / audit_logs のSELECT・INSERTを保持し、UPDATE・DELETEは付与していない。
+- Known migration identity drift: Workのproduction適用履歴version `20260909065849` とGit source filename `20260909063434` は一致しない。SQL内容・適用済み権限は検証済みでPHASE 6機能のblockerではないが、履歴上の差異は未解消のtechnical debtとして保持する。自動再適用・rename・履歴repairは行わず、次回schema maintenance時にSupabaseの正式なmigration-repair手順とオーナー承認を得て整合させる。
 - E2E request: `746feb20-b98b-42ce-bc44-47218402534e`
 - E2E workflow: `eed70c53-ec31-4d8a-861a-262fb534f08c`
 - Approval: `aa5c4245-fb07-4a27-a0aa-71b7f92b94aa`（1件を維持）

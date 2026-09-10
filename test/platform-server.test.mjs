@@ -152,6 +152,48 @@ test('v2 register/login allow cross-origin calls from the marketing site, other 
   }
 });
 
+test('v2 register/login include CORS headers on error responses', async () => {
+  const server = createApp({ env, fetchImpl: async () => {
+    throw new Error('upstream should not be called for validation errors');
+  } });
+  const baseUrl = await listen(server);
+  try {
+    const registerError = await fetch(`${baseUrl}/api/v2/auth/register`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: 'https://preview.example' },
+      body: JSON.stringify({ email: 'invalid', password: 'short' })
+    });
+    assert.equal(registerError.status, 400);
+    assert.equal(registerError.headers.get('access-control-allow-origin'), '*');
+
+    const loginError = await fetch(`${baseUrl}/api/v2/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: 'https://preview.example' },
+      body: JSON.stringify({})
+    });
+    assert.equal(loginError.status, 400);
+    assert.equal(loginError.headers.get('access-control-allow-origin'), '*');
+
+    const upstreamError = await fetch(`${baseUrl}/api/v2/auth/register`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: 'https://preview.example' },
+      body: JSON.stringify({ email: 'owner@example.com', password: 'a-secure-password' })
+    });
+    assert.equal(upstreamError.status, 500);
+    assert.equal(upstreamError.headers.get('access-control-allow-origin'), '*');
+
+    const unrelated = await fetch(`${baseUrl}/api/v2/auth/password-recovery`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: 'https://preview.example' },
+      body: JSON.stringify({})
+    });
+    assert.equal(unrelated.status, 400);
+    assert.equal(unrelated.headers.get('access-control-allow-origin'), null);
+  } finally {
+    await close(server);
+  }
+});
+
 test('v2 login exchanges credentials for a Supabase access token', async () => {
   const supabaseFetch = async (url) => {
     const value = String(url);

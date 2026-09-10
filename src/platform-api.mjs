@@ -230,12 +230,12 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
       return writeJson(response, 404, { error: { code: 'not_found', message: 'not found' } }), true;
     } catch (caught) {
       if (caught instanceof SupabaseAuthError) {
-        return writeJson(response, caught.status, { error: { code: caught.code, message: caught.message } }), true;
+        return writeJson(response, caught.status, { error: { code: caught.code, message: caught.message } }, cors), true;
       }
       if (caught instanceof PlatformStoreError) {
-        return writeJson(response, caught.status, { error: { code: caught.code, message: caught.message } }), true;
+        return writeJson(response, caught.status, { error: { code: caught.code, message: caught.message } }, cors), true;
       }
-      return writeJson(response, 500, { error: { code: 'internal_error', message: 'internal server error' } }), true;
+      return writeJson(response, 500, { error: { code: 'internal_error', message: 'internal server error' } }, cors), true;
     }
   };
 

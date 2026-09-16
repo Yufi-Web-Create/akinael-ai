@@ -1,0 +1,9 @@
+{
+  "task_id": "2a868e3e-423a-4fd2-bef9-e7cbcb087139",
+  "stage": "review",
+  "cycle": 1,
+  "final_message": "検査結果：FAIL\n\n自動QA（`npm run qa`）はPASSしました。確認済み情報のみの掲載、見出し構造、ページ内リンク、装飾SVGの扱い、キーボードフォーカス定義は問題ありません。\n\nただし、実画面・ブラウザコンソール・キーボード操作は環境制約により未確認です。また、正式住所・電話番号・地図が未提供のため、公開用SEO/A11y要件は未達です。現状は `noindex, nofollow` の確認用プレビューです。\n\n{\"status\":\"FAIL\",\"findings\":[{\"severity\":\"critical\",\"location\":\"#access / #contact / 構造化データ\",\"problem\":\"正式住所、電話番号、地図、telリンクが未反映で、来店導線の必須情報を提供できない\",\"expected\":\"確認済みの正式住所・電話番号・地図URLを画面、telリンク、LocalBusiness JSON-LDへ一貫して反映する\"},{\"severity\":\"major\",\"location\":\"head要素\",\"problem\":\"canonical、og:url、og:imageが未設定で、本番SEOメタデータが未完成\",\"expected\":\"本番HTTPS URLと公開可能なOGP画像を確定後、canonical・og:url・絶対URLのog:imageを設定する\"},{\"severity\":\"major\",\"location\":\"実ブラウザ検証全体\",\"problem\":\"指定8 viewportの実画面、キーボード操作、フォーカス移動、コンソールエラーを確認できていない\",\"expected\":\"360〜1440pxの指定viewportで横スクロール、固定CTA、モバイルメニュー、フォーカス、コンソールを実ブラウザで検証し記録する\"}],\"summary\":\"静的DOMと自動検査は良好だが、公開必須情報が未確定で、実ブラウザ検証も未実施のため公開判定はFAIL。\"}",
+  "qa_conclusion": "success",
+  "codex_conclusion": "success",
+  "generated_at": "2026-09-16T18:21:53.515Z"
+}

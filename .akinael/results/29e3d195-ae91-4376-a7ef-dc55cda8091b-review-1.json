@@ -1,0 +1,9 @@
+{
+  "task_id": "29e3d195-ae91-4376-a7ef-dc55cda8091b",
+  "stage": "review",
+  "cycle": 1,
+  "final_message": "自動QAはPASSしました。title、description、OGP、見出し構造、lang、フォーカス表示、タッチ領域、レスポンシブCSSを確認済みです。\n\nただし、Chromiumはsandbox制約で起動できず、実画面・複数viewport・コンソール確認は未実施です。公開前に実ブラウザでの再確認が必要なため、今回はFAILです。canonicalは公開URL確定後の設定が必要です。\n\n{\"status\":\"FAIL\",\"findings\":[{\"severity\":\"major\",\"location\":\"実ブラウザ検証／全viewport\",\"problem\":\"Chromiumがsandbox制約で起動できず、実画面、横スクロール、表示崩れ、フォーカス、コンソールエラーを確認できていない\",\"expected\":\"360x800〜1440x900の全指定viewportで実画面検証とコンソール確認が完了している\"},{\"severity\":\"minor\",\"location\":\"head要素\",\"problem\":\"公開URL未確定のためcanonicalが未設定\",\"expected\":\"公開URL確定後、正規URLをcanonicalおよび必要なOGP URLへ設定する\"}],\"summary\":\"静的SEO・アクセシビリティ検査はPASSだが、実ブラウザ検証未実施のため公開判定はFAIL\"}",
+  "qa_conclusion": "success",
+  "codex_conclusion": "success",
+  "generated_at": "2026-09-16T16:44:47.183Z"
+}

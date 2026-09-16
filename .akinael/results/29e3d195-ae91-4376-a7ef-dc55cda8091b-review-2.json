@@ -1,0 +1,9 @@
+{
+  "task_id": "29e3d195-ae91-4376-a7ef-dc55cda8091b",
+  "stage": "review",
+  "cycle": 2,
+  "final_message": "検査結果：FAIL\n\n- 静的QA（`npm run qa`、`git diff --check`）：PASS\n- SEO基本設定、見出し構造、`lang`、canonical、OGP、スキップリンク：PASS\n- 実ブラウザ・8 viewport・コンソール確認：未実施。sandbox制約でブラウザ起動不可\n- コントラスト：`.section-kicker`等の橙文字が背景比3.12〜3.33で、通常サイズ文字のWCAG AA基準4.5:1未達\n- JSON-LD構造化データ、`og:url`：未設定\n\n公開前に、橙文字の色を濃くすること、ブラウザ環境で実画面検証を行うこと、必要に応じて店舗情報確認後にLocalBusiness構造化データと`og:url`を追加してください。\n\n{\"status\":\"FAIL\",\"findings\":[{\"severity\":\"major\",\"location\":\"customer-site/styles.css: .section-kicker / .eyebrow\",\"problem\":\"橙色テキストのコントラスト比が約3.12〜3.33:1で、通常サイズ文字のWCAG AA基準4.5:1を満たさない\",\"expected\":\"通常サイズ文字は背景に対して4.5:1以上のコントラストを確保する\"},{\"severity\":\"major\",\"location\":\"customer-site/QA_REPORT.md、実ブラウザ検証\",\"problem\":\"必須の実画面・8 viewport・キーボード操作・コンソール確認を実行できていない\",\"expected\":\"360x800〜1440x900の全指定viewportで表示崩れ、横スクロール、フォーカス、コンソールエラーがないことを確認する\"},{\"severity\":\"minor\",\"location\":\"customer-site/index.html: head\",\"problem\":\"JSON-LD構造化データとog:urlが設定されていない\",\"expected\":\"正式確認済みの店舗情報を用いる場合、適切な構造化データと公開URLを設定する\"}],\"summary\":\"静的検査は通過したが、コントラスト不備と実ブラウザ検証未完了のためFAIL。\"}",
+  "qa_conclusion": "success",
+  "codex_conclusion": "success",
+  "generated_at": "2026-09-16T16:48:01.117Z"
+}

@@ -53,8 +53,10 @@ export const createSupabaseAuth = ({ env = process.env, fetchImpl = fetch } = {}
     return payload;
   };
 
+  const publicUrl = normalizeUrl(env.PUBLIC_URL || 'https://akinael-ai.com');
+
   return {
-    signUp: (email, password) => request('/auth/v1/signup', { body: { email, password } }),
+    signUp: (email, password) => request(`/auth/v1/signup?redirect_to=${encodeURIComponent(`${publicUrl}/portal/`)}`, { body: { email, password } }),
     signIn: (email, password) => request('/auth/v1/token?grant_type=password', { body: { email, password } }),
     signOut: (accessToken) => request('/auth/v1/logout', { accessToken }),
     requestPasswordRecovery: (email, redirectTo) => request('/auth/v1/recover', { body: { email, redirect_to: redirectTo } }),

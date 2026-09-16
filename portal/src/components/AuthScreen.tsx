@@ -5,6 +5,7 @@ import { api, ApiError, TOKEN_KEY } from "../lib/api";
 type Props = {
   recoveryMode: boolean;
   recoveryToken: string | null;
+  authError?: string;
   onAuthenticated: (token: string) => Promise<void>;
   onRecoveryDone: () => void;
   onRequestRecoveryMode: () => void;
@@ -14,12 +15,12 @@ type Props = {
 export default function AuthScreen({
   recoveryMode,
   recoveryToken,
+  authError = "",
   onAuthenticated,
   onRecoveryDone,
   onRequestRecoveryMode,
   onPasswordUpdated
 }: Props) {
-  const [register, setRegister] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -32,21 +33,9 @@ export default function AuthScreen({
     setBusy(true);
     setError("");
     try {
-      if (register) {
-        const result = await api.register(email, password);
-        if (result.confirmationRequired) {
-          setNotice("確認メールを開き、確認後にログインしてください。");
-          return;
-        }
-        if (result.token) {
-          localStorage.setItem(TOKEN_KEY, result.token);
-          await onAuthenticated(result.token);
-        }
-      } else {
-        const result = await api.login(email, password);
-        localStorage.setItem(TOKEN_KEY, result.token);
-        await onAuthenticated(result.token);
-      }
+      const result = await api.login(email, password);
+      localStorage.setItem(TOKEN_KEY, result.token);
+      await onAuthenticated(result.token);
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "認証に失敗しました。");
     } finally {
@@ -84,10 +73,6 @@ export default function AuthScreen({
     setBusy(true);
     try {
       await api.updatePassword(recoveryToken, password);
-      // A stale-but-valid session must not survive a password reset — otherwise the app
-      // falls through to the authenticated dashboard with the *old* session instead of the
-      // normal login screen this success message promises. See the historical bug this
-      // mirrors in docs/HANDOFF.md (Portal.tsx / Admin.tsx, fixed pre-redesign).
       onPasswordUpdated();
       setPassword("");
       setConfirmPassword("");
@@ -106,7 +91,7 @@ export default function AuthScreen({
         <h1 style={{ fontSize: 28 }}>アキナエルAI</h1>
         <p className="muted">お客様マイページ</p>
       </header>
-      {error && <section className="card error card-in">{error}</section>}
+      {(error || authError) && <section className="card error card-in">{error || authError}</section>}
       {notice && <section className="card notice card-in">{notice}</section>}
 
       {recoveryMode ? (
@@ -153,22 +138,20 @@ export default function AuthScreen({
       ) : (
         <section className="card card-in">
           <span className="eyebrow">AUTHENTICATION</span>
-          <h2>{register ? "アカウント登録" : "ログイン"}</h2>
+          <h2>ログイン</h2>
           <form onSubmit={submitAuth}>
             <label>
               メールアドレス
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </label>
             <label>
               パスワード（12文字以上）
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={12} required />
+              <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={12} required />
             </label>
-            <button className="btn" disabled={busy} type="submit">{busy ? "処理中…" : register ? "登録する" : "ログイン"}</button>
+            <button className="btn" disabled={busy} type="submit">{busy ? "処理中…" : "ログイン"}</button>
           </form>
-          <button type="button" className="btn link" onClick={() => setRegister(!register)}>
-            {register ? "ログインはこちら" : "新規登録はこちら"}
-          </button>
-          {!register && (
+          <div style={{ display: "grid", gap: 12, marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--color-border)" }}>
+            <a className="btn link" href="/#register">新規アカウント登録はこちら</a>
             <button
               type="button"
               className="btn link"
@@ -181,7 +164,7 @@ export default function AuthScreen({
             >
               パスワードを忘れた方
             </button>
-          )}
+          </div>
         </section>
       )}
     </main>

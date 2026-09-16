@@ -1,0 +1,35 @@
+name: Production Auth E2E
+
+on:
+  push:
+    branches:
+      - test/prod-auth-e2e-20260916
+
+permissions:
+  contents: read
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Register a disposable test address through production
+        shell: bash
+        run: |
+          set -euo pipefail
+          EMAIL="delivered+akinael-${GITHUB_RUN_ID}@resend.dev"
+          PASSWORD="E2eOnly-${GITHUB_RUN_ID}-Aa1!"
+          echo "E2E_EMAIL=${EMAIL}"
+          BODY=$(printf '{"email":"%s","password":"%s"}' "$EMAIL" "$PASSWORD")
+          RESPONSE_FILE=$(mktemp)
+          STATUS=$(curl --silent --show-error --location \
+            --output "$RESPONSE_FILE" \
+            --write-out '%{http_code}' \
+            --header 'content-type: application/json' \
+            --data "$BODY" \
+            'https://akinael-ai.com/api/v2/auth/register')
+          echo "HTTP_STATUS=${STATUS}"
+          cat "$RESPONSE_FILE"
+          echo
+          test "$STATUS" = "202"
+          grep -q 'confirmationRequired' "$RESPONSE_FILE"

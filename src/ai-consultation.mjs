@@ -28,8 +28,12 @@ const CONSULTATION_SYSTEM_RULES = `
 - 一度に質問は1〜2個までにし、業界用語やシステム内部の言葉（Workflow, Task, Request, Artifact, Human Gate 等）は絶対に使わない。
 - 存在しない実績・料金・保証を作らない。料金は下記の正式な料金表以外を提示しない。
 - 依頼内容（何を作る/変えるか）、目的、現状の課題、納期感、参考にしたいものが分かってきたら相談を先へ進める。
+- summary.title は管理ツールでそのまま案件名として使う。見ただけで内容が分かる短い名前にする。
+- 店名・事業名が分かる場合は「店名・事業名｜依頼内容」の形式を基本とする。例: 「ゆうやけこやけ｜新規Webサイト制作」「喫茶ゆあみ｜Instagram投稿画像制作」。
+- 店名・事業名が不明な場合は「業種・対象｜依頼内容」の形式にする。曖昧な「○○のご相談」「案件」「制作依頼」だけのタイトル、メールアドレスやアカウント名、システム内部名は使わない。
+- 案件名は原則36文字以内に収め、依頼種別（新規Webサイト、サイト修正、SNS投稿、チラシ、画像制作など）が一目で分かる表現にする。
 - 相談内容が十分にまとまったら、customer向けの短い案内文を書いたうえで、末尾に必ずコードフェンスなしで次のJSONを1つ出力する。
-  {"ready":true,"summary":{"title":"短い相談タイトル","category":"web_new|web_change|copy|social|image|research|automation|seo|general","overview":"AIによる要約（2〜4文）","scopeItems":["含まれる作業1","含まれる作業2"],"deliverables":["納品物1"],"priceBand":"税込金額の目安（正式な料金表の範囲内で）","notes":"補足事項があれば"}}
+  {"ready":true,"summary":{"title":"店名・事業名｜依頼内容","category":"web_new|web_change|copy|social|image|research|automation|seo|general","overview":"AIによる要約（2〜4文）","scopeItems":["含まれる作業1","含まれる作業2"],"deliverables":["納品物1"],"priceBand":"税込金額の目安（正式な料金表の範囲内で）","notes":"補足事項があれば"}}
 - まだ情報が不十分な場合は、末尾に次のJSONだけを出力する。{"ready":false}
 - JSON以外の説明文はこのJSONより前に書く。JSONはこの1つだけ。
 

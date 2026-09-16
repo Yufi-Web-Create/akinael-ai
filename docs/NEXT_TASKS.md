@@ -287,3 +287,12 @@ production反映済み(`origin/main` `34d2cc0`、Render live deploy確認済み)
 **正直な限界（オーナー・Geminiへの申し送り）**: 今回の修正はGemini再検証を確実にPASSさせると断言できるものではない。確認できたのは、(a) 実際のresponsive実装が複数browser engine・本番環境で正しく動作していること、(b) 報告症状と整合する実在のbrowser互換性gapを1件発見・修正したこと、の2点。**再検証後も同じ症状が再現する場合**、次の手がかりはGemini側が実際に使用しているbrowser/viewport emulationの確認になる(このセッションからは確認不可)。
 
 今回のtaskでは、approval再送・notification生成・request作成・production publish・DNS変更・payment・production data削除・Secret操作のいずれも行っていない。既存E2E dataは保持済み。
+## Admin Claude Design refresh（2026-09-16）
+
+- [x] Claude Design成果物一式を確認し、最新mainからfeature branchを作成
+- [x] 新IA・Industry tokens・desktop/mobile UIをReactへ実装
+- [x] Supabase Authと既存Admin API実データをViewModel経由で接続
+- [x] unit / typecheck / build / desktop・mobile E2E / reload / console QA
+- [ ] PRのCIとレビューを確認
+- [ ] production公開（Human Gate。オーナー承認前に実行しない）
+- [ ] AIチャット送信・外部制作物アップロード・管理者承認の正式な書込みAPIを別タスクで設計・実装（擬似データで代替しない）

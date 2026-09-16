@@ -87,7 +87,7 @@ describe("normal login regression", () => {
     fireEvent.click(screen.getByRole("button", { name: "管理画面へ" }));
 
     await waitFor(() => expect(screen.getByText("山田商店サイト制作")).toBeTruthy());
-    expect(screen.getByText("あなたの判断待ち")).toBeTruthy();
+    expect(screen.getByText("内容を確認し、次の対応を判断してください")).toBeTruthy();
     for (const forbidden of ["needs_attention", "Human Gate", "workflow_run"]) {
       expect(document.body.textContent || "").not.toContain(forbidden);
     }

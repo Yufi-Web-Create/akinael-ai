@@ -87,6 +87,12 @@ export const api = {
     }),
   pricing: () => request<PricingCatalog>("/api/v2/pricing"),
   billingSummary: (token: string) => request<BillingSummary>("/api/v2/billing/summary", { token }),
+  billingCheckoutSession: (token: string, planId: string) =>
+    request<{ url: string; id: string }>("/api/v2/billing/checkout-session", {
+      method: "POST",
+      token,
+      body: { planId }
+    }),
   billingPortalSession: (token: string) =>
     request<{ url: string }>("/api/v2/billing/portal-session", { method: "POST", token }),
   updateAccount: (

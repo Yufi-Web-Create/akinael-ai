@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { BillingSummary, PricingCatalog } from "../lib/types";
 
 const fmtYen = (value?: number) => (typeof value === "number" ? `¥${value.toLocaleString("ja-JP")}` : "—");
@@ -8,25 +8,32 @@ export default function PlanScreen({
   billing,
   pricing,
   busy,
+  onStartCheckout,
   onOpenBillingPortal
 }: {
   billing: BillingSummary | null;
   pricing: PricingCatalog | null;
   busy: boolean;
+  onStartCheckout: (planId: string) => Promise<void>;
   onOpenBillingPortal: () => Promise<void>;
 }) {
   const [changeDialogOpen, setChangeDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const paidPlans = useMemo(
+    () => (pricing ? Object.entries(pricing.plans).filter(([id]) => id !== "trial") : []),
+    [pricing]
+  );
 
   useEffect(() => {
-    if (pricing && !selectedPlanId) {
-      const firstOther = Object.keys(pricing.plans).find((id) => id !== billing?.currentPlan?.id);
-      setSelectedPlanId(firstOther || null);
+    if (!selectedPlanId && paidPlans.length) {
+      const firstOther = paidPlans.find(([id]) => id !== billing?.currentPlan?.id);
+      setSelectedPlanId(firstOther?.[0] || paidPlans[0]?.[0] || null);
     }
-  }, [pricing, billing, selectedPlanId]);
+  }, [paidPlans, billing, selectedPlanId]);
 
   const selectedPlan = selectedPlanId && pricing ? pricing.plans[selectedPlanId] : null;
+  const hasPaidPlan = Boolean(billing?.currentPlan && billing.currentPlan.id !== "trial");
 
   return (
     <main className="screen">
@@ -39,19 +46,19 @@ export default function PlanScreen({
         <h2>現在のプラン</h2>
         <div className="plan-summary-row">
           <span className="muted">プラン</span>
-          <strong>{billing?.currentPlan?.name || "ご相談受付中（お試し）"}</strong>
+          <strong>{hasPaidPlan ? billing?.currentPlan?.name : "お試し"}</strong>
         </div>
         <div className="plan-summary-row">
           <span className="muted">月額</span>
-          <strong>{fmtYen(billing?.currentPlan?.monthlyAmount)}</strong>
+          <strong>{hasPaidPlan ? fmtYen(billing?.currentPlan?.monthlyAmount) : "¥0"}</strong>
         </div>
         <div className="plan-summary-row">
           <span className="muted">契約状態</span>
-          <strong>{billing?.currentPlan ? "契約中" : "未契約"}</strong>
+          <strong>{hasPaidPlan ? "契約中" : "有料プラン未契約"}</strong>
         </div>
         <div style={{ marginTop: 16 }}>
-          <button className="btn" onClick={() => setChangeDialogOpen(true)}>
-            プランを変更する
+          <button className="btn" disabled={busy} onClick={() => setChangeDialogOpen(true)}>
+            {hasPaidPlan ? "プランを変更する" : "有料プランを申し込む"}
           </button>
         </div>
       </section>
@@ -65,8 +72,10 @@ export default function PlanScreen({
               {busy ? "開いています…" : "お支払い管理ページを開く"}
             </button>
           </>
+        ) : hasPaidPlan ? (
+          <p className="muted">お支払い管理ページを準備しています。反映まで少し時間がかかる場合があります。</p>
         ) : (
-          <p className="muted">お支払い管理ページは現在準備中です。ご不明な点は担当チームへご相談ください。</p>
+          <p className="muted">初回のお申し込み完了後、カード情報や請求履歴をここから管理できます。</p>
         )}
         {billing?.history && billing.history.length > 0 && (
           <div className="history-list">
@@ -81,52 +90,60 @@ export default function PlanScreen({
         )}
       </section>
 
-      <button type="button" className="btn link" onClick={() => setCancelDialogOpen(true)}>
-        解約について
-      </button>
+      {hasPaidPlan && (
+        <button type="button" className="btn link" onClick={() => setCancelDialogOpen(true)}>
+          解約について
+        </button>
+      )}
 
       {changeDialogOpen && (
         <div className="dialog-backdrop" role="dialog" aria-modal="true">
           <div className="dialog card-in">
-            <h2>プランを変更する</h2>
+            <h2>{hasPaidPlan ? "プランを変更する" : "有料プランを申し込む"}</h2>
             {pricing && (
               <>
                 <label>
-                  変更後のプラン
+                  {hasPaidPlan ? "変更後のプラン" : "申し込むプラン"}
                   <select value={selectedPlanId || ""} onChange={(event) => setSelectedPlanId(event.target.value)}>
-                    {Object.entries(pricing.plans).map(([id, plan]) => (
+                    {paidPlans.map(([id, plan]) => (
                       <option key={id} value={id}>
                         {plan.name}
                       </option>
                     ))}
                   </select>
                 </label>
+                {hasPaidPlan && (
+                  <div className="plan-summary-row">
+                    <span className="muted">現在</span>
+                    <strong>{fmtYen(billing?.currentPlan?.monthlyAmount)} / 月</strong>
+                  </div>
+                )}
                 <div className="plan-summary-row">
-                  <span className="muted">現在</span>
-                  <strong>{fmtYen(billing?.currentPlan?.monthlyAmount)} / 月</strong>
-                </div>
-                <div className="plan-summary-row">
-                  <span className="muted">変更後</span>
+                  <span className="muted">{hasPaidPlan ? "変更後" : "月額"}</span>
                   <strong>{fmtYen(selectedPlan?.monthlyAmount ?? selectedPlan?.amount)} / 月</strong>
                 </div>
               </>
             )}
             <p className="muted" style={{ marginTop: 12 }}>
-              実際のご契約変更は、安全なお支払い管理ページで確定します。
+              {hasPaidPlan
+                ? "現在のご契約の変更は、安全なお支払い管理ページで確定します。"
+                : "申し込み内容を確認したあと、Stripeの安全な決済画面でカード情報を入力して契約を確定します。"}
             </p>
             <div className="dialog-actions">
-              <button className="btn secondary" onClick={() => setChangeDialogOpen(false)}>
+              <button className="btn secondary" disabled={busy} onClick={() => setChangeDialogOpen(false)}>
                 キャンセル
               </button>
               <button
                 className="btn"
-                disabled={!billing?.billingPortalAvailable || busy}
+                disabled={!selectedPlanId || busy || (hasPaidPlan && !billing?.billingPortalAvailable)}
                 onClick={async () => {
-                  await onOpenBillingPortal();
+                  if (!selectedPlanId) return;
+                  if (hasPaidPlan) await onOpenBillingPortal();
+                  else await onStartCheckout(selectedPlanId);
                   setChangeDialogOpen(false);
                 }}
               >
-                お支払い管理ページで変更する
+                {busy ? "開いています…" : hasPaidPlan ? "お支払い管理ページで変更する" : "決済画面へ進む"}
               </button>
             </div>
           </div>

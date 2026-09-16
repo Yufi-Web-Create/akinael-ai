@@ -455,3 +455,13 @@ Per the requested priority order (static/code audit → unit/integration → bui
 This audit found no P0/P1 defect and no code change was made. All verification was read-only (tests, curl, git diff, code tracing). Consistent with "問題を発見した場合は... 自律修正" — there was no problem requiring the fix loop (root cause → minimal fix → regression test → QA → review → PR → merge) to be invoked.
 
 Human Gate: unaffected throughout. No production data created/changed/deleted, no real-customer notification, no DNS change, no Secret issued/viewed/rotated, no production publish (Core or Official site).
+## 2026-09-16 Admin Claude Design refresh
+
+添付されたClaude DesignのREADME、参照HTML、Industry tokens、11枚のスクリーンショットを正本として、既存Adminを再実装した。
+
+- 通常運用画面を「ホーム／顧客／案件／AIチャット／制作物／契約・料金／設定」へ変更。
+- `getAdminOverview` と全案件の `getAdminProject` をViewModelへ集約し、顧客・相談・制作進捗・成果物・承認・決済を実データ表示する。
+- 内部コードは日本語の業務状態へ変換。技術状態は設定内の開発者向け情報へ隔離。
+- 書込みAPIが未提供のAIチャット送信・成果物アップロード・承認操作は擬似成功させず、読み取りUIまたは安全な既存導線のみ表示。
+- `public/admin/` の配信用bundleも同期済み。ただしmain merge・production deployは未実行。
+- QA: `npm test` 3/3、`npm run lint`、`npm run build`、`npm run test:mobile` 3/3 PASS。1440x960、390x844、375x812、reload、console error 0を確認。

@@ -1,6 +1,14 @@
 # PROJECT_STATUS.md
 
-最終更新: 2026-09-10 JST（Claude Code、PHASE 8 Full Production QA統合監査 — PASS）
+最終更新: 2026-09-16 JST（Admin Claude Design refresh — feature branch QA PASS、production未公開）
+
+## ADMIN DESIGN REFRESH（2026-09-16）
+
+- Claude Design成果物をUI/UXのSource of Truthとして、`admin/` を運営者向けの日本語業務UIへ再構成。
+- IA: ホーム、顧客、案件、AIチャット、制作物、契約・料金、設定。内部のWorkflow/Task/Artifact等は通常画面から除外し、ViewModelで日本語状態へ変換。
+- 既存Supabase Authと `/api/v2/admin/overview`・`/api/v2/admin/projects/:id` を維持。全表示は実APIデータ由来で、production用mock dataは追加していない。
+- unit 3/3、typecheck、build、Playwright desktop/mobile 3/3 PASS。direct reload、console error 0、横overflowなしを確認。
+- feature branch: `feature/admin-claude-design-refresh`。production公開は未実行でHuman Gateのまま。
 
 ## CURRENT PHASE
 

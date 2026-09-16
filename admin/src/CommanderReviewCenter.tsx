@@ -10,6 +10,7 @@ type Project = {
   needs_attention?: boolean;
 };
 
+type Plan = { id?: string; name?: string; monthlyAmount?: number };
 type Proposal = {
   requestId?: string;
   version?: number;
@@ -21,6 +22,23 @@ type Proposal = {
     workItems?: Array<{ title?: string; owner?: string; description?: string; deliverable?: string }>;
     acceptanceCriteria?: string[];
     cautions?: string[];
+    pricing?: {
+      taxIncluded?: boolean;
+      approvalRequired?: boolean;
+      subscription?: {
+        status?: "within_current_plan" | "upgrade_recommended" | "subscription_recommended";
+        currentPlan?: Plan | null;
+        recommendedPlan?: Plan | null;
+        reason?: string;
+      };
+      oneTime?: {
+        status?: string;
+        name?: string;
+        amount?: number | null;
+        label?: string;
+        reason?: string;
+      } | null;
+    };
   };
 };
 
@@ -61,6 +79,13 @@ const card: React.CSSProperties = {
   marginTop: 14
 };
 
+const pricingCard: React.CSSProperties = {
+  border: "1px solid rgba(23,63,59,.28)",
+  background: "rgba(23,63,59,.06)",
+  padding: 12,
+  marginTop: 12
+};
+
 const button: React.CSSProperties = {
   border: "1px solid currentColor",
   background: "#173f3b",
@@ -75,6 +100,8 @@ const secondaryButton: React.CSSProperties = {
   background: "transparent",
   color: "inherit"
 };
+
+const yen = (value?: number | null) => typeof value === "number" ? `${value.toLocaleString("ja-JP")}円` : "";
 
 async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem(tokenKey);
@@ -145,7 +172,7 @@ export default function CommanderReviewCenter() {
     try {
       await api(`/api/v2/admin/projects/${projectId}/acknowledge`, {
         method: "POST",
-        body: JSON.stringify({ note: "司令塔AIの実装プランを確認・承認" })
+        body: JSON.stringify({ note: "司令塔AIの実装プラン・料金案を確認して承認" })
       });
       await refresh();
       window.dispatchEvent(new Event("akinael-admin-refresh"));
@@ -185,7 +212,7 @@ export default function CommanderReviewCenter() {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
             <div>
               <strong style={{ fontSize: 22 }}>要確認</strong>
-              <p style={{ margin: "4px 0 0", opacity: .7 }}>司令塔AIが、確定した相談から実装プランを作成しました。</p>
+              <p style={{ margin: "4px 0 0", opacity: .7 }}>司令塔AIが、相談内容に合わせて実装プランと料金・サブスク案をまとめました。</p>
             </div>
             <button type="button" style={secondaryButton} onClick={() => setOpen(false)}>閉じる</button>
           </div>
@@ -194,6 +221,8 @@ export default function CommanderReviewCenter() {
             <p style={{ padding: "24px 0", opacity: .7 }}>現在、承認待ちの実装提案はありません。</p>
           ) : items.map(({ project, proposal }) => {
             const p = proposal?.proposal;
+            const pricing = p?.pricing;
+            const subscription = pricing?.subscription;
             const isBusy = busyId === project.id;
             return (
               <article key={project.id} style={card}>
@@ -214,6 +243,33 @@ export default function CommanderReviewCenter() {
                     <ul>{(p.assignees || []).map((item, index) => <li key={`${item.role}-${index}`}><strong>{item.role || "AI担当"}</strong>：{item.responsibility}</li>)}</ul>
                     <h3 style={{ fontSize: 15, marginBottom: 4 }}>作業内容</h3>
                     <ol>{(p.workItems || []).map((item, index) => <li key={`${item.title}-${index}`} style={{ marginBottom: 8 }}><strong>{item.title}</strong>{item.owner ? ` ／ ${item.owner}` : ""}<br/><span style={{ opacity: .8 }}>{item.description}</span>{item.deliverable ? <><br/><small>成果物：{item.deliverable}</small></> : null}</li>)}</ol>
+
+                    {pricing && (
+                      <section style={pricingCard}>
+                        <h3 style={{ fontSize: 15, margin: "0 0 8px" }}>料金・サブスク案</h3>
+                        {pricing.oneTime && (
+                          <div style={{ marginBottom: 10 }}>
+                            <strong>{pricing.oneTime.name || "制作費"}：{pricing.oneTime.label || yen(pricing.oneTime.amount)}</strong>
+                            {pricing.oneTime.reason ? <p style={{ margin: "4px 0", opacity: .8 }}>{pricing.oneTime.reason}</p> : null}
+                          </div>
+                        )}
+                        {subscription?.status === "within_current_plan" ? (
+                          <div>
+                            <strong>サブスク：変更なし</strong>
+                            {subscription.currentPlan?.name ? <p style={{ margin: "4px 0" }}>現在：{subscription.currentPlan.name}{subscription.currentPlan.monthlyAmount ? `（月額${yen(subscription.currentPlan.monthlyAmount)}）` : ""}</p> : null}
+                            <p style={{ margin: "4px 0", opacity: .8 }}>{subscription.reason}</p>
+                          </div>
+                        ) : subscription?.recommendedPlan ? (
+                          <div>
+                            {subscription.currentPlan?.name ? <p style={{ margin: "4px 0" }}>現在：{subscription.currentPlan.name}{subscription.currentPlan.monthlyAmount ? `（月額${yen(subscription.currentPlan.monthlyAmount)}）` : ""}</p> : <p style={{ margin: "4px 0" }}>現在：月額プラン未契約</p>}
+                            <strong>提案：{subscription.recommendedPlan.name}（月額{yen(subscription.recommendedPlan.monthlyAmount)}）</strong>
+                            <p style={{ margin: "4px 0", opacity: .8 }}>{subscription.reason}</p>
+                          </div>
+                        ) : null}
+                        <small style={{ opacity: .65 }}>金額は税込。プラン変更・追加料金は、お客様の明確な承認後に進めます。</small>
+                      </section>
+                    )}
+
                     {(p.acceptanceCriteria || []).length > 0 && <><h3 style={{ fontSize: 15, marginBottom: 4 }}>完了条件</h3><ul>{p.acceptanceCriteria!.map((item, index) => <li key={index}>{item}</li>)}</ul></>}
                     {(p.cautions || []).length > 0 && <><h3 style={{ fontSize: 15, marginBottom: 4 }}>確認事項</h3><ul>{p.cautions!.map((item, index) => <li key={index}>{item}</li>)}</ul></>}
                   </>
@@ -224,7 +280,7 @@ export default function CommanderReviewCenter() {
                     rows={3}
                     value={drafts[project.id] || ""}
                     onChange={(event) => setDrafts((current) => ({ ...current, [project.id]: event.target.value }))}
-                    placeholder="例：SEO調査を先に行ってからデザインへ進めて。トップページの写真選定も作業に含めて。"
+                    placeholder="例：SEO調査を先にして。料金案は現在プランの範囲をもう一度確認して。"
                     disabled={isBusy}
                     style={{ width: "100%", boxSizing: "border-box", padding: 10, background: "transparent", color: "inherit", border: "1px solid rgba(0,0,0,.35)" }}
                   />

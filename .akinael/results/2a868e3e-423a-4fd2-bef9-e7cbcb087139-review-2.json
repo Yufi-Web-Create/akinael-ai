@@ -1,0 +1,9 @@
+{
+  "task_id": "2a868e3e-423a-4fd2-bef9-e7cbcb087139",
+  "stage": "review",
+  "cycle": 2,
+  "final_message": "検査結果：FAIL\n\n- 静的QA（`npm run qa`）はPASS。\n- 最終DOMには店名、営業時間、定休日、title、description、OGP、JSON-LD、見出し構造、Skip link、キーボード向けメニュー制御が存在します。\n- 正式住所・電話番号・地図が未提供のため、`tel:`リンクと地図導線が未実装です。公開要件未達です。\n- 実ブラウザ、8 viewport、実キーボード操作、コンソールエラー確認は環境制約により未実施です。\n- 「お電話でお問い合わせいただけます」という文言は、電話番号未掲載の状態と矛盾します。確認中の案内へ修正が必要です。\n- プレビューとして `noindex, nofollow` と robots 全拒否を設定している点は適切です。本番公開時にはcanonical、OGP画像、sitemap、公開用robotsへの切替が必要です。\n\n{\"status\":\"FAIL\",\"findings\":[{\"severity\":\"critical\",\"location\":\"アクセス・来店前の確認セクション\",\"problem\":\"正式住所、電話番号、地図または地図リンクが未掲載で、必須の来店導線を利用できない\",\"expected\":\"正式確認済みの住所・電話番号・地図を掲載し、電話番号はtel:リンク、地図は正確な位置へ遷移する\"},{\"severity\":\"major\",\"location\":\"#contact 内の説明文\",\"problem\":\"電話番号が未掲載なのに「お電話でお問い合わせいただけます」と表示され、利用者を誤認させる\",\"expected\":\"電話番号確認までは「電話番号は確認中です」など、利用不能状態と一致する案内を表示する\"},{\"severity\":\"major\",\"location\":\"実ブラウザ検証全体\",\"problem\":\"指定8 viewport、キーボード操作、実画面、コンソールエラーが未確認で、画面品質を最終判定できない\",\"expected\":\"360〜1440pxの指定viewportで表示・操作・フォーカス・横スクロール・コンソールを確認し、証跡を記録する\"}],\"summary\":\"静的SEO/A11y検査は通過しているが、必須の住所・電話・地図が未確定で来店導線が未完成。実ブラウザ検証も未実施のため公開判定はFAIL。\"}",
+  "qa_conclusion": "success",
+  "codex_conclusion": "success",
+  "generated_at": "2026-09-16T18:25:33.658Z"
+}

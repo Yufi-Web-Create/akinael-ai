@@ -150,7 +150,7 @@ export default function AuthScreen({
             </label>
             <button className="btn" disabled={busy} type="submit">{busy ? "処理中…" : "ログイン"}</button>
           </form>
-          <div className="auth-secondary-links">
+          <div style={{ display: "grid", gap: 12, marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--color-border)" }}>
             <a className="btn link" href="/#register">新規アカウント登録はこちら</a>
             <button
               type="button"

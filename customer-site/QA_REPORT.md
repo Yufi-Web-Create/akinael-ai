@@ -3,7 +3,7 @@
 ## 実装対象
 
 - URL: `customer-site/index.html`（静的プレビュー）
-- tested revision: `c4e97f7` を基点とした作業ツリー
+- tested revision: `7ac3740` を基点とした作業ツリー
 - 対象ページ: `/` のみ
 
 ## 修正内容
@@ -13,6 +13,8 @@
 | SVGの矛盾したA11y属性 | 装飾SVGから `role="img"` を削除し、`aria-hidden="true"` のみに統一 | PASS |
 | SEO基本情報の不足 | OGPのlocale/site name、確認済み事実だけを使う`LocalBusiness` JSON-LDを追加 | PASS |
 | 未確定情報でのインデックス懸念 | `noindex, nofollow` と全クロール拒否の `robots.txt` を追加 | PASS |
+| プレビューを公開候補と誤認する回帰 | canonical・`og:url`・`og:image` を未確定のまま追加しないこと、プレビューメタを維持することを自動検査 | PASS |
+| モバイルメニューのキーボード利用性の回帰 | メニューの展開状態・制御先、Skip link、可視フォーカスを自動検査 | PASS |
 | canonical・OGP画像・本番sitemap | 本番URL・素材未確定のため値を捏造せず、公開前チェックリストへ分離 | 保留 |
 | 住所・電話・地図導線 | 正式情報が未提供のため、確認中表示を維持。値の捏造はしない | BLOCKER |
 
@@ -31,7 +33,7 @@
 
 次の8 viewportを確認対象とした: 360x800、375x812、390x844、430x932、768x1024、1024x768、1280x800、1440x900。
 
-Chromium headlessでは `Crashpad` 初期化時の `setsockopt: Operation not permitted` により終了し、Firefox headlessもセグメンテーションフォールトで終了した。ローカルHTTPサーバーも `listen EPERM` となり、実行環境のネットワーク制限により起動できなかった。そのため、スクリーンショット、キーボード操作、ブラウザコンソールの確認は**未実施**であり、PASS扱いにしていない。
+Chromium headless を `--headless --no-sandbox --disable-dev-shm-usage --disable-crash-reporter --disable-crashpad --no-first-run --disable-gpu --user-data-dir=<tmp>` で再実行したが、Crashpad 初期化時の `setsockopt: Operation not permitted` により終了した。ローカルHTTPサーバーも `listen EPERM` となり、実行環境のネットワーク制限により起動できなかった。そのため、指定8 viewportのスクリーンショット、実キーボード操作、ブラウザコンソールの確認は**未実施**であり、PASS扱いにしていない。
 
 ## SEO/A11y判定
 

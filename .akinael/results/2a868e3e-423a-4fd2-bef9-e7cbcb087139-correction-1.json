@@ -1,0 +1,9 @@
+{
+  "task_id": "2a868e3e-423a-4fd2-bef9-e7cbcb087139",
+  "stage": "correction",
+  "cycle": 1,
+  "final_message": "プレビュー版のSEO/A11y回帰ガードを追加し、QA記録を更新しました。\n\n- `npm run qa`：PASS\n- HTML・アンカー・JSON-LD・未確認情報の非掲載：PASS\n- モバイルメニュー、Skip link、可視フォーカスの静的回帰テストを追加\n- プレビュー版にcanonical／`og:url`／`og:image`を捏造しないことをテスト化\n- 実ブラウザはChromiumがサンドボックスのCrashpad制約で起動不能のため、未検証として記録（PASS扱いなし）\n\n変更: [site.test.mjs](/home/runner/work/akinael-ai/akinael-ai/customer-site/test/site.test.mjs)、[QA_REPORT.md](/home/runner/work/akinael-ai/akinael-ai/customer-site/QA_REPORT.md)\n\n判断理由: 正式住所・電話番号・地図URL・本番URLはいずれも未提供のため、架空値でレビュー指摘を見かけ上解消することはできません。確認用サイトとして `noindex, nofollow` を維持するのが正しい実装です。\n\n未解決事項: 上記の正式情報、公開可能なOGP画像、ブラウザ実行可能環境での8 viewport・キーボード・コンソール確認。したがって本番公開判定は引き続きFAILです。",
+  "qa_conclusion": "success",
+  "codex_conclusion": "success",
+  "generated_at": "2026-09-16T18:24:18.494Z"
+}

@@ -12,3 +12,16 @@ test('the sole h1 identifies the business', () => { assert.match(html, /<h1[^>]*
 test('decorative SVG does not expose conflicting image semantics', () => { assert.doesNotMatch(html, /<svg[^>]*role="img"[^>]*aria-hidden="true"/); });
 test('all page anchors resolve to a local target', () => { for (const target of html.matchAll(/href="#([^"]+)"/g)) assert.match(html, new RegExp(`id="${target[1]}"`)); });
 test('responsive implementation includes mobile navigation and fixed CTA', () => { assert.match(css, /@media \(max-width:760px\)/); assert.match(css, /\.mobile-access\{position:fixed/); assert.match(css, /overflow:hidden/); });
+test('preview navigation remains keyboard accessible', () => {
+  assert.match(html, /<button class="menu-button" type="button" aria-expanded="false" aria-controls="site-nav">/);
+  assert.match(html, /<nav class="site-nav" id="site-nav" aria-label="ページ内メニュー">/);
+  assert.match(html, /<a class="skip-link" href="#main">本文へ移動<\/a>/);
+  assert.match(css, /\.menu-button:focus-visible,a:focus-visible\{outline:3px solid var\(--yellow\)/);
+  assert.match(css, /\.skip-link:focus\{top:12px\}/);
+});
+test('preview-only metadata cannot be confused with publish-ready local business data', () => {
+  assert.doesNotMatch(html, /rel="canonical"/);
+  assert.doesNotMatch(html, /property="og:url"/);
+  assert.doesNotMatch(html, /property="og:image"/);
+  assert.match(html, /name="robots" content="noindex, nofollow"/);
+});

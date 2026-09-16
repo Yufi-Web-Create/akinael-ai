@@ -34,10 +34,10 @@ export default function ProjectDetailScreen({
   const runAction = async () => {
     if (confirm === "acknowledge") {
       await onAcknowledge(note);
-      setToast("承認して進めました。");
+      setToast("承認しました。制作を開始します。");
     } else if (confirm === "notify") {
-      await onNotifyCustomer(note);
-      setToast("お客様へ送りました。");
+      await onNotifyCustomer(note || "制作物の準備が整いました。プレビューをご確認ください。");
+      setToast("内容を承認し、お客様へ確認依頼を送りました。");
     }
     setConfirm(null);
     setNote("");
@@ -71,7 +71,8 @@ export default function ProjectDetailScreen({
           <h2>確定した相談内容</h2>
           {latestRequest ? (
             <>
-              <p>{latestRequest.title as string}</p>
+              <strong>{latestRequest.title as string}</strong>
+              {latestRequest.body ? <p style={{ whiteSpace: "pre-wrap" }}>{latestRequest.body as string}</p> : null}
               {approvedDelivery && <span className="tag success">お客様承認済み</span>}
             </>
           ) : (
@@ -82,14 +83,15 @@ export default function ProjectDetailScreen({
 
       {status === "needs_admin" && (
         <article className="card registered" style={{ marginBottom: 16 }}>
-          <h2>AI作業提案</h2>
+          <h2>対応の提案</h2>
           <ul className="checklist">
             {translateAttentionReasons(detail.project.attention_reasons).map((reason) => (
               <li key={reason}>{reason}</li>
             ))}
           </ul>
+          <p className="muted">確定した相談内容と予定金額を確認し、問題がなければ制作を開始してください。</p>
           <div className="quick-links">
-            <button type="button" className="btn" onClick={() => setConfirm("acknowledge")} disabled={busy}>承認して進める</button>
+            <button type="button" className="btn" onClick={() => setConfirm("acknowledge")} disabled={busy}>承認して制作を開始</button>
             <button type="button" className="btn secondary" onClick={() => onOpenChat(true)}>修正を指示</button>
           </div>
         </article>
@@ -107,14 +109,21 @@ export default function ProjectDetailScreen({
         </article>
       )}
 
-      {status === "needs_customer" && (
+      {status === "needs_customer" && !approvedDelivery && (
         <article className="card registered" style={{ marginBottom: 16 }}>
-          <h2>お客様への確認</h2>
-          <p className="muted">{(latestArtifact?.title as string) || "制作物"}の確認をお願いする準備ができています。</p>
+          <h2>制作内容の最終確認</h2>
+          <p className="muted">{(latestArtifact?.title as string) || "制作物"}の準備ができています。内容を確認し、問題がなければお客様へプレビュー確認を依頼してください。</p>
           <div className="quick-links">
-            <button type="button" className="btn" onClick={() => setConfirm("notify")} disabled={busy}>お客様へ送る</button>
+            <button type="button" className="btn" onClick={() => setConfirm("notify")} disabled={busy}>内容を承認してお客様へ送る</button>
             <button type="button" className="btn secondary" onClick={() => onOpenChat(false)}>司令塔AIに相談する</button>
           </div>
+        </article>
+      )}
+
+      {approvedDelivery && !publishedDeployment && (
+        <article className="card registered" style={{ marginBottom: 16 }}>
+          <h2>お客様承認済み</h2>
+          <p className="muted">お客様の制作物確認は完了しています。契約・お支払いの完了後に本番公開へ進みます。</p>
         </article>
       )}
 
@@ -130,7 +139,7 @@ export default function ProjectDetailScreen({
             <button type="button" className="btn secondary" onClick={() => onOpenChat(false)}>次回提案について相談する</button>
           </div>
           {detail.deploymentGate.humanGateRequired && !detail.deploymentGate.productionPublished && (
-            <p className="gate-note">本番公開はオーナーの明示承認後にのみ行います。</p>
+            <p className="gate-note">本番公開は契約・お支払い確認後に進みます。</p>
           )}
         </article>
       )}
@@ -162,7 +171,7 @@ export default function ProjectDetailScreen({
       {confirm && (
         <div className="dialog-backdrop" role="dialog" aria-modal="true">
           <div className="dialog">
-            <h2>{confirm === "acknowledge" ? "承認して進める" : "お客様へ送る"}</h2>
+            <h2>{confirm === "acknowledge" ? "制作を開始しますか？" : "内容を承認してお客様へ送りますか？"}</h2>
             <label>
               メモ（任意）
               <textarea rows={3} value={note} onChange={(event) => setNote(event.target.value)} />
@@ -170,7 +179,7 @@ export default function ProjectDetailScreen({
             <div className="dialog-actions">
               <button type="button" className="btn secondary" onClick={() => setConfirm(null)}>キャンセル</button>
               <button type="button" className="btn" onClick={runAction} disabled={busy}>
-                {confirm === "acknowledge" ? "承認して進める" : "お客様へ送る"}
+                {confirm === "acknowledge" ? "承認して制作開始" : "承認して送信"}
               </button>
             </div>
           </div>

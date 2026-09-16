@@ -1,4 +1,4 @@
-import { Monitor, Smartphone, FileText } from "lucide-react";
+import { CheckCircle2, FileText, Monitor, Smartphone } from "lucide-react";
 import type { WorkItem, WorkItemStatus } from "../lib/types";
 
 const STATUS_CLASS: Record<WorkItemStatus, string> = {
@@ -10,9 +10,17 @@ const STATUS_CLASS: Record<WorkItemStatus, string> = {
 
 export default function WorksScreen({
   works,
+  canApprove,
+  approved,
+  busy,
+  onApprove,
   onRequestRevision
 }: {
   works: WorkItem[];
+  canApprove: boolean;
+  approved: boolean;
+  busy: boolean;
+  onApprove: () => Promise<void>;
   onRequestRevision: (workTitle: string) => void;
 }) {
   return (
@@ -48,13 +56,32 @@ export default function WorksScreen({
                     プレビューを開く
                   </a>
                 )}
-                <button type="button" className="btn link" onClick={() => onRequestRevision(work.title)}>
-                  修正をお願いする
-                </button>
+                {!approved && (
+                  <button type="button" className="btn link" onClick={() => onRequestRevision(work.title)}>
+                    修正をお願いする
+                  </button>
+                )}
               </div>
             </article>
           ))}
         </div>
+      )}
+
+      {canApprove && !approved && (
+        <section className="card card-in" style={{ marginTop: 20 }}>
+          <h2>内容の最終確認</h2>
+          <p className="muted">プレビューをご確認ください。問題がなければ承認すると、契約・お支払いのご案内へ進みます。</p>
+          <button type="button" className="btn" onClick={onApprove} disabled={busy}>
+            {busy ? "承認中…" : "この内容を承認する"}
+          </button>
+        </section>
+      )}
+
+      {approved && (
+        <section className="card card-in" style={{ marginTop: 20 }}>
+          <h2><CheckCircle2 size={20} aria-hidden /> 制作物を承認済みです</h2>
+          <p className="muted">ご確認ありがとうございました。続いて契約・お支払いのお手続きをお願いします。</p>
+        </section>
       )}
     </main>
   );

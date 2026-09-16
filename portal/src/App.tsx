@@ -123,10 +123,6 @@ export default function App() {
     setScreen("home");
   };
 
-  // recoveryMode alone (not recoveryMode && recoveryToken) must gate this — a stale-but-valid
-  // session in localStorage must never hide the recovery UI. This mirrors the historical fix
-  // in the previous Portal.tsx (`if(recoveryMode||!token||!me)`, see docs/HANDOFF.md) after an
-  // earlier version of this exact screen shipped that bug to production.
   if (!token || recoveryMode) {
     return (
       <AuthScreen
@@ -180,6 +176,8 @@ export default function App() {
   const works = toWorkItems(production?.artifacts || [], production?.workflows?.[0]?.status);
   const summaryUnread = Boolean(consultation?.ready && !consultation.finalized && consultation.threadId !== seenSummaryThread);
   const worksUnread = works.length > seenWorksCount;
+  const customerApproved = Boolean(production?.deploymentGate?.customerApproved);
+  const hasPaidPlan = Boolean(billing?.currentPlan && billing.currentPlan.id !== "trial");
 
   const navigate = (next: Screen) => {
     setScreen(next);
@@ -244,6 +242,24 @@ export default function App() {
     }
   };
 
+  const approveDelivery = async () => {
+    const requestId = requests[0]?.id;
+    if (!requestId || !production?.deploymentGate?.releasePassed) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api.approve(token, project.id, requestId, "制作物を確認し、内容を承認しました。");
+      await refresh();
+      const billingSummary = await api.billingSummary(token).catch(() => null);
+      setBilling(billingSummary);
+      navigate("plan");
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "承認を記録できませんでした。");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const startCheckout = async (planId: string) => {
     setBusy(true);
     setError("");
@@ -276,7 +292,14 @@ export default function App() {
           <div className="card error card-in">{error}</div>
         </div>
       )}
-      {screen === "home" && <Home appState={appState} gate={production?.deploymentGate} onNavigate={navigate} />}
+      {screen === "home" && (
+        <Home
+          appState={appState}
+          gate={production?.deploymentGate}
+          hasPaidPlan={hasPaidPlan}
+          onNavigate={navigate}
+        />
+      )}
       {screen === "chat" && (
         <ChatScreen
           messages={consultation?.messages || []}
@@ -298,6 +321,10 @@ export default function App() {
       {screen === "works" && (
         <WorksScreen
           works={works}
+          canApprove={Boolean(production?.deploymentGate?.releasePassed)}
+          approved={customerApproved}
+          busy={busy}
+          onApprove={approveDelivery}
           onRequestRevision={(title) => {
             setChatContext(title);
             setConsultation(null);

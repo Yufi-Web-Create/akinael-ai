@@ -70,6 +70,7 @@ export function projectDetailStatus(detail: ProjectDetail) {
 }
 
 const REASON_LABEL: Record<string, string> = {
+  customer_consultation_confirmed: "お客様が相談内容を確定しました。対応内容を確認してください",
   quality_check_failed: "自動チェックで指摘が見つかりました",
   needs_admin: "運営者の判断が必要です"
 };

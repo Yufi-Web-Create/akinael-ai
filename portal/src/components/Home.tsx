@@ -19,14 +19,18 @@ const CTA_TARGET: Partial<Record<AppState, Screen>> = {
 export default function Home({
   appState,
   gate,
+  hasPaidPlan,
   onNavigate
 }: {
   appState: AppState;
   gate?: DeploymentGate;
+  hasPaidPlan: boolean;
   onNavigate: (screen: Screen) => void;
 }) {
   const copy = APP_STATE_COPY[appState];
-  const approvedAlready = appState === "final_check" && gate?.customerApproved;
+  const customerApproved = Boolean(gate?.customerApproved);
+  const awaitingContract = customerApproved && !hasPaidPlan && !gate?.productionPublished;
+  const readyToPublish = customerApproved && hasPaidPlan && !gate?.productionPublished;
 
   return (
     <main className="screen">
@@ -47,15 +51,28 @@ export default function Home({
         ))}
       </div>
 
-      <section key={appState} className="card next-action card-in">
-        <h2>{copy.heading}</h2>
-        <p className="muted">
-          {approvedAlready ? "ご確認ありがとうございました。担当チームが公開準備を進めています。" : copy.body}
-        </p>
-        {copy.cta && !approvedAlready && (
-          <button className="btn" onClick={() => onNavigate(CTA_TARGET[appState] || "home")}>
-            {copy.cta}
-          </button>
+      <section key={`${appState}-${customerApproved}-${hasPaidPlan}`} className="card next-action card-in">
+        {awaitingContract ? (
+          <>
+            <h2>制作物の承認が完了しました</h2>
+            <p className="muted">続いて契約・お支払いのお手続きをお願いします。お支払い完了後に公開準備へ進みます。</p>
+            <button className="btn" onClick={() => onNavigate("plan")}>契約・お支払いへ進む</button>
+          </>
+        ) : readyToPublish ? (
+          <>
+            <h2>契約・お支払いを確認しました</h2>
+            <p className="muted">ありがとうございます。公開準備を進めています。</p>
+          </>
+        ) : (
+          <>
+            <h2>{copy.heading}</h2>
+            <p className="muted">{copy.body}</p>
+            {copy.cta && (
+              <button className="btn" onClick={() => onNavigate(CTA_TARGET[appState] || "home")}>
+                {copy.cta}
+              </button>
+            )}
+          </>
         )}
       </section>
     </main>

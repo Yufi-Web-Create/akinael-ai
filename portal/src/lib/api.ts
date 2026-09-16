@@ -93,8 +93,17 @@ export const api = {
       token,
       body: { planId }
     }),
-  billingPortalSession: (token: string) =>
-    request<{ url: string }>("/api/v2/billing/portal-session", { method: "POST", token }),
+  billingChangePlan: (token: string, planId: string) =>
+    request<{ scheduled: boolean; effectiveDate?: string | null }>("/api/v2/billing/change-plan", {
+      method: "POST",
+      token,
+      body: { planId }
+    }),
+  billingCancel: (token: string) =>
+    request<{ scheduled: boolean; canceledDate?: string | null }>("/api/v2/billing/cancel", {
+      method: "POST",
+      token
+    }),
   updateAccount: (
     token: string,
     input: { displayName?: string; businessName?: string; notifyByEmail?: boolean }

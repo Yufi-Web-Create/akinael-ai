@@ -111,6 +111,12 @@ export default function App() {
     await loadProjectData(token, project);
   }, [token, project, loadProjectData]);
 
+  const refreshBilling = useCallback(async () => {
+    if (!token) return;
+    const billingSummary = await api.billingSummary(token);
+    setBilling(billingSummary);
+  }, [token]);
+
   const logout = async () => {
     if (token) await api.logout(token).catch(() => {});
     localStorage.removeItem(TOKEN_KEY);
@@ -250,8 +256,7 @@ export default function App() {
     try {
       await api.approve(token, project.id, requestId, "制作物を確認し、内容を承認しました。");
       await refresh();
-      const billingSummary = await api.billingSummary(token).catch(() => null);
-      setBilling(billingSummary);
+      await refreshBilling().catch(() => {});
       navigate("plan");
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "承認を記録できませんでした。");
@@ -272,14 +277,27 @@ export default function App() {
     }
   };
 
-  const openBillingPortal = async () => {
+  const changePlan = async (planId: string) => {
     setBusy(true);
     setError("");
     try {
-      const session = await api.billingPortalSession(token);
-      window.open(session.url, "_blank", "noopener,noreferrer");
+      await api.billingChangePlan(token, planId);
+      await refreshBilling();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "お支払い管理ページを開けませんでした。");
+      setError(caught instanceof ApiError ? caught.message : "プラン変更を受け付けられませんでした。");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cancelPlan = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await api.billingCancel(token);
+      await refreshBilling();
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "解約を受け付けられませんでした。");
     } finally {
       setBusy(false);
     }
@@ -339,7 +357,8 @@ export default function App() {
           pricing={pricing}
           busy={busy}
           onStartCheckout={startCheckout}
-          onOpenBillingPortal={openBillingPortal}
+          onChangePlan={changePlan}
+          onCancel={cancelPlan}
         />
       )}
       {screen === "settings" && (

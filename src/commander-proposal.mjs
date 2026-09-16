@@ -284,13 +284,14 @@ export const createCommanderProposalService = ({ env = process.env, fetchImpl = 
   const generateForRequest = async (request) => {
     if (!request?.id || !request?.project_id) return null;
     const existing = await latestProposalRow(request.project_id, request.id);
-    if (existing?.metadata?.proposal) return { ...existing.metadata, content: existing.content, createdAt: existing.created_at };
+    if (existing?.metadata?.proposal?.pricing) return { ...existing.metadata, content: existing.content, createdAt: existing.created_at };
     const project = await projectFor(request.project_id);
     if (!project) return null;
     const customer = await customerFor(project.customer_id);
-    const generated = await generateProposal(request, { customer });
-    const row = await insertProposal({ project, request, ...generated, version: 1 });
-    await notifyAdmins({ project, request, version: 1 });
+    const version = Number(existing?.metadata?.version || 0) + 1;
+    const generated = await generateProposal(request, { customer, currentProposal: existing?.metadata?.proposal || null });
+    const row = await insertProposal({ project, request, ...generated, version });
+    await notifyAdmins({ project, request, version });
     return { ...row.metadata, content: row.content, createdAt: row.created_at };
   };
 
@@ -300,7 +301,7 @@ export const createCommanderProposalService = ({ env = process.env, fetchImpl = 
     const request = await latestRequestFor(projectId);
     if (!request) return null;
     const existing = await latestProposalRow(projectId, request.id);
-    if (existing?.metadata?.proposal) return { ...existing.metadata, content: existing.content, createdAt: existing.created_at };
+    if (existing?.metadata?.proposal?.pricing) return { ...existing.metadata, content: existing.content, createdAt: existing.created_at };
     if (!['waiting_approval', 'new', 'triaged'].includes(String(request.status || ''))) return null;
     return generateForRequest(request);
   };

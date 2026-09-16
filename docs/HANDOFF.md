@@ -7,6 +7,43 @@
 Claude Code / ChatGPT Workのどちらでも、チャット履歴に依存せず同じ状態から再開するための詳細引継ぎ。要約は `PROJECT_STATUS.md`、実行順は `NEXT_TASKS.md`。
 
 
+## LATEST CHECKPOINT — UI Redesign Integration（2026-09-16 JST, Claude Code）実装完了・production未反映
+
+PHASE 1〜9のnumbered phase進行とは別軸で、Claude Designが確定した新UI（`design-input/claude-redesign-20260916`、Core・`akinael-ai-web`両repo）を公開サイト・顧客マイページ・管理ツール・Backendへ実装した。**この節が現在最新のsource of truth。下の「CURRENT CHECKPOINT — PHASE 8 COMPLETE」節はPHASE 1〜8に関しては引き続き有効だが、production配信中のコード・UIの記述（Admin/Portalのスクリーンショット、UI説明等）はこの節のブランチがmergeされるまで旧実装（PHASE 6時点のもの）を指している。**
+
+### 変更・成果物
+
+- Core branch `feature/ui-redesign-integration`（`origin/main` `be97637` から分岐、未push・未PR）。commit: バックエンド追加API、Portal全面刷新、Admin全面刷新、フォント自作ホスティング、test scoping修正、CI強化の計6コミット。
+- Official site (`Yufi-Web-Create/akinael-ai-web`) branch `feature/public-site-redesign`（`origin/main` `d4d5385` から分岐、未push・未PR）。公開TOPページ全面刷新、Playwright/Astro CLI環境バグ修正を含む1コミット。
+- Backend: 新v2 endpoint群（`/api/v2/projects/:id/consultation*`、`/api/v2/admin/projects/:id/chat*`・`/acknowledge`・`/notify-customer`、`/api/v2/admin/customers*`、`/api/v2/billing/*`、`/api/v2/account`、`/api/v2/pricing`）。実装は `src/platform-store.mjs` / `src/platform-api.mjs` / `src/ai-consultation.mjs`（新規）。
+- 新migration: `supabase/migrations/20260916000000_add_ai_chat_and_billing_fields.sql`（`ai_chat_messages`新規table、`customers`へ`plan_id`/`stripe_customer_id`/`notify_by_email`追加）。**production未適用**（後述）。
+- Portal: `portal/src/App.tsx` + `portal/src/components/*` へ全面書き換え（旧`Portal.tsx`単一ファイルは削除）。ホーム/AIに相談/相談内容/制作物/プラン・お支払い/設定の6画面、Broadsheetデザイントークン、Source Serif 4/Noto Serif JP自己ホスト。
+- Admin: `admin/src/Admin.tsx` + `admin/src/components/*` へ全面書き換え（旧単一ファイル実装は削除）。ホーム/顧客/案件/AIチャット/相談ログ/制作物/契約・料金/設定、Industryデザイントークン、Barlow/Barlow Condensed自己ホスト。
+- Official site: `src/pages/index.astro`ほか全面刷新。CMYK版ズレヒーロー、課題訴求、提供価値（旧・競合比較section内容を新構成へ統合）、できること6カード、業種別links（既存維持）、7ステップ+実スクリーンショット6枚クロスフェードスライダー、料金セグメント切替、FAQ（既存維持）。
+
+### ⚠️ production反映前に必須の対応（このセッションでは実行不可）
+
+1. `supabase/migrations/20260916000000_add_ai_chat_and_billing_fields.sql` を本番Supabaseへ適用する。**この順序を守らないと**、`getAdminProject`（Admin案件詳細）が`customers`テーブルへ存在しない列（`plan_id`等）をSELECTしようとしてPostgRESTエラーとなり、Admin案件詳細が500で壊れる。このセッションの環境にはSupabase CLI・DB接続文字列・Management API tokenが一切なく、適用できなかった（過去のPHASE 6セッションと同じ制約）。
+2. 適用後、`ai_chat_messages`テーブルの存在、`customers`の3新規列の存在、grant（`service_role`へのSELECT/INSERT on `ai_chat_messages`）を読み取り専用で確認する。
+3. Core・Official site両方でPR作成・CI確認・mainへのmerge・Render自動deployを行う（`gh pr merge`がsession依存でblockされることがある。ブロックされたら無理に回避せず記録して次へ進む、という既存ルールに従う）。
+4. production deploy後、実Supabase Auth・実OpenAI・実StripeでのCloud Browser E2E（AIに相談チャット実応答、相談承認→実request作成→実Workflow起動、Admin側の承認・通知・チャット、billing portal誘導）を行う。このセッションはOPENAI_API_KEY等のsecretを一切持たないため、AI応答が絡む経路は自動テストのモックでのみ検証済みで、実AIでの動作は未確認。
+
+### 実施したQA（このセッションで実行・全PASS）
+
+- Core: `npm test` 120/120（既存108 + 新規12）
+- Portal: `npm run lint`（tsc --noEmit）・`npm run build`・`npm run test`（vitest 17/17）・`npm run test:mobile`（Playwright 4/4、実Chromium、desktop/tablet/mobile viewport、direct access、reload、console error 0）
+- Admin: `npm run lint`・`npm run build`・`npm run test`（vitest 12/12）・`npm run test:mobile`（Playwright 5/5、実Chromium、desktop/tablet/mobile、direct access、reload込みの承認フローE2E、console error 0）
+- Official site: `npm run qa`（lint・typecheck・unit 3/3・build・Playwright 18/18、8 viewport×home + 4業種ページ×2 viewport、register widget契約テスト、a11y/metadata）
+- 実ブラウザでの目視デザイン確認: Portal/Admin/Official siteそれぞれ実際にレンダリングしたスクリーンショットで確認済み（本チャット内のみ、ファイルとしては保存していない）。Official siteの「ご利用の流れ」スライダーに使われている6枚は、実際に上記アプリをPlaywrightでレンダリングして撮影した本物のスクリーンショット（モック画像ではない）。
+
+### 意図的な設計判断・既知の簡略化（次セッション/オーナー判断向けに明記）
+
+- Admin「今の状況」card: AIによる都度生成ではなく、決定的なテンプレート合成（`admin/src/lib/adapters.ts` `composeStatusSummary`）。理由: 画面表示のたびにAI呼び出しするとlatency/cost/可用性リスクがあり、既存の構造化データから十分自然な日本語文を組み立てられるため。案件スコープの司令塔AIチャットで補完可能。
+- Portal「制作物」のサムネイル: 実スクリーンショット生成機能がBackendに存在しないため、アイコンプレースホルダー表示（実preview_urlへのリンクは実物）。
+- Stripe連携: `STRIPE_SECRET_KEY`未設定・`customers.stripe_customer_id`未設定の間は「準備中」の正直な表示にフォールバックする設計。実Stripeでの動作はこのセッションでは検証不可。
+- Admin「料金を変更する」は`customers.plan_id`という記述的フィールドの更新のみで、Stripe実課金は伴わない（そのUIコピーもそう明記）。
+- Official siteのFAQ section・業種別linksは新デザイン仕様の9セクション一覧に明記されていないが、既存の実審査済みコンテンツ・SEO資産・既存のhybrid IA方針（`docs/PHASE7_HANDOFF.md`）を維持するため意図的に保持した。
+
 ## CURRENT CHECKPOINT — PHASE 8 COMPLETE
 
 この節が現在のsource of truth。後続の「PHASE 6 COMPLETE / PHASE 7 IN PROGRESS」以下の節は調査履歴としてのみ参照する（PHASE 7は現在COMPLETE、PHASE 8も現在COMPLETE）。

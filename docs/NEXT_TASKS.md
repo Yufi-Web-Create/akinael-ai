@@ -3,6 +3,19 @@
 最終更新: 2026-09-10 JST（Claude Code、PHASE 8 Full Production QA統合監査 — COMPLETE）
 
 
+## 最優先 Exact next action — UI Redesign Integration（2026-09-16, Claude Code実装分）
+
+実装・ローカルQAは完了。以下は次セッション（Claude CodeまたはWork）が行う。
+
+1. `supabase/migrations/20260916000000_add_ai_chat_and_billing_fields.sql` を本番Supabaseへ適用する（Supabase CLI/SQL editorへアクセスできるセッションが必要。このセッションの環境では不可）。**Core branchをmainへmergeする前に必ず適用すること**（適用前にmergeするとAdmin案件詳細が500になる）。
+2. Core repo: `feature/ui-redesign-integration` branchをpushし、`origin/main`宛てにPRを作成、CI（`Core Quality`— core/portal/admin 3ジョブ）を確認する。
+3. Official site repo: `feature/public-site-redesign` branchをpushし、`origin/main`宛てにPRを作成、CI（`quality.yml`）を確認する。
+4. 両PRのreview・CI PASS後、`gh pr merge`を試みる（session依存でblockされる可能性がある。ブロックされた場合は無理に回避せず記録し、オーナーまたは別セッションのmergeを待つ）。
+5. mainマージ・Render自動deploy確認後、実Supabase Auth・実OpenAI・実Stripeを使ったCloud Browser E2Eを行う: 顧客の新規AI相談チャット（実AI応答）→相談内容確定→承認→実request作成→実Workflow起動確認、Admin側でのAIチャット・承認・通知、Portalのプラン画面（Stripe未接続時の正直な表示）、Official siteの登録→Portal遷移。
+6. 全PASS後、本ファイル・`docs/PROJECT_STATUS.md`・`docs/HANDOFF.md`を更新する。
+
+詳細な変更内容・意図的な設計判断は `docs/HANDOFF.md` の「LATEST CHECKPOINT — UI Redesign Integration」節を参照。
+
 ## CURRENT PHASE: PHASE 8 / Full Production QA — COMPLETE
 
 PHASE 1〜8はCOMPLETE。以下のPHASE 6待機・再送・migration・mobile再QA・PHASE 7 Astro build項目はすべて完了済みで、再実行しない。

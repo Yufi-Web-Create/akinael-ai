@@ -29,7 +29,8 @@ export default function ChatScreen({
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && !event.shiftKey) {
+    if (event.nativeEvent.isComposing) return;
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
       event.preventDefault();
       send();
     }
@@ -62,6 +63,7 @@ export default function ChatScreen({
         <textarea aria-label="メッセージ" rows={2} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={onKeyDown} disabled={busy} />
         <button type="submit" className="btn" disabled={busy || !draft.trim()}>送信</button>
       </form>
+      <p className="muted small" style={{ marginTop: 6 }}>Enterで改行、⌘/Ctrl + Enterで送信できます。</p>
     </main>
   );
 }

@@ -33,7 +33,8 @@ export default function ChatScreen({
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && !event.shiftKey) {
+    if (event.nativeEvent.isComposing) return;
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
       event.preventDefault();
       send(draft);
     }
@@ -109,6 +110,7 @@ export default function ChatScreen({
           送信
         </button>
       </form>
+      <p className="muted small" style={{ marginTop: 6 }}>Enterで改行、⌘/Ctrl + Enterで送信できます。</p>
     </main>
   );
 }

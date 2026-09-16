@@ -1,63 +1,259 @@
-import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
-
-type Summary = { customers:number; projects:number; needsAttention:number; runningWorkflows:number; failedTasks:number; pendingApprovals:number };
-type Project = { id:string; name:string; status:string; customer_name?:string|null; needs_attention?:boolean; attention_reasons?:string[]; updated_at?:string };
-type Overview = { summary:Summary; projects:Project[]; recentWorkflows:Record<string,unknown>[]; recentNotifications:Record<string,unknown>[] };
-type DeploymentGate = { releasePassed:boolean; customerApproved:boolean; deployReady:boolean; humanGateRequired:boolean; productionPublished:boolean };
-type Detail = { project:Project; customer?:{name?:string}|null; requests:Row[]; messages:Row[]; workflows:Row[]; tasks:Row[]; artifacts:Row[]; qualityChecks:Row[]; approvals:Row[]; payments:Row[]; repositories:Row[]; deployments:Row[]; notifications:Row[]; deploymentGate:DeploymentGate; auditLogs:Row[] };
-type Row = Record<string, unknown> & { id:string; title?:string; status?:string; created_at?:string; preview_url?:string|null };
-type Me = { profile?:{role?:string; displayName?:string}; user?:{email?:string}; onboardingRequired?:boolean };
-type Tab = "overview"|"requests"|"workflow"|"artifacts"|"approvals"|"operations";
-
-const core = import.meta.env.VITE_CORE_API_URL || "https://akinael-ai.com";
-const tokenKey = "akinael-admin-token";
-const fmt = (value:unknown) => typeof value === "string" && value ? new Intl.DateTimeFormat("ja-JP",{dateStyle:"medium",timeStyle:"short"}).format(new Date(value)) : "—";
-const text = (value:unknown) => typeof value === "string" && value ? value : "—";
+import { useCallback, useEffect, useState } from "react";
+import "./styles/admin.css";
+import { api, ApiError, TOKEN_KEY } from "./lib/api";
+import type { ChatMessage, CustomerRow, Me, Overview, ProjectDetail, ProjectRow, Screen } from "./lib/types";
+import AuthScreen from "./components/AuthScreen";
+import Shell from "./components/Shell";
+import HomeScreen from "./components/HomeScreen";
+import CustomersScreen from "./components/CustomersScreen";
+import CustomerDetailScreen from "./components/CustomerDetailScreen";
+import ProjectsScreen from "./components/ProjectsScreen";
+import ProjectDetailScreen from "./components/ProjectDetailScreen";
+import ConsultationLogScreen from "./components/ConsultationLogScreen";
+import ChatThreadsScreen from "./components/ChatThreadsScreen";
+import ChatScreen from "./components/ChatScreen";
+import WorksScreen from "./components/WorksScreen";
+import BillingScreen from "./components/BillingScreen";
+import SettingsScreen from "./components/SettingsScreen";
 
 export default function Admin() {
-  const recoveryParams=new URLSearchParams(window.location.hash.replace(/^#/,""));
-  const recoveryToken=recoveryParams.get("access_token");
-  const [token,setToken]=useState<string|null>(null),[me,setMe]=useState<Me|null>(null),[overview,setOverview]=useState<Overview|null>(null),[detail,setDetail]=useState<Detail|null>(null),[selected,setSelected]=useState(""),[tab,setTab]=useState<Tab>("overview"),[email,setEmail]=useState(""),[password,setPassword]=useState(""),[confirmPassword,setConfirmPassword]=useState(""),[recoveryMode,setRecoveryMode]=useState(new URLSearchParams(window.location.search).get("mode")==="recovery"),[notice,setNotice]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");
-  const authHeaders=useCallback((value=token):Record<string,string>=>value?{authorization:`Bearer ${value}`}:{},[token]);
-  const api=useCallback(async <T,>(path:string,value=token):Promise<T>=>{const response=await fetch(`${core}${path}`,{headers:authHeaders(value)});const body=await response.json().catch(()=>({}));if(!response.ok)throw Error(body?.error?.message||"管理データを取得できませんでした");return body as T},[authHeaders,token]);
-  const load=useCallback(async(value=token,projectId?:string)=>{if(!value)return;const [who,board]=await Promise.all([api<Me>("/api/v2/auth/me",value),api<Overview>("/api/v2/admin/overview",value)]);if(who.profile?.role!=="admin")throw Error("管理者権限がありません。");setMe(who);setOverview(board);const id=projectId||selected||board.projects[0]?.id||"";setSelected(id);setDetail(id?await api<Detail>(`/api/v2/admin/projects/${id}`,value):null)},[api,selected,token]);
-  useEffect(()=>{const saved=localStorage.getItem(tokenKey);if(!saved)return;setToken(saved);load(saved).catch(e=>{localStorage.removeItem(tokenKey);setToken(null);setError(e.message)})},[]); // eslint-disable-line react-hooks/exhaustive-deps
-  const login=async(event:FormEvent)=>{event.preventDefault();setBusy(true);setError("");try{const response=await fetch(`${core}/api/v2/auth/login`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email,password})});const body=await response.json();if(!response.ok)throw Error(body?.error?.message||"ログインに失敗しました");const who=await api<Me>("/api/v2/auth/me",body.token);if(who.profile?.role!=="admin")throw Error("管理者権限がありません。");localStorage.setItem(tokenKey,body.token);setToken(body.token);await load(body.token)}catch(e){setError(e instanceof Error?e.message:"ログインに失敗しました")}finally{setBusy(false)}};
-  const requestRecovery=async(event:FormEvent)=>{event.preventDefault();setBusy(true);setError("");setNotice("");try{const response=await fetch(`${core}/api/v2/auth/password-recovery`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email})});const body=await response.json().catch(()=>({}));if(!response.ok)throw Error(body?.error?.message||"再設定メールを送信できませんでした");setNotice("パスワード再設定メールを送信しました。メール内のリンクを開いてください。")}catch(e){setError(e instanceof Error?e.message:"再設定メールを送信できませんでした")}finally{setBusy(false)}};
-  const updatePassword=async(event:FormEvent)=>{event.preventDefault();setError("");setNotice("");if(password!==confirmPassword){setError("確認用パスワードが一致しません。");return}if(!recoveryToken){setError("回復リンクが無効です。再設定メールをもう一度送信してください。");return}setBusy(true);try{const response=await fetch(`${core}/api/v2/auth/password`,{method:"POST",headers:{"content-type":"application/json",authorization:`Bearer ${recoveryToken}`},body:JSON.stringify({password})});const body=await response.json().catch(()=>({}));if(!response.ok)throw Error(body?.error?.message||"パスワードを更新できませんでした");await logout();window.history.replaceState({},"","/admin/");setPassword("");setConfirmPassword("");setRecoveryMode(false);setNotice("パスワードを更新しました。新しいパスワードでログインしてください。")}catch(e){setError(e instanceof Error?e.message:"パスワードを更新できませんでした")}finally{setBusy(false)}};
-  const choose=async(id:string)=>{setSelected(id);setBusy(true);setError("");try{setDetail(await api<Detail>(`/api/v2/admin/projects/${id}`));setTab("overview")}catch(e){setError(e instanceof Error?e.message:"案件を取得できませんでした")}finally{setBusy(false)}};
-  const logout=async()=>{if(token)await fetch(`${core}/api/v2/auth/logout`,{method:"POST",headers:authHeaders()}).catch(()=>{});localStorage.removeItem(tokenKey);setToken(null);setMe(null);setOverview(null);setDetail(null)};
-  const totals=overview?.summary;
-  const workflow=detail?.workflows?.[0];
-  const grouped=useMemo(()=>({completed:detail?.tasks.filter(x=>x.status==="completed").length||0,total:detail?.tasks.length||0}),[detail]);
-  if(recoveryMode||!token||!me)return <main className="login-shell"><section className="login-card">
-    <span className="brand-mark">A</span><p className="eyebrow">AKINAEL OPERATIONS</p>
-    <h1>{recoveryMode?(recoveryToken?"新しいパスワード":"パスワード再設定"):"管理者ログイン"}</h1>
-    <p className="muted">{recoveryMode?(recoveryToken?"12文字以上の新しいパスワードを設定します。":"登録済みメールアドレスへ安全な回復リンクを送信します。"):"Supabase Authで本人確認し、管理者ロールを検証します。"}</p>
-    {error&&<p className="alert" role="alert">{error}</p>}{notice&&<p className="notice" role="status">{notice}</p>}
-    {recoveryMode?(recoveryToken?
-      <form onSubmit={updatePassword}><label>新しいパスワード<input type="password" autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)} minLength={12} required /></label><label>新しいパスワード（確認）<input type="password" autoComplete="new-password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} minLength={12} required /></label><button disabled={busy}>{busy?"更新中…":"パスワードを更新"}</button></form>:
-      <form onSubmit={requestRecovery}><label>メールアドレス<input type="email" autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)} required /></label><button disabled={busy}>{busy?"送信中…":"再設定メールを送信"}</button></form>):
-      <form onSubmit={login}><label>メールアドレス<input type="email" autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)} required /></label><label>パスワード<input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} minLength={12} required /></label><button disabled={busy}>{busy?"認証中…":"管理画面へ"}</button></form>}
-    <div className="login-links">{recoveryMode?<button type="button" onClick={()=>{window.history.replaceState({},"","/admin/");setRecoveryMode(false);setError("");setNotice("")}}>ログインへ戻る</button>:<button type="button" onClick={()=>{window.history.replaceState({},"","/admin/?mode=recovery");setRecoveryMode(true);setError("");setNotice("")}}>パスワードを忘れた方</button>}<a href="/portal/">Customer Portalへ</a></div>
-  </section></main>;
-  return <div className="shell">
-    <aside className="sidebar"><div><span className="brand-mark small">A</span><strong>AKINAEL</strong><small>Operations Console</small></div><nav aria-label="案件一覧"><p className="eyebrow">PROJECTS</p>{overview?.projects.map(p=><button key={p.id} className={selected===p.id?"active":""} onClick={()=>choose(p.id)}><span>{p.name}</span><small>{p.customer_name||"顧客未設定"} · {p.status}</small>{p.needs_attention&&<i aria-label="対応必要">!</i>}</button>)}</nav><button className="logout" onClick={logout}>ログアウト</button></aside>
-    <main className="workspace"><header className="top"><div><p className="eyebrow">ADMIN / TENANT OPERATIONS</p><h1>{detail?.project.name||"運用ダッシュボード"}</h1><p className="muted">{detail?.customer?.name||"案件を選択してください"} · 最終更新 {fmt(detail?.project.updated_at)}</p></div><div className="operator"><span>{me.profile?.displayName||"管理者"}</span><small>{me.user?.email}</small><button onClick={()=>load(token,selected)} disabled={busy}>更新</button></div></header>
-      {error&&<p className="alert" role="alert">{error}</p>}
-      <section className="metrics" aria-label="運用サマリー"><Metric label="顧客" value={totals?.customers}/><Metric label="案件" value={totals?.projects}/><Metric label="対応必要" value={totals?.needsAttention} tone="warn"/><Metric label="進行中Workflow" value={totals?.runningWorkflows}/><Metric label="失敗Task" value={totals?.failedTasks} tone="danger"/><Metric label="承認待ち" value={totals?.pendingApprovals}/></section>
-      {detail&&<><nav className="tabs" aria-label="案件詳細">{([["overview","概要"],["requests","依頼・会話"],["workflow","Workflow"],["artifacts","成果物・品質"],["approvals","承認"],["operations","運用記録"]] as [Tab,string][]).map(([id,label])=><button className={tab===id?"active":""} onClick={()=>setTab(id)} key={id}>{label}</button>)}</nav>
-      {tab==="overview"&&<section className="panel-grid"><Panel title="現在の状態"><Status label="Project" value={detail.project.status}/><Status label="Workflow" value={workflow?.status}/><Status label="Phase" value={workflow?.current_phase}/><Status label="Tasks" value={`${grouped.completed} / ${grouped.total} 完了`}/></Panel><Panel title="Deployment Gate"><Status label="Release Gate" value={detail.deploymentGate.releasePassed?"PASS":"未達"}/><Status label="Customer Approval" value={detail.deploymentGate.customerApproved?"approved":"pending"}/><Status label="公開候補" value={detail.deploymentGate.deployReady?"DEPLOY READY":"not ready"}/><Status label="Production" value={detail.deploymentGate.productionPublished?"deployed":"not published"}/></Panel><Panel title="Human Gate"><p>公開候補になっても本番公開・DNS変更・新規課金・返金・データ削除は、オーナー承認後にのみ実行します。</p><div className="gate">{detail.deploymentGate.humanGateRequired?"オーナー承認待ち":"自動実行なし"}</div></Panel><Panel title="リポジトリ"><List rows={detail.repositories.map(x=>({...x,title:text(x.repository_full_name),status:text(x.default_branch)}))} empty="リポジトリ未登録"/></Panel></section>}
-      {tab==="requests"&&<section className="panel-grid"><Panel title={`依頼 ${detail.requests.length}件`}><List rows={detail.requests} empty="依頼はありません。"/></Panel><Panel title={`メッセージ ${detail.messages.length}件`}><List rows={detail.messages.map(x=>({...x,title:text(x.author_type),status:text(x.content)}))} empty="メッセージはありません。"/></Panel></section>}
-      {tab==="workflow"&&<section className="panel-grid"><Panel title={`Workflow ${detail.workflows.length}件`}><List rows={detail.workflows.map(x=>({...x,title:text(x.pipeline),status:`${text(x.status)} / ${text(x.current_phase)}`}))} empty="Workflowはありません。"/></Panel><Panel title={`Tasks ${detail.tasks.length}件`}><List rows={detail.tasks} empty="Taskはありません。"/></Panel></section>}
-      {tab==="artifacts"&&<section className="panel-grid"><Panel title={`成果物 ${detail.artifacts.length}件`}><List rows={detail.artifacts} empty="成果物はありません。" links/></Panel><Panel title={`品質検査 ${detail.qualityChecks.length}件`}><List rows={detail.qualityChecks.map(x=>({...x,title:text(x.reviewer),status:`${text(x.status)} · ${text(x.severity)}`}))} empty="品質検査記録はありません。"/></Panel></section>}
-      {tab==="approvals"&&<section className="panel-grid"><Panel title={`承認 ${detail.approvals.length}件`}><List rows={detail.approvals.map(x=>({...x,title:text(x.type)}))} empty="承認記録はありません。"/></Panel><Panel title={`決済 ${detail.payments.length}件`}><List rows={detail.payments.map(x=>({...x,title:`${text(x.amount)} ${text(x.currency)}`,status:text(x.status)}))} empty="決済記録はありません。"/><div className="gate">新規課金はHuman Gate</div></Panel></section>}
-      {tab==="operations"&&<section className="panel-grid"><Panel title={`通知 ${detail.notifications.length}件`}><List rows={detail.notifications.map(x=>({...x,title:text(x.type),status:text(x.message)}))} empty="通知記録はありません。"/></Panel><Panel title={`Deployments ${detail.deployments.length}件`}><List rows={detail.deployments.map(x=>({...x,title:text(x.environment),status:text(x.status)}))} empty="デプロイ記録はありません。"/><div className="gate">{detail.deploymentGate.productionPublished?"本番公開済み":"本番公開はHuman Gate"}</div></Panel><Panel title={`監査ログ ${detail.auditLogs.length}件`}><List rows={detail.auditLogs.map(x=>({...x,title:text(x.action),status:text(x.resource_type)}))} empty="監査ログはありません。"/></Panel></section>}</>}
-    </main>
-  </div>
-}
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const recoveryToken = hashParams.get("access_token");
+  const [recoveryMode, setRecoveryMode] = useState(new URLSearchParams(window.location.search).get("mode") === "recovery");
 
-function Metric({label,value,tone=""}:{label:string;value?:number;tone?:string}){return <article className={tone}><span>{label}</span><strong>{value??"—"}</strong></article>}
-function Panel({title,children}:{title:string;children:ReactNode}){return <article className="panel"><h2>{title}</h2>{children}</article>}
-function Status({label,value}:{label:string;value:unknown}){return <div className="status-row"><span>{label}</span><strong>{text(value)}</strong></div>}
-function List({rows,empty,links=false}:{rows:Row[];empty:string;links?:boolean}){if(!rows.length)return <p className="empty">{empty}</p>;return <ul className="record-list">{rows.slice(0,100).map(row=><li key={row.id}><div><strong>{row.title||text(row.kind)||text(row.task_key)||row.id}</strong><small>{row.status&&String(row.status)}{row.created_at&&` · ${fmt(row.created_at)}`}</small></div>{links&&row.preview_url&&<a href={row.preview_url} target="_blank" rel="noreferrer">プレビュー ↗</a>}</li>)}</ul>}
+  const [token, setToken] = useState<string | null>(null);
+  const [me, setMe] = useState<Me | null>(null);
+  const [overview, setOverview] = useState<Overview | null>(null);
+  const [customers, setCustomers] = useState<CustomerRow[]>([]);
+  const [plans, setPlans] = useState<Record<string, { name: string; monthlyAmount?: number; amount?: number }>>({});
+
+  const [screen, setScreen] = useState<Screen>("home");
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [projectDetail, setProjectDetail] = useState<ProjectDetail | null>(null);
+  const [customerDetail, setCustomerDetail] = useState<{ customer: CustomerRow; projects: ProjectRow[] } | null>(null);
+  const [chatProjectName, setChatProjectName] = useState("");
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInstruction, setChatInstruction] = useState(false);
+  const [worksProjectId, setWorksProjectId] = useState<string | null>(null);
+  const [worksDetail, setWorksDetail] = useState<ProjectDetail | null>(null);
+
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async (accessToken: string) => {
+    const who = await api.me(accessToken);
+    if (who.profile?.role !== "admin") throw new ApiError("管理者権限がありません。", 403);
+    setMe(who);
+    const [board, customerList, pricing] = await Promise.all([api.overview(accessToken), api.customers(accessToken), api.pricing()]);
+    setOverview(board);
+    setCustomers(customerList);
+    setPlans(pricing.plans);
+  }, []);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(TOKEN_KEY);
+    if (!saved) return;
+    setToken(saved);
+    load(saved).catch((caught) => {
+      localStorage.removeItem(TOKEN_KEY);
+      setToken(null);
+      setError(caught instanceof ApiError ? caught.message : "読み込みに失敗しました。");
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const logout = async () => {
+    if (token) await api.logout(token).catch(() => {});
+    localStorage.removeItem(TOKEN_KEY);
+    setToken(null);
+    setMe(null);
+    setOverview(null);
+    setScreen("home");
+  };
+
+  const navigate = (next: Screen) => {
+    setScreen(next);
+    setError("");
+  };
+
+  const openProject = async (projectId: string) => {
+    if (!token) return;
+    setBusy(true);
+    setError("");
+    try {
+      const detail = await api.projectDetail(token, projectId);
+      setSelectedProjectId(projectId);
+      setProjectDetail(detail);
+      navigate("projectDetail");
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "案件を取得できませんでした。");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openCustomer = async (customerId: string) => {
+    if (!token) return;
+    setBusy(true);
+    setError("");
+    try {
+      const result = await api.customerDetail(token, customerId);
+      setSelectedCustomerId(customerId);
+      setCustomerDetail(result);
+      navigate("customerDetail");
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "顧客を取得できませんでした。");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openChat = async (projectId: string, projectName: string, instruction = false) => {
+    if (!token) return;
+    setBusy(true);
+    setError("");
+    try {
+      const thread = await api.chatThread(token, projectId);
+      setSelectedProjectId(projectId);
+      setChatProjectName(projectName);
+      setChatMessages(thread);
+      setChatInstruction(instruction);
+      navigate("chat");
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "チャットを取得できませんでした。");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const sendChat = async (content: string, createRequest: boolean) => {
+    if (!token || !selectedProjectId) return;
+    setBusy(true);
+    setError("");
+    try {
+      const result = await api.sendChat(token, selectedProjectId, content, createRequest);
+      setChatMessages((prev) => [
+        ...prev,
+        { id: `local-${Date.now()}`, role: "user", content, createdAt: new Date().toISOString() },
+        result.reply
+      ]);
+      if (result.createdRequest && projectDetail?.project.id === selectedProjectId) {
+        const refreshed = await api.projectDetail(token, selectedProjectId);
+        setProjectDetail(refreshed);
+      }
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "AIとの通信に失敗しました。");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const acknowledge = async (note: string) => {
+    if (!token || !selectedProjectId) return;
+    await api.acknowledgeProject(token, selectedProjectId, note);
+    const [detail, board] = await Promise.all([api.projectDetail(token, selectedProjectId), api.overview(token)]);
+    setProjectDetail(detail);
+    setOverview(board);
+  };
+
+  const notifyCustomer = async (message: string) => {
+    if (!token || !selectedProjectId) return;
+    await api.notifyCustomer(token, selectedProjectId, message || "制作物のご確認をお願いします。");
+    const detail = await api.projectDetail(token, selectedProjectId);
+    setProjectDetail(detail);
+  };
+
+  const openWorksProject = async (projectId: string) => {
+    if (!token || !projectId) return;
+    setBusy(true);
+    try {
+      const detail = await api.projectDetail(token, projectId);
+      setWorksProjectId(projectId);
+      setWorksDetail(detail);
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "成果物を取得できませんでした。");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const changePlan = async (customerId: string, planId: string | null) => {
+    if (!token) return;
+    await api.updateCustomerPlan(token, customerId, planId);
+    setCustomers(await api.customers(token));
+  };
+
+  if (!token || recoveryMode) {
+    return (
+      <AuthScreen
+        recoveryMode={recoveryMode}
+        recoveryToken={recoveryToken}
+        onRequestRecoveryMode={() => setRecoveryMode(true)}
+        onRecoveryDone={() => setRecoveryMode(false)}
+        onPasswordUpdated={() => {
+          localStorage.removeItem(TOKEN_KEY);
+          setToken(null);
+          setMe(null);
+          window.history.replaceState({}, "", "/admin/");
+          setRecoveryMode(false);
+        }}
+        onAuthenticated={async (newToken) => {
+          setToken(newToken);
+          await load(newToken);
+        }}
+      />
+    );
+  }
+
+  if (!me || !overview) {
+    return (
+      <main className="screen">
+        <p className="muted">読み込み中…</p>
+      </main>
+    );
+  }
+
+  return (
+    <Shell screen={screen} onNavigate={navigate} onLogout={logout} operatorName={me.profile?.displayName || "管理者"}>
+      {error && (
+        <div className="screen" style={{ paddingBottom: 0 }}>
+          <p className="alert">{error}</p>
+        </div>
+      )}
+      {screen === "home" && <HomeScreen overview={overview} onOpenProject={openProject} />}
+      {screen === "customers" && <CustomersScreen customers={customers} onOpen={openCustomer} />}
+      {screen === "customerDetail" && customerDetail && (
+        <CustomerDetailScreen
+          customer={customerDetail.customer}
+          projects={customerDetail.projects}
+          onOpenProject={openProject}
+          onOpenConsultationLog={openProject}
+        />
+      )}
+      {screen === "projects" && <ProjectsScreen overview={overview} onOpen={openProject} />}
+      {screen === "projectDetail" && projectDetail && (
+        <ProjectDetailScreen
+          detail={projectDetail}
+          busy={busy}
+          onOpenChat={(instruction) => openChat(projectDetail.project.id, projectDetail.project.name, instruction)}
+          onOpenConsultationLog={() => navigate("consultationLog")}
+          onAcknowledge={acknowledge}
+          onNotifyCustomer={notifyCustomer}
+        />
+      )}
+      {screen === "consultationLog" && projectDetail && (
+        <ConsultationLogScreen
+          projectName={projectDetail.project.name}
+          log={projectDetail.consultationLog}
+          onAskChat={() => openChat(projectDetail.project.id, projectDetail.project.name)}
+        />
+      )}
+      {screen === "chatThreads" && <ChatThreadsScreen overview={overview} onOpen={(id) => { const p = overview.projects.find((x) => x.id === id); openChat(id, p?.name || "案件"); }} />}
+      {screen === "chat" && <ChatScreen projectName={chatProjectName} messages={chatMessages} instruction={chatInstruction} busy={busy} onSend={sendChat} />}
+      {screen === "works" && <WorksScreen overview={overview} selectedProjectId={worksProjectId} detail={worksDetail} onSelect={openWorksProject} />}
+      {screen === "billing" && <BillingScreen customers={customers} plans={plans} busy={busy} onChangePlan={changePlan} />}
+      {screen === "settings" && <SettingsScreen me={me} onLogout={logout} />}
+    </Shell>
+  );
+}

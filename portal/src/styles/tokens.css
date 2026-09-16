@@ -1,0 +1,35 @@
+/* Broadsheet design system tokens — Claude Design 2026-09-16 customer-portal spec.
+   Values here are the literal Source of Truth from claude-design-input/customer-portal/README.md
+   and claude-design-input/public-site/README.md (accent-700 shared across both). Do not
+   round or "improve" these numbers without updating the design spec first. */
+:root {
+  --color-bg: #f3f2f2;
+  --color-surface: #eae9e9;
+  --color-text: #201e1d;
+  --color-accent: #0088b0;
+  --color-accent-700: #006786;
+  --color-accent-2: #d6006c;
+
+  --color-surface-white: #ffffff;
+  --color-border: #d8d6d5;
+  --color-muted: #6b6867;
+  --color-danger: #b3261e;
+  --color-danger-bg: #fbeae9;
+  --color-success-bg: #e3f1ec;
+
+  --font-serif: "Source Serif 4", "Noto Serif JP", system-ui, sans-serif;
+
+  --space-1: 5px;
+  --space-2: 10px;
+  --space-3: 15px;
+  --space-4: 20px;
+  --space-6: 30px;
+  --space-8: 40px;
+
+  --radius-1: 1px;
+  --radius-2: 2px;
+  --radius-4: 4px;
+
+  --sidebar-width: 248px;
+  --tabbar-height: 64px;
+}

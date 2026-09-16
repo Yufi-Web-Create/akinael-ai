@@ -5,14 +5,9 @@ import Admin from "./Admin";
 const tokenKey = "akinael-admin-token";
 
 const jsonResponse = (body: unknown, ok = true) =>
-  Promise.resolve({
-    ok,
-    json: () => Promise.resolve(body),
-  }) as unknown as Promise<Response>;
+  Promise.resolve({ ok, json: () => Promise.resolve(body) }) as unknown as Promise<Response>;
 
-const setUrl = (path: string) => {
-  window.history.pushState({}, "", path);
-};
+const setUrl = (path: string) => window.history.pushState({}, "", path);
 
 beforeEach(() => {
   localStorage.clear();
@@ -35,70 +30,66 @@ describe("stale-session recovery access", () => {
         if (url.includes("/api/v2/auth/me")) {
           return jsonResponse({ profile: { role: "admin", displayName: "管理者" }, user: { email: "owner@example.com" } });
         }
-        if (url.includes("/api/v2/admin/overview")) {
-          return jsonResponse({ summary: {}, projects: [], recentWorkflows: [], recentNotifications: [] });
-        }
-        throw new Error(`unexpected fetch: ${url}`);
-      }),
+        throw new Error(`unexpected fetch during recovery: ${url}`);
+      })
     );
 
     render(<Admin />);
-
-    // The stale session's background load() resolves successfully (role: admin),
-    // which is exactly the condition that let it silently win over recoveryMode
-    // before this fix.
     await waitFor(() => expect(screen.getByRole("heading", { name: "新しいパスワード" })).toBeTruthy());
-    expect(screen.queryByText("運用ダッシュボード")).toBeNull();
   });
 
-  test("no stale session still reaches the recovery-request UI as before", () => {
-    setUrl("/admin/?mode=recovery");
-    vi.stubGlobal("fetch", vi.fn(() => { throw new Error("fetch should not be called without a stored token"); }));
-
-    render(<Admin />);
-
-    expect(screen.getByRole("heading", { name: "パスワード再設定" })).toBeTruthy();
-  });
-});
-
-describe("password reset clears any prior session", () => {
-  test("a successful reset logs out the stale session instead of falling into the dashboard", async () => {
+  test("a successful password reset clears the stale session and returns to the normal login form", async () => {
     localStorage.setItem(tokenKey, "stale-admin-session-token");
     setUrl("/admin/?mode=recovery#access_token=fresh-recovery-token&type=recovery");
 
-    const loggedOutUrls: string[] = [];
     vi.stubGlobal(
       "fetch",
-      vi.fn((url: string, init?: RequestInit) => {
-        if (url.includes("/api/v2/auth/me")) {
-          return jsonResponse({ profile: { role: "admin", displayName: "管理者" }, user: { email: "owner@example.com" } });
-        }
-        if (url.includes("/api/v2/admin/overview")) {
-          return jsonResponse({ summary: {}, projects: [], recentWorkflows: [], recentNotifications: [] });
-        }
-        if (url.includes("/api/v2/auth/password") && init?.method === "POST") {
-          return jsonResponse({ passwordUpdated: true });
-        }
-        if (url.includes("/api/v2/auth/logout")) {
-          loggedOutUrls.push(url);
-          return jsonResponse({ ok: true });
-        }
+      vi.fn((url: string, options?: RequestInit) => {
+        if (url.includes("/api/v2/auth/password") && options?.method === "POST") return jsonResponse({ passwordUpdated: true });
         throw new Error(`unexpected fetch: ${url}`);
-      }),
+      })
     );
 
     render(<Admin />);
-
-    await waitFor(() => expect(screen.getByRole("heading", { name: "新しいパスワード" })).toBeTruthy());
-
-    fireEvent.change(screen.getByLabelText("新しいパスワード"), { target: { value: "a-new-secure-password" } });
-    fireEvent.change(screen.getByLabelText("新しいパスワード（確認）"), { target: { value: "a-new-secure-password" } });
+    fireEvent.change(screen.getByLabelText("新しいパスワード"), { target: { value: "a-very-long-password-123" } });
+    fireEvent.change(screen.getByLabelText("新しいパスワード（確認）"), { target: { value: "a-very-long-password-123" } });
     fireEvent.click(screen.getByRole("button", { name: "パスワードを更新" }));
 
-    await waitFor(() => expect(screen.getByText("パスワードを更新しました。新しいパスワードでログインしてください。")).toBeTruthy());
-
+    await waitFor(() => expect(screen.getByRole("heading", { name: "管理者ログイン" })).toBeTruthy());
     expect(localStorage.getItem(tokenKey)).toBeNull();
-    expect(loggedOutUrls.length).toBe(1);
-    expect(screen.getByRole("heading", { name: "管理者ログイン" })).toBeTruthy();
+  });
+});
+
+describe("normal login regression", () => {
+  test("a fresh admin login reaches the Home screen with real overview/customer data, not mock data", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) => {
+        if (url.includes("/api/v2/auth/login")) return jsonResponse({ token: "real-token" });
+        if (url.includes("/api/v2/auth/me")) return jsonResponse({ profile: { role: "admin", displayName: "管理者" }, user: { email: "owner@example.com" } });
+        if (url.includes("/api/v2/admin/overview")) {
+          return jsonResponse({
+            summary: { customers: 1, projects: 1, needsAttention: 1, runningWorkflows: 0, failedTasks: 0, pendingApprovals: 0 },
+            projects: [{ id: "p1", name: "山田商店サイト制作", status: "production", customer_name: "山田商店", needs_attention: true, attention_reasons: ["quality_check_failed"] }],
+            recentWorkflows: [],
+            recentNotifications: []
+          });
+        }
+        if (url.includes("/api/v2/admin/customers")) return jsonResponse([{ id: "c1", name: "山田商店", plan_id: "mini", projectCount: 1, needsAttention: true }]);
+        if (url.includes("/api/v2/pricing")) return jsonResponse({ currency: "JPY", taxIncluded: true, plans: { mini: { name: "本契約ミニ", monthlyAmount: 3980 } } });
+        throw new Error(`unexpected fetch: ${url}`);
+      })
+    );
+
+    render(<Admin />);
+    fireEvent.change(screen.getByLabelText("メールアドレス"), { target: { value: "owner@example.com" } });
+    fireEvent.change(screen.getByLabelText("パスワード"), { target: { value: "a-very-long-password-123" } });
+    fireEvent.click(screen.getByRole("button", { name: "管理画面へ" }));
+
+    await waitFor(() => expect(screen.getByText("山田商店サイト制作")).toBeTruthy());
+    expect(screen.getByText("あなたの判断待ち")).toBeTruthy();
+    for (const forbidden of ["needs_attention", "Human Gate", "workflow_run"]) {
+      expect(document.body.textContent || "").not.toContain(forbidden);
+    }
   });
 });

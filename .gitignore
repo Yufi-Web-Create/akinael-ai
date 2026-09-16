@@ -15,3 +15,5 @@ portal/vite.config.d.ts
 portal/vite.config.js
 admin/test-results/
 admin/playwright-report/
+portal/test-results/
+portal/playwright-report/

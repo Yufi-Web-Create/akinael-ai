@@ -227,6 +227,81 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
         return writeJson(response, 200, await store.getProject(token, parts[3])), true;
       }
 
+      if (method === 'GET' && url.pathname === '/api/v2/pricing') {
+        return writeJson(response, 200, store.getPricingCatalog()), true;
+      }
+
+      if (method === 'GET' && parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects' && parts[4] === 'consultation') {
+        return writeJson(response, 200, await store.listConsultation(token, parts[3])), true;
+      }
+
+      if (method === 'POST' && parts.length === 6 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects' && parts[4] === 'consultation' && parts[5] === 'messages') {
+        const body = await readJsonBody(request);
+        return writeJson(response, 201, await store.sendConsultationMessage(token, parts[3], body)), true;
+      }
+
+      if (method === 'POST' && parts.length === 6 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects' && parts[4] === 'consultation' && parts[5] === 'finalize') {
+        const body = await readJsonBody(request);
+        const projectId = parts[3];
+        const finalized = await store.finalizeConsultationRequest(token, projectId, body);
+        let routing;
+        try {
+          routing = { status: 'routed', ...(await productionRouter.route(finalized.request)) };
+        } catch {
+          // The request is already durably persisted (see finalizeConsultationRequest ->
+          // createRequest). A routing hiccup does not undo the customer's approval; a worker
+          // or explicit retry can route it later without asking the customer to resubmit.
+          routing = { status: 'pending_retry' };
+        }
+        await store.markConsultationFinalized(token, projectId, { threadId: finalized.threadId, requestId: finalized.request.id });
+        return writeJson(response, 201, { ...finalized, routing }), true;
+      }
+
+      if (method === 'GET' && url.pathname === '/api/v2/billing/summary') {
+        return writeJson(response, 200, await store.getBillingSummary(token)), true;
+      }
+
+      if (method === 'POST' && url.pathname === '/api/v2/billing/portal-session') {
+        return writeJson(response, 200, await store.createBillingPortalSession(token)), true;
+      }
+
+      if (method === 'PATCH' && url.pathname === '/api/v2/account') {
+        const body = await readJsonBody(request);
+        return writeJson(response, 200, await store.updateAccount(token, body)), true;
+      }
+
+      if (method === 'GET' && url.pathname === '/api/v2/admin/customers') {
+        return writeJson(response, 200, await store.listAdminCustomers(token)), true;
+      }
+
+      if (method === 'GET' && parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'admin' && parts[3] === 'customers') {
+        return writeJson(response, 200, await store.getAdminCustomer(token, parts[4])), true;
+      }
+
+      if (method === 'PATCH' && parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'admin' && parts[3] === 'customers') {
+        const body = await readJsonBody(request);
+        return writeJson(response, 200, await store.updateAdminCustomer(token, parts[4], body)), true;
+      }
+
+      if (method === 'GET' && parts.length === 6 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'admin' && parts[3] === 'projects' && parts[5] === 'chat') {
+        return writeJson(response, 200, await store.listAdminChat(token, parts[4])), true;
+      }
+
+      if (method === 'POST' && parts.length === 7 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'admin' && parts[3] === 'projects' && parts[5] === 'chat' && parts[6] === 'messages') {
+        const body = await readJsonBody(request);
+        return writeJson(response, 201, await store.sendAdminChat(token, parts[4], body)), true;
+      }
+
+      if (method === 'POST' && parts.length === 6 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'admin' && parts[3] === 'projects' && parts[5] === 'acknowledge') {
+        const body = await readJsonBody(request);
+        return writeJson(response, 200, await store.acknowledgeAdminProject(token, parts[4], body)), true;
+      }
+
+      if (method === 'POST' && parts.length === 6 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'admin' && parts[3] === 'projects' && parts[5] === 'notify-customer') {
+        const body = await readJsonBody(request);
+        return writeJson(response, 200, await store.notifyCustomerAboutProject(token, parts[4], body)), true;
+      }
+
       return writeJson(response, 404, { error: { code: 'not_found', message: 'not found' } }), true;
     } catch (caught) {
       if (caught instanceof SupabaseAuthError) {

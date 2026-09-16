@@ -1,0 +1,34 @@
+/* Industry design system tokens — Claude Design 2026-09-16 admin-console spec.
+   Literal Source of Truth values from claude-design-input/admin-console/README.md.
+   This UI's radius is 0 by design ("角丸0を基本とする") — do not round corners. */
+:root {
+  --color-bg: #f2f2f3;
+  --color-surface: #e9e9ea;
+  --color-text: #1d1f20;
+  --color-accent: #5980a6;
+  --color-accent-dark: #3f6485;
+
+  --color-surface-white: #ffffff;
+  --color-border: #c9cacb;
+  --color-muted: #62666a;
+
+  --color-green: #2f7d4f;
+  --color-green-bg: #e4f1e8;
+  --color-orange: #a3620c;
+  --color-orange-bg: #fbecd6;
+  --color-red: #b3261e;
+  --color-red-bg: #fbeae9;
+  --color-neutral-bg: #e9e9ea;
+
+  --font-heading: "Barlow Condensed", system-ui, sans-serif;
+  --font-body: "Barlow", system-ui, sans-serif;
+
+  --space-1: 5px;
+  --space-2: 10px;
+  --space-3: 15px;
+  --space-4: 20px;
+  --space-6: 30px;
+  --space-8: 40px;
+
+  --sidebar-width: 260px;
+}

@@ -373,3 +373,14 @@ Core repo（`Yufi-Web-Create/akinael-ai`, main `0ddb862`）とOfficial site repo
 - blocking review finding 0（新規PRなし）
 - unresolved P0/P1 defect 0
 - Human Gate: 影響なし。production publish・DNS・実顧客通知・payment・production data削除・Secret操作のいずれも実行していない。Official siteのproduction公開も実行していない。
+
+## UI Redesign Integration（2026-09-16 JST, Claude Code）— 実装完了、production未反映
+
+PHASE 1〜9のnumbered phaseとは別軸の初期化。Claude Designで確定した新UI（`design-input/claude-redesign-20260916` branch、Core・Official site両repo）を、公開サイト・顧客マイページ・管理ツール・Backendへ実装した。詳細はPR本文・`docs/HANDOFF.md`参照。
+
+- Core branch: `feature/ui-redesign-integration`（`origin/main` `be97637` から分岐）
+- Official site (`Yufi-Web-Create/akinael-ai-web`) branch: `feature/public-site-redesign`（`origin/main` `d4d5385` から分岐）
+- 実装範囲: 公開サイトTOP（Official site repo）、顧客マイページ全面刷新（`portal/`）、管理ツール全面刷新（`admin/`）、Backend追加API（AI相談チャット、司令塔AIチャット、admin顧客/案件操作、billing、pricing、account）
+- **production未反映の重要事項**: 新migration `supabase/migrations/20260916000000_add_ai_chat_and_billing_fields.sql`（`ai_chat_messages`新規table、`customers.plan_id`/`stripe_customer_id`/`notify_by_email`追加列）を**このセッションの環境ではSupabase CLI/DB接続情報が一切なく適用できていない**。Admin案件詳細（`getAdminProject`）は`customers`のSELECT列にこれら新列を含めるよう変更済みのため、**このmigrationを適用する前にこのブランチのコードをproductionへdeployすると、Admin案件詳細がPostgRESTエラーで500になる**。マージ・デプロイ前に必ずmigrationを適用すること。
+- test/lint/typecheck/build/Playwright E2Eはすべてローカルで実施しPASS（Core 120/120、Portal/Admin lint・build・vitest・Playwright、Official site `npm run qa`フルグリーン）。production browser QA・実Supabase/OpenAI/Stripeを使った実データ確認はこのセッションでは実施不可（secretなし）。次セッション/Workが実施する。
+- Human Gate: 影響なし。production publish・DNS・実顧客通知・課金・production data削除・Secret操作のいずれも実行していない。

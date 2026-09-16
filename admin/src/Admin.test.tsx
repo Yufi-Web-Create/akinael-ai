@@ -93,3 +93,38 @@ describe("normal login regression", () => {
     }
   });
 });
+
+describe("commander AI chat", () => {
+  test("loads the dedicated admin chat and does not send on Enter alone", async () => {
+    localStorage.setItem(tokenKey, "real-token");
+    const detail = {
+      project: { id: "p1", name: "山田商店サイト制作", status: "production", customer_name: "山田商店" },
+      customer: { id: "c1", name: "山田商店" },
+      requests: [], messages: [], workflows: [], tasks: [], artifacts: [], qualityChecks: [], approvals: [], payments: [], repositories: [], deployments: [], notifications: [], auditLogs: [],
+      deploymentGate: { releasePassed: false, customerApproved: false, deployReady: false, humanGateRequired: false, productionPublished: false }
+    };
+    const fetchMock = vi.fn((url: string, options?: RequestInit) => {
+      if (url.includes("/api/v2/auth/me")) return jsonResponse({ profile: { role: "admin", displayName: "管理者" }, user: { email: "owner@example.com" } });
+      if (url.includes("/api/v2/admin/overview")) return jsonResponse({ summary: { customers: 1, projects: 1, needsAttention: 0, runningWorkflows: 0, failedTasks: 0, pendingApprovals: 0 }, projects: [detail.project], recentWorkflows: [], recentNotifications: [] });
+      if (url.endsWith("/api/v2/admin/projects/p1")) return jsonResponse(detail);
+      if (url.endsWith("/api/v2/admin/projects/p1/chat") && !options?.method) return jsonResponse([{ id: "m1", role: "assistant", content: "何を確認しましょうか？", createdAt: "2026-09-17T00:00:00+09:00" }]);
+      if (url.endsWith("/api/v2/admin/projects/p1/chat/messages") && options?.method === "POST") return jsonResponse({ reply: { id: "m2", role: "assistant", content: "確認しました。", createdAt: "2026-09-17T00:01:00+09:00" }, createdRequest: null });
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Admin />);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "ホーム" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "AIチャット" }));
+    fireEvent.click(screen.getByText("山田商店サイト制作"));
+
+    const input = await screen.findByLabelText("司令塔AIへの相談");
+    await waitFor(() => expect(screen.getByText("何を確認しましょうか？")).toBeTruthy());
+    fireEvent.change(input, { target: { value: "進捗を教えて" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    expect(fetchMock.mock.calls.filter(([url, options]) => String(url).endsWith("/chat/messages") && (options as RequestInit | undefined)?.method === "POST")).toHaveLength(0);
+
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter", ctrlKey: true });
+    await waitFor(() => expect(fetchMock.mock.calls.filter(([url, options]) => String(url).endsWith("/chat/messages") && (options as RequestInit | undefined)?.method === "POST")).toHaveLength(1));
+  });
+});

@@ -6,6 +6,7 @@ type Summary = { customers:number; projects:number; needsAttention:number; runni
 type Overview = { summary:Summary; projects:Project[]; recentWorkflows:Row[]; recentNotifications:Row[] };
 type Detail = { project:Project; customer?:Row|null; requests:Row[]; messages:Row[]; workflows:Row[]; tasks:Row[]; artifacts:Row[]; qualityChecks:Row[]; approvals:Row[]; payments:Row[]; repositories:Row[]; deployments:Row[]; notifications:Row[]; deploymentGate:{ releasePassed:boolean; customerApproved:boolean; deployReady:boolean; humanGateRequired:boolean; productionPublished:boolean }; auditLogs:Row[] };
 type Me = { profile?:{role?:string; displayName?:string}; user?:{email?:string} };
+type AdminChatMessage = { id:string; role:string; content:string; createdAt?:string };
 type Screen = "home"|"customers"|"customer"|"projects"|"project"|"chat"|"consultation"|"deliverables"|"billing"|"settings"|"guide"|"developer";
 type StatusKey = "new"|"needs_admin"|"in_progress"|"needs_customer"|"done"|"error";
 
@@ -64,7 +65,7 @@ function ScreenView(p:ViewProps){const {screen,go,overview,projects,details,deta
   if(screen==="projects"){const filters:["all"|StatusKey,string][]=[["all","すべて"],["needs_admin","判断待ち"],["in_progress","制作中"],["needs_customer","お客様確認待ち"],["done","完了"],["new","新規相談"]];const rows=p.filter==="all"?projects:projects.filter(x=>statusOf(x,details[x.id])===p.filter);return <Page title="案件"><div className="chips">{filters.map(([key,label])=><button className={p.filter===key?"active":""} key={key} onClick={()=>p.setFilter(key)}>{label}</button>)}</div><div className="desktop-table"><table className="table"><thead><tr><th>案件名</th><th>顧客</th><th>状態</th><th>今やること</th><th>最終更新</th></tr></thead><tbody>{rows.map(x=>{const s=statusOf(x,details[x.id]);return <tr key={x.id} onClick={()=>go("project",x.id)}><td><strong>{x.name}</strong></td><td>{x.customer_name||"—"}</td><td><Tag status={s}>{statusMeta[s].label}</Tag></td><td>{statusMeta[s].next}</td><td>{fmt(x.updated_at)}</td></tr>})}</tbody></table></div><div className="mobile-cards">{rows.map(x=>{const s=statusOf(x,details[x.id]);return <button className="card" key={x.id} onClick={()=>go("project",x.id)}><span><strong>{x.name}</strong><Tag status={s}>{statusMeta[s].label}</Tag></span><small>{x.customer_name} · {fmt(x.updated_at)}</small><p>{statusMeta[s].next}</p></button>})}</div></Page>}
   if(screen==="project"&&detail)return <ProjectDetail detail={detail} go={go}/>;
   if(screen==="consultation"&&detail)return <Page title="お客様との相談" back={()=>go("project",detail.project.id)} header={<button className="btn btn-secondary" onClick={()=>go("chat",detail.project.id)}>この相談についてAIに聞く</button>} narrow>{detail.messages.length?<div className="timeline">{detail.messages.map(m=><article key={m.id} className={string(m.author_type)==="customer"?"customer":"ai"}><div><Tag status={string(m.author_type)==="customer"?"in_progress":"neutral"}>{string(m.author_type)==="customer"?"お客様":"相談役AI"}</Tag><time>{fmt(m.created_at,true)}</time></div><p>{string(m.content)||"内容なし"}</p></article>)}</div>:<Empty>この案件の相談履歴はまだありません。</Empty>}</Page>;
-  if(screen==="chat")return <Chat projects={projects} details={details} detail={detail} go={go}/>;
+  if(screen==="chat")return <Chat projects={projects} detail={detail} go={go}/>;
   if(screen==="deliverables")return <Page title="制作物"><div className="deliverable-grid">{projects.flatMap(x=>details[x.id]?.artifacts.map(a=>({p:x,a}))||[]).map(({p:x,a})=><article className="card blueprint deliverable" key={a.id}><Corners/><div><strong>{x.name}</strong><Tag status={a.preview_url?"done":"in_progress"}>{a.preview_url?"確認できます":"制作済み"}</Tag></div><Tag status="neutral">AIが制作</Tag><div className="wireframe"><div><i/><span>PC</span></div><div><i/><span>スマホ</span></div></div>{a.preview_url?<a className="btn btn-secondary" href={a.preview_url} target="_blank" rel="noreferrer">プレビューを開く <Icon name="external" size={14}/></a>:<span className="muted small">プレビューは準備中です</span>}</article>)}</div>{!projects.some(x=>details[x.id]?.artifacts.length)&&<Empty>制作物はまだありません。</Empty>}</Page>;
   if(screen==="billing"){const rows=projects.flatMap(x=>(details[x.id]?.payments||[]).map(pay=>({project:x,pay})));return <Page title="契約・料金">{rows.length?<><div className="desktop-table"><table className="table"><thead><tr><th>顧客</th><th>案件</th><th>金額</th><th>状態</th><th>更新日</th></tr></thead><tbody>{rows.map(({project:x,pay})=><tr key={pay.id}><td>{x.customer_name||"—"}</td><td>{x.name}</td><td>{money(pay.amount)}</td><td><Tag status={pay.status==="failed"?"error":"done"}>{pay.status==="failed"?"支払いエラー":"処理済み"}</Tag></td><td>{fmt(pay.updated_at||pay.created_at)}</td></tr>)}</tbody></table></div><div className="mobile-cards">{rows.map(({project:x,pay})=><article className="card" key={pay.id}><span><strong>{x.customer_name}</strong><Tag status={pay.status==="failed"?"error":"done"}>{pay.status==="failed"?"支払いエラー":"処理済み"}</Tag></span><p>{x.name}</p><small>{money(pay.amount)} · {fmt(pay.updated_at||pay.created_at)}</small></article>)}</div></>:<Empty>契約・決済の記録はまだありません。</Empty>}<p className="muted small footer-note">決済や料金変更は、必ずオーナー確認後に実行します。</p></Page>}
   if(screen==="settings")return <Page title="設定" narrow><div className="settings-list"><span>基本情報<Icon name="chevron" size={16}/></span><span>通知設定<Icon name="chevron" size={16}/></span><span>担当者・権限<Icon name="chevron" size={16}/></span><button onClick={()=>go("guide")}>デザイン・運用ルール<Icon name="chevron" size={16}/></button></div><button className="developer-link" onClick={()=>go("developer")}>開発者向け情報</button></Page>;
@@ -74,6 +75,73 @@ function ScreenView(p:ViewProps){const {screen,go,overview,projects,details,deta
 }
 
 function ProjectDetail({detail,go}:{detail:Detail;go:(s:Screen,id?:string)=>void}){const p=detail.project,s=statusOf(p,detail),latest=detail.requests[0],payment=detail.payments[0],completed=detail.tasks.filter(x=>x.status==="completed").length;const summary=s==="done"?"制作と確認が完了しています。必要に応じて公開状況や次回のご提案をご確認ください。":s==="needs_admin"?"管理者による確認または判断を待っています。内容を確認して次の対応を決めてください。":s==="needs_customer"?"制作物をお客様に確認いただいています。返信が届くまでお待ちください。":s==="in_progress"?`AIチームが作業を進めています。現在 ${completed}/${detail.tasks.length} 件の作業が完了しています。`:"お客様との相談内容を整理しています。内容が確定すると制作へ進みます。";return <Page title={p.name} subtitle={p.customer_name||string(detail.customer?.name)||"顧客未設定"} back={()=>go("projects")} header={<Tag status={s}>{statusMeta[s].label}</Tag>} narrow><p className="project-meta">最終更新 {fmt(p.updated_at,true)} {payment&&<>・契約金額 {money(payment.amount)}</>}</p><div className="quick-links"><button className="btn btn-secondary" onClick={()=>go("consultation",p.id)}>お客様との相談</button><button className="btn btn-secondary" onClick={()=>go("chat",p.id)}>司令塔AIに相談</button><button className="btn btn-secondary" onClick={()=>go("deliverables",p.id)}>成果物を見る</button></div><section className="card blueprint situation"><Corners/><p className="kicker">今の状況</p><p>{summary}</p></section>{latest&&<section className="card consultation"><div><p className="kicker">確定した相談内容</p><Tag status={detail.approvals.some(x=>x.status==="approved")?"done":"neutral"}>{detail.approvals.some(x=>x.status==="approved")?"お客様承認済み":"確認中"}</Tag></div><p>{string(latest.summary)||string(latest.title)||string(latest.request_text)||"相談内容を受け付けています。"}</p></section>}{s==="in_progress"&&<section className="card progress-card"><h3>作業状況</h3>{detail.tasks.length?detail.tasks.map(t=><div className={`task ${t.status}`} key={t.id}><i><Icon name={t.status==="completed"?"check":"sparkle"} size={14}/></i><span>{string(t.title)||string(t.task_key)||"制作作業"}</span></div>):<Empty>作業項目を準備しています。</Empty>}</section>}{s==="needs_admin"&&<section className="card decision"><h3>確認が必要です</h3><p>{p.attention_reasons?.join("、")||"次の作業へ進む前に、内容を確認してください。"}</p><button className="btn btn-primary" onClick={()=>go("chat",p.id)}>司令塔AIに相談する</button></section>}{s==="done"&&<section className="card complete"><h3>完了しました</h3><p>承認と制作の記録が揃っています。本番公開はオーナー承認後にのみ実行されます。</p>{detail.artifacts.find(x=>x.preview_url)?.preview_url&&<a className="btn btn-secondary" target="_blank" rel="noreferrer" href={detail.artifacts.find(x=>x.preview_url)?.preview_url||""}>公開候補を見る <Icon name="external" size={14}/></a>}</section>}</Page>}
-function Chat({projects,details,detail,go}:{projects:Project[];details:Record<string,Detail>;detail?:Detail;go:(s:Screen,id?:string)=>void}){if(!detail)return <Page title="AIチャット"><p className="muted">案件ごとの相談内容を確認できます。</p><div className="thread-list">{projects.map(x=>{const msgs=details[x.id]?.messages||[];return <button key={x.id} onClick={()=>go("chat",x.id)}><i><Icon name="sparkle"/></i><span><strong>{x.name}</strong><small>{x.customer_name}</small><p>{string(msgs.at(-1)?.content)||"まだメッセージはありません"}</p></span><Icon name="chevron" size={16}/></button>})}</div></Page>;const messages=detail.messages.filter(x=>string(x.author_type)!=="customer");return <Page title={detail.project.name} subtitle="司令塔AIとの相談" back={()=>go("project",detail.project.id)} narrow><div className="chat-messages">{messages.length?messages.map(m=><article key={m.id} className={string(m.author_type)==="admin"?"mine":"bot"}><p>{string(m.content)||"内容なし"}</p><time>{fmt(m.created_at,true)}</time></article>):<Empty>司令塔AIとの相談はまだありません。</Empty>}</div><div className="composer"><input className="input" value="" readOnly placeholder="この画面からの送信は現在準備中です" aria-label="AIへの相談"/><button className="btn btn-primary btn-icon" disabled aria-label="送信"><Icon name="send" size={16}/></button></div><p className="muted small">過去の実データのみ表示しています。未接続の送信を擬似的に成功させることはありません。</p></Page>}
+
+function Chat({projects,detail,go}:{projects:Project[];detail?:Detail;go:(s:Screen,id?:string)=>void}){
+  const [messages,setMessages]=useState<AdminChatMessage[]>([]);
+  const [draft,setDraft]=useState("");
+  const [chatBusy,setChatBusy]=useState(false);
+  const [chatError,setChatError]=useState("");
+  const [createRequest,setCreateRequest]=useState(false);
+  const [chatNotice,setChatNotice]=useState("");
+
+  useEffect(()=>{
+    let cancelled=false;
+    setDraft("");
+    setChatError("");
+    setChatNotice("");
+    setCreateRequest(false);
+    if(!detail){setMessages([]);return()=>{cancelled=true}};
+    const token=localStorage.getItem(tokenKey);
+    if(!token){setChatError("ログイン情報を確認できませんでした。再ログインしてください。");return()=>{cancelled=true}};
+    setChatBusy(true);
+    fetch(`${core}/api/v2/admin/projects/${detail.project.id}/chat`,{headers:{authorization:`Bearer ${token}`}})
+      .then(async response=>{const body=await response.json().catch(()=>({}));if(!response.ok)throw Error(body?.error?.message||"司令塔AIの履歴を取得できませんでした");return body})
+      .then(body=>{if(!cancelled)setMessages(Array.isArray(body)?body:[])})
+      .catch(error=>{if(!cancelled)setChatError(error instanceof Error?error.message:"司令塔AIの履歴を取得できませんでした")})
+      .finally(()=>{if(!cancelled)setChatBusy(false)});
+    return()=>{cancelled=true};
+  },[detail?.project.id]);
+
+  if(!detail)return <Page title="AIチャット"><p className="muted">案件を選ぶと、その案件専用の司令塔AIと相談できます。</p><div className="thread-list">{projects.map(x=><button key={x.id} onClick={()=>go("chat",x.id)}><i><Icon name="sparkle"/></i><span><strong>{x.name}</strong><small>{x.customer_name||"顧客未設定"}</small><p>司令塔AIとの相談を開く</p></span><Icon name="chevron" size={16}/></button>)}</div></Page>;
+
+  const send=async()=>{
+    const content=draft.trim();
+    if(!content||chatBusy)return;
+    const token=localStorage.getItem(tokenKey);
+    if(!token){setChatError("ログイン情報を確認できませんでした。再ログインしてください。");return}
+    setChatBusy(true);setChatError("");setChatNotice("");
+    setDraft("");
+    const optimistic:AdminChatMessage={id:`local-${Date.now()}`,role:"user",content,createdAt:new Date().toISOString()};
+    setMessages(current=>[...current,optimistic]);
+    try{
+      const response=await fetch(`${core}/api/v2/admin/projects/${detail.project.id}/chat/messages`,{method:"POST",headers:{"content-type":"application/json",authorization:`Bearer ${token}`},body:JSON.stringify({content,createRequest})});
+      const body=await response.json().catch(()=>({}));
+      if(!response.ok)throw Error(body?.error?.message||"司令塔AIへ送信できませんでした");
+      const historyResponse=await fetch(`${core}/api/v2/admin/projects/${detail.project.id}/chat`,{headers:{authorization:`Bearer ${token}`}});
+      const history=await historyResponse.json().catch(()=>[]);
+      if(historyResponse.ok&&Array.isArray(history))setMessages(history);
+      else if(body.reply)setMessages(current=>[...current.filter(item=>item.id!==optimistic.id),optimistic,body.reply]);
+      if(body.createdRequest){setChatNotice("制作依頼として登録しました。案件の進行状況にも反映されます。");setCreateRequest(false)}
+    }catch(error){
+      setChatError(error instanceof Error?error.message:"司令塔AIへ送信できませんでした");
+      try{
+        const historyResponse=await fetch(`${core}/api/v2/admin/projects/${detail.project.id}/chat`,{headers:{authorization:`Bearer ${token}`}});
+        const history=await historyResponse.json().catch(()=>[]);
+        if(historyResponse.ok&&Array.isArray(history))setMessages(history);
+      }catch{}
+    }finally{setChatBusy(false)}
+  };
+
+  return <Page title={detail.project.name} subtitle="司令塔AIとの相談" back={()=>go("project",detail.project.id)} narrow>
+    {chatError&&<p className="alert" role="alert">{chatError}</p>}
+    {chatNotice&&<p className="notice" role="status">{chatNotice}</p>}
+    <div className="chat-messages">{messages.length?messages.map(m=><article key={m.id} className={m.role==="user"?"mine":"bot"}><p>{m.content||"内容なし"}</p><time>{fmt(m.createdAt,true)}</time></article>):<Empty>{chatBusy?"司令塔AIとの相談履歴を読み込んでいます…":"この案件について司令塔AIに相談してみましょう。"}</Empty>}{chatBusy&&messages.length>0&&<article className="bot"><p>考えています…</p></article>}</div>
+    <form className="commander-composer" onSubmit={event=>{event.preventDefault();void send()}}>
+      <textarea className="input" rows={3} value={draft} onChange={event=>setDraft(event.target.value)} onKeyDown={event=>{if(event.nativeEvent.isComposing)return;if(event.key==="Enter"&&(event.metaKey||event.ctrlKey)){event.preventDefault();void send()}}} placeholder="司令塔AIに相談する内容を入力…" aria-label="司令塔AIへの相談" disabled={chatBusy}/>
+      <div className="commander-actions"><label className="instruction-toggle"><input type="checkbox" checked={createRequest} onChange={event=>setCreateRequest(event.target.checked)} disabled={chatBusy}/><span>制作依頼として登録する</span></label><button className="btn btn-primary" type="submit" disabled={chatBusy||!draft.trim()}><Icon name="send" size={16}/>{chatBusy?"送信中…":"送信"}</button></div>
+    </form>
+    <p className="muted small chat-keyboard-hint">Enterで改行、⌘/Ctrl + Enterで送信できます。制作を実行させたい内容だけ「制作依頼として登録する」を選んでください。</p>
+  </Page>
+}
 function Page({title,subtitle,children,header,back,narrow=false}:{title:string;subtitle?:string;children:ReactNode;header?:ReactNode;back?:()=>void;narrow?:boolean}){return <div className={`page ${narrow?"narrow":""}`}>{back&&<button className="back" onClick={back}><Icon name="back" size={15}/>戻る</button>}<header className="page-header"><div><h1>{title}</h1>{subtitle&&<p>{subtitle}</p>}</div>{header}</header>{children}</div>}
 function Guide(){return <><p className="kicker">ステータスルール</p><div className="guide-list"><span><Tag>通常</Tag>特別な対応が不要な情報</span><span><Tag status="in_progress">進行中</Tag>AIまたは担当者が作業中</span><span><Tag status="needs_admin">確認が必要</Tag>判断・返信を待っている状態</span><span><Tag status="done">完了・正常</Tag>作業や支払いが完了</span><span><Tag status="error">エラー</Tag>すぐに確認が必要な異常</span></div><p className="muted small">色だけに頼らず、必ずアイコンと文言を併記します。</p><p className="kicker guide-heading">モーションルール</p><ul><li>新しいAI提案は控えめにフェードイン</li><li>状態の切り替わりは滑らかに表示</li><li>動きは状態変化を伝える目的に限定</li></ul><p className="kicker guide-heading">承認まわりの文言</p><p>「承認」だけで済ませず、制作を始める／お客様へ送る／公開する／料金を変更するなど、結果が分かる言葉を使います。</p></>}

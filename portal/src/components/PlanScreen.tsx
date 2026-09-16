@@ -9,13 +9,15 @@ export default function PlanScreen({
   pricing,
   busy,
   onStartCheckout,
-  onOpenBillingPortal
+  onChangePlan,
+  onCancel
 }: {
   billing: BillingSummary | null;
   pricing: PricingCatalog | null;
   busy: boolean;
   onStartCheckout: (planId: string) => Promise<void>;
-  onOpenBillingPortal: () => Promise<void>;
+  onChangePlan: (planId: string) => Promise<void>;
+  onCancel: () => Promise<void>;
 }) {
   const [changeDialogOpen, setChangeDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -34,6 +36,7 @@ export default function PlanScreen({
 
   const selectedPlan = selectedPlanId && pricing ? pricing.plans[selectedPlanId] : null;
   const hasPaidPlan = Boolean(billing?.currentPlan && billing.currentPlan.id !== "trial");
+  const samePlan = hasPaidPlan && selectedPlanId === billing?.currentPlan?.id;
 
   return (
     <main className="screen">
@@ -64,20 +67,13 @@ export default function PlanScreen({
       </section>
 
       <section className="card card-in" style={{ marginBottom: 16 }}>
-        <h2>お支払い方法・請求履歴</h2>
-        {billing?.billingPortalAvailable ? (
-          <>
-            <p className="muted">カード情報や請求履歴の詳細は、安全なお支払い管理ページでご確認いただけます。</p>
-            <button className="btn secondary" disabled={busy} onClick={onOpenBillingPortal}>
-              {busy ? "開いています…" : "お支払い管理ページを開く"}
-            </button>
-          </>
-        ) : hasPaidPlan ? (
-          <p className="muted">お支払い管理ページを準備しています。反映まで少し時間がかかる場合があります。</p>
+        <h2>お支払い・請求履歴</h2>
+        {hasPaidPlan ? (
+          <p className="muted">月額料金はSquareで安全に決済されます。決済履歴は下記から確認できます。</p>
         ) : (
-          <p className="muted">初回のお申し込み完了後、カード情報や請求履歴をここから管理できます。</p>
+          <p className="muted">有料プランのお申し込み時に、Squareの安全な決済画面でカード情報を入力します。</p>
         )}
-        {billing?.history && billing.history.length > 0 && (
+        {billing?.history && billing.history.length > 0 ? (
           <div className="history-list">
             {billing.history.map((item) => (
               <div className="history-row" key={item.id}>
@@ -87,6 +83,8 @@ export default function PlanScreen({
               </div>
             ))}
           </div>
+        ) : (
+          <p className="muted">まだ請求履歴はありません。</p>
         )}
       </section>
 
@@ -126,8 +124,8 @@ export default function PlanScreen({
             )}
             <p className="muted" style={{ marginTop: 12 }}>
               {hasPaidPlan
-                ? "現在のご契約の変更は、安全なお支払い管理ページで確定します。"
-                : "申し込み内容を確認したあと、Stripeの安全な決済画面でカード情報を入力して契約を確定します。"}
+                ? "プラン変更はSquareへ反映され、次回の更新タイミングから新しいプランへ切り替わります。"
+                : "申し込み内容を確認したあと、Squareの安全な決済画面でカード情報を入力して契約を確定します。"}
             </p>
             <div className="dialog-actions">
               <button className="btn secondary" disabled={busy} onClick={() => setChangeDialogOpen(false)}>
@@ -135,15 +133,15 @@ export default function PlanScreen({
               </button>
               <button
                 className="btn"
-                disabled={!selectedPlanId || busy || (hasPaidPlan && !billing?.billingPortalAvailable)}
+                disabled={!selectedPlanId || busy || Boolean(samePlan)}
                 onClick={async () => {
                   if (!selectedPlanId) return;
-                  if (hasPaidPlan) await onOpenBillingPortal();
+                  if (hasPaidPlan) await onChangePlan(selectedPlanId);
                   else await onStartCheckout(selectedPlanId);
                   setChangeDialogOpen(false);
                 }}
               >
-                {busy ? "開いています…" : hasPaidPlan ? "お支払い管理ページで変更する" : "決済画面へ進む"}
+                {busy ? "処理しています…" : hasPaidPlan ? "このプランへ変更する" : "Square決済へ進む"}
               </button>
             </div>
           </div>
@@ -154,20 +152,20 @@ export default function PlanScreen({
         <div className="dialog-backdrop" role="dialog" aria-modal="true">
           <div className="dialog card-in">
             <h2>解約について</h2>
-            <p className="muted">解約手続きは、安全なお支払い管理ページから行えます。ご不明な点は担当チームへご相談ください。</p>
+            <p className="muted">解約すると現在の請求期間の終了時に自動更新が停止します。解約日までは現在のプランをご利用いただけます。</p>
             <div className="dialog-actions">
-              <button className="btn secondary" onClick={() => setCancelDialogOpen(false)}>
+              <button className="btn secondary" disabled={busy} onClick={() => setCancelDialogOpen(false)}>
                 閉じる
               </button>
               <button
                 className="btn danger"
-                disabled={!billing?.billingPortalAvailable || busy}
+                disabled={busy}
                 onClick={async () => {
-                  await onOpenBillingPortal();
+                  await onCancel();
                   setCancelDialogOpen(false);
                 }}
               >
-                お支払い管理ページを開く
+                {busy ? "処理しています…" : "次回更新で解約する"}
               </button>
             </div>
           </div>

@@ -78,7 +78,7 @@ test('v2 registration creates a Supabase user and provisions a customer account'
   const supabaseFetch = async (url, options = {}) => {
     const value = String(url);
     calls.push({ url: value, options });
-    if (value.endsWith('/auth/v1/signup')) {
+    if (new URL(value).pathname.endsWith('/auth/v1/signup')) {
       return new Response(JSON.stringify({ access_token: 'new-access-token', user: { id: 'user-1', email: 'owner@example.com' } }), { status: 200 });
     }
     if (value.endsWith('/auth/v1/user')) {
@@ -116,7 +116,9 @@ test('v2 registration creates a Supabase user and provisions a customer account'
     assert.equal(body.token, 'new-access-token');
     assert.equal(provisioned, true);
     assert.equal(result.headers.get('access-control-allow-origin'), '*');
-    assert.ok(calls.some((call) => call.url.endsWith('/auth/v1/signup')));
+    const signupCall = calls.find((call) => new URL(call.url).pathname.endsWith('/auth/v1/signup'));
+    assert.ok(signupCall);
+    assert.equal(new URL(signupCall.url).searchParams.get('redirect_to'), 'https://akinael-ai.com/portal/');
   } finally {
     await close(server);
   }

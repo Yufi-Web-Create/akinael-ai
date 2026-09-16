@@ -1,0 +1,12 @@
+{
+  "name": "yuuyake-koyake-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/site.test.mjs",
+    "qa": "npm run test && npm run check:html && npm run check:js",
+    "check:html": "node scripts/check-html.mjs",
+    "check:js": "node --check app.js && node --check scripts/serve.mjs",
+    "serve": "node scripts/serve.mjs"
+  }
+}

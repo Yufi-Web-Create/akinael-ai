@@ -1,0 +1,9 @@
+{
+  "task_id": "160c181b-05be-4afd-8f5d-418d28c22837",
+  "stage": "execute",
+  "cycle": 0,
+  "final_message": "実装を `customer-site/` に追加しました。\n\n- [サイト本体](</home/runner/work/akinael-ai/akinael-ai/customer-site/index.html>)\n- [スタイル](</home/runner/work/akinael-ai/akinael-ai/customer-site/styles.css>)\n- [QAレポート](</home/runner/work/akinael-ai/akinael-ai/customer-site/QA_REPORT.md>)\n- [公開前の反映事項](</home/runner/work/akinael-ai/akinael-ai/customer-site/README.md>)\n\n判断理由：\n- 夕焼け色・紙調・自作SVGで懐かしさを表現しつつ、営業案内とアクセスを優先した1ページ構成です。\n- 未確認の住所・電話番号・地図は架空掲載せず、確認中として明示しています。\n- モバイルではアクセス導線を固定表示し、ナビゲーションを開閉式にしています。\n\n検証：\n- `npm run qa`：PASS\n- HTML、ページ内リンク、確認済み事実、未確認情報の非掲載、JavaScript構文を検査済み。\n- 実ブラウザのスクリーンショット確認は、環境側のChrome/Firefoxクラッシュにより未完了です。詳細はQAレポートに記録しました。\n\n未解決事項：\n- 正式住所・掲載許可済み電話番号・正確な地図URL/位置\n- 写真・正式ロゴと利用許諾\n- 指定viewportでの実ブラウザQA\n\nしたがって、確認用実装としては次工程へ渡せますが、本番公開判定は未通過です。",
+  "qa_conclusion": "success",
+  "codex_conclusion": "success",
+  "generated_at": "2026-09-16T18:15:46.226Z"
+}

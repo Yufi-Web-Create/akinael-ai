@@ -254,14 +254,8 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
         const body = await readJsonBody(request);
         const projectId = parts[3];
         const finalized = await store.finalizeConsultationRequest(token, projectId, body);
-        let routing;
-        try {
-          routing = { status: 'routed', ...(await productionRouter.route(finalized.request)) };
-        } catch {
-          routing = { status: 'pending_retry' };
-        }
         await store.markConsultationFinalized(token, projectId, { threadId: finalized.threadId, requestId: finalized.request.id });
-        return writeJson(response, 201, { ...finalized, routing }), true;
+        return writeJson(response, 201, { ...finalized, routing: { status: 'awaiting_admin_approval' } }), true;
       }
 
       if (method === 'GET' && url.pathname === '/api/v2/billing/summary') {
@@ -306,7 +300,23 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
 
       if (method === 'POST' && parts.length === 6 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'admin' && parts[3] === 'projects' && parts[5] === 'acknowledge') {
         const body = await readJsonBody(request);
-        return writeJson(response, 200, await store.acknowledgeAdminProject(token, parts[4], body)), true;
+        const projectId = parts[4];
+        const approval = await store.acknowledgeAdminProject(token, projectId, body);
+        const detail = await store.getAdminProject(token, projectId);
+        const latestRequest = detail.requests[0];
+        if (!latestRequest) {
+          throw new PlatformStoreError('production request is not ready', { status: 409, code: 'request_not_ready' });
+        }
+        const existingWorkflow = detail.workflows.find((workflow) => workflow.request_id === latestRequest.id);
+        if (existingWorkflow) {
+          return writeJson(response, 200, { ...approval, routing: { status: 'already_routed', workflow: existingWorkflow } }), true;
+        }
+        try {
+          const routing = await productionRouter.route(latestRequest);
+          return writeJson(response, 200, { ...approval, routing: { status: 'routed', ...routing } }), true;
+        } catch {
+          return writeJson(response, 200, { ...approval, routing: { status: 'pending_retry' } }), true;
+        }
       }
 
       if (method === 'POST' && parts.length === 6 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'admin' && parts[3] === 'projects' && parts[5] === 'notify-customer') {

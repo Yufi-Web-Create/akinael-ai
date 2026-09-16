@@ -22,7 +22,8 @@ export default function ChatScreen({
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
+    const list = listRef.current;
+    if (list && typeof list.scrollTo === "function") list.scrollTo({ top: list.scrollHeight });
   }, [messages.length, busy]);
 
   const send = (content: string) => {

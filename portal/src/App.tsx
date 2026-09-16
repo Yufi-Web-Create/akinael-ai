@@ -23,6 +23,8 @@ import PlanScreen from "./components/PlanScreen";
 import SettingsScreen from "./components/SettingsScreen";
 
 const newThreadId = () => `thr_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+const initialScreenFromLocation = (): Screen =>
+  new URLSearchParams(window.location.search).get("screen") === "plan" ? "plan" : "home";
 
 export default function App() {
   const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
@@ -38,7 +40,7 @@ export default function App() {
   const [pricing, setPricing] = useState<PricingCatalog | null>(null);
   const [billing, setBilling] = useState<BillingSummary | null>(null);
 
-  const [screen, setScreen] = useState<Screen>("home");
+  const [screen, setScreen] = useState<Screen>(initialScreenFromLocation);
   const [chatContext, setChatContext] = useState<string | null>(null);
   const [chatBusy, setChatBusy] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -242,6 +244,18 @@ export default function App() {
     }
   };
 
+  const startCheckout = async (planId: string) => {
+    setBusy(true);
+    setError("");
+    try {
+      const session = await api.billingCheckoutSession(token, planId);
+      window.location.assign(session.url);
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "決済画面を開けませんでした。");
+      setBusy(false);
+    }
+  };
+
   const openBillingPortal = async () => {
     setBusy(true);
     setError("");
@@ -292,7 +306,15 @@ export default function App() {
           }}
         />
       )}
-      {screen === "plan" && <PlanScreen billing={billing} pricing={pricing} busy={busy} onOpenBillingPortal={openBillingPortal} />}
+      {screen === "plan" && (
+        <PlanScreen
+          billing={billing}
+          pricing={pricing}
+          busy={busy}
+          onStartCheckout={startCheckout}
+          onOpenBillingPortal={openBillingPortal}
+        />
+      )}
       {screen === "settings" && (
         <SettingsScreen
           token={token}

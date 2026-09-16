@@ -1,7 +1,7 @@
 import { createPlatformStore, PlatformStoreError } from './platform-store.mjs';
 import { createProductionRouter } from './production-router.mjs';
 import { createSupabaseAdmin, createSupabaseAuth, SupabaseAuthError } from './supabase-admin.mjs';
-import { createStripeBilling } from './stripe-billing.mjs';
+import { createSquareBilling } from './square-billing.mjs';
 
 const MAX_BODY_BYTES = 64 * 1024;
 
@@ -59,7 +59,7 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
   const productionRouter = createProductionRouter({ env, fetchImpl });
   const auth = createSupabaseAuth({ env, fetchImpl });
   const admin = createSupabaseAdmin({ env, fetchImpl });
-  const stripeBilling = createStripeBilling({ env, fetchImpl });
+  const squareBilling = createSquareBilling({ env, fetchImpl });
 
   const handle = async (request, response) => {
     const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
@@ -95,8 +95,8 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
     try {
       if (method === 'POST' && url.pathname === '/api/v2/billing/webhook') {
         const rawBody = await readRawBody(request);
-        const signature = request.headers['stripe-signature'];
-        return writeJson(response, 200, await stripeBilling.handleWebhook({ rawBody, signature })), true;
+        const signature = request.headers['x-square-hmacsha256-signature'];
+        return writeJson(response, 200, await squareBilling.handleWebhook({ rawBody, signature })), true;
       }
 
       if (method === 'POST' && url.pathname === '/api/v2/auth/register') {
@@ -259,16 +259,21 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
       }
 
       if (method === 'GET' && url.pathname === '/api/v2/billing/summary') {
-        return writeJson(response, 200, await store.getBillingSummary(token)), true;
+        return writeJson(response, 200, await squareBilling.getBillingSummary(token)), true;
       }
 
       if (method === 'POST' && url.pathname === '/api/v2/billing/checkout-session') {
         const body = await readJsonBody(request);
-        return writeJson(response, 200, await stripeBilling.createCheckoutSession(token, body.planId)), true;
+        return writeJson(response, 200, await squareBilling.createCheckoutSession(token, body.planId)), true;
       }
 
-      if (method === 'POST' && url.pathname === '/api/v2/billing/portal-session') {
-        return writeJson(response, 200, await store.createBillingPortalSession(token)), true;
+      if (method === 'POST' && url.pathname === '/api/v2/billing/change-plan') {
+        const body = await readJsonBody(request);
+        return writeJson(response, 200, await squareBilling.changePlan(token, body.planId)), true;
+      }
+
+      if (method === 'POST' && url.pathname === '/api/v2/billing/cancel') {
+        return writeJson(response, 200, await squareBilling.cancelSubscription(token)), true;
       }
 
       if (method === 'PATCH' && url.pathname === '/api/v2/account') {
@@ -336,5 +341,5 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
     }
   };
 
-  return { handle, store, productionRouter, stripeBilling };
+  return { handle, store, productionRouter, squareBilling };
 };

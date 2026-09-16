@@ -2,6 +2,7 @@ import { createPlatformStore, PlatformStoreError } from './platform-store.mjs';
 import { createProductionRouter } from './production-router.mjs';
 import { createSupabaseAdmin, createSupabaseAuth, SupabaseAuthError } from './supabase-admin.mjs';
 import { createSquareBilling } from './square-billing.mjs';
+import { createCommanderProposalService } from './commander-proposal.mjs';
 
 const MAX_BODY_BYTES = 64 * 1024;
 
@@ -47,10 +48,6 @@ export const extractAccessToken = (request) => {
   return match?.[1]?.trim() || null;
 };
 
-// Registration/login are the only v2 endpoints an external static site (the
-// akinael-ai-web marketing site, a different origin) needs to call directly
-// from the browser. No cookies/credentials are used, so an open origin is
-// safe here; the rest of /api/v2/* stays same-origin only.
 const CORS_ENABLED_PATHS = new Set(['/api/v2/auth/register', '/api/v2/auth/login']);
 const corsHeadersFor = (pathname) => (CORS_ENABLED_PATHS.has(pathname) ? { 'access-control-allow-origin': '*' } : {});
 
@@ -60,6 +57,7 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
   const auth = createSupabaseAuth({ env, fetchImpl });
   const admin = createSupabaseAdmin({ env, fetchImpl });
   const squareBilling = createSquareBilling({ env, fetchImpl });
+  const commanderProposal = createCommanderProposalService({ env, fetchImpl });
 
   const handle = async (request, response) => {
     const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
@@ -111,9 +109,7 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
         }
         const result = await auth.signUp(email, password);
         const accessToken = result?.access_token || result?.session?.access_token || null;
-        if (!accessToken) {
-          return writeJson(response, 202, { confirmationRequired: true }, cors), true;
-        }
+        if (!accessToken) return writeJson(response, 202, { confirmationRequired: true }, cors), true;
         await store.provisionCustomer(accessToken, { displayName: email.split('@')[0] });
         return writeJson(response, 201, { token: accessToken }, cors), true;
       }
@@ -122,19 +118,14 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
         const body = await readJsonBody(request);
         const email = String(body.email || '').trim().toLowerCase();
         const password = String(body.password || '');
-        if (!email || !password) {
-          throw new PlatformStoreError('email and password are required', { status: 400, code: 'validation_error' });
-        }
+        if (!email || !password) throw new PlatformStoreError('email and password are required', { status: 400, code: 'validation_error' });
         const result = await auth.signIn(email, password);
         const accessToken = result?.access_token || null;
         if (!accessToken) throw new SupabaseAuthError('invalid credentials', { status: 401, code: 'invalid_credentials' });
         const me = await store.getMe(accessToken);
         if (me.onboardingRequired) {
-          if (email === String(env.ADMIN_EMAIL || '').trim().toLowerCase()) {
-            await store.provisionAdmin(accessToken, { displayName: '管理者' });
-          } else {
-            await store.provisionCustomer(accessToken, { displayName: email.split('@')[0] });
-          }
+          if (email === String(env.ADMIN_EMAIL || '').trim().toLowerCase()) await store.provisionAdmin(accessToken, { displayName: '管理者' });
+          else await store.provisionCustomer(accessToken, { displayName: email.split('@')[0] });
         }
         return writeJson(response, 200, { token: accessToken }, cors), true;
       }
@@ -142,9 +133,7 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
       if (method === 'POST' && url.pathname === '/api/v2/auth/password-recovery') {
         const body = await readJsonBody(request);
         const email = String(body.email || '').trim().toLowerCase();
-        if (!/^\S+@\S+\.\S+$/.test(email)) {
-          throw new PlatformStoreError('valid email is required', { status: 400, code: 'validation_error' });
-        }
+        if (!/^\S+@\S+\.\S+$/.test(email)) throw new PlatformStoreError('valid email is required', { status: 400, code: 'validation_error' });
         const publicUrl = String(env.PUBLIC_URL || 'https://akinael-ai.com').replace(/\/+$/, '');
         await auth.requestPasswordRecovery(email, `${publicUrl}/mypage`);
         return writeJson(response, 202, { recoveryRequested: true }), true;
@@ -153,12 +142,8 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
       if (method === 'POST' && url.pathname === '/api/v2/auth/password') {
         const body = await readJsonBody(request);
         const password = String(body.password || '');
-        if (!token) {
-          throw new SupabaseAuthError('authentication required', { status: 401, code: 'authentication_required' });
-        }
-        if (password.length < 12) {
-          throw new PlatformStoreError('password must be at least 12 characters', { status: 400, code: 'validation_error' });
-        }
+        if (!token) throw new SupabaseAuthError('authentication required', { status: 401, code: 'authentication_required' });
+        if (password.length < 12) throw new PlatformStoreError('password must be at least 12 characters', { status: 400, code: 'validation_error' });
         await auth.updatePassword(token, password);
         return writeJson(response, 200, { passwordUpdated: true }), true;
       }
@@ -168,39 +153,21 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
         return writeJson(response, 200, { ok: true }), true;
       }
 
-      if (method === 'GET' && url.pathname === '/api/v2/auth/me') {
-        return writeJson(response, 200, await store.getMe(token)), true;
-      }
-
-      if (method === 'POST' && url.pathname === '/api/v2/onboarding') {
-        const body = await readJsonBody(request);
-        return writeJson(response, 200, await store.provisionCustomer(token, body)), true;
-      }
-
-      if (method === 'GET' && url.pathname === '/api/v2/projects') {
-        return writeJson(response, 200, await store.listProjects(token)), true;
-      }
-
-      if (method === 'GET' && url.pathname === '/api/v2/admin/overview') {
-        return writeJson(response, 200, await store.getAdminOverview(token)), true;
-      }
+      if (method === 'GET' && url.pathname === '/api/v2/auth/me') return writeJson(response, 200, await store.getMe(token)), true;
+      if (method === 'POST' && url.pathname === '/api/v2/onboarding') return writeJson(response, 200, await store.provisionCustomer(token, await readJsonBody(request))), true;
+      if (method === 'GET' && url.pathname === '/api/v2/projects') return writeJson(response, 200, await store.listProjects(token)), true;
+      if (method === 'GET' && url.pathname === '/api/v2/admin/overview') return writeJson(response, 200, await store.getAdminOverview(token)), true;
 
       if (method === 'GET' && parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'admin' && parts[3] === 'projects') {
         return writeJson(response, 200, await store.getAdminProject(token, parts[4])), true;
       }
 
-      if (method === 'POST' && url.pathname === '/api/v2/projects') {
-        const body = await readJsonBody(request);
-        return writeJson(response, 201, await store.createProject(token, body)), true;
-      }
+      if (method === 'POST' && url.pathname === '/api/v2/projects') return writeJson(response, 201, await store.createProject(token, await readJsonBody(request))), true;
 
       if (parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects' && parts[4] === 'requests') {
-        if (method === 'GET') {
-          return writeJson(response, 200, await store.listRequests(token, parts[3])), true;
-        }
+        if (method === 'GET') return writeJson(response, 200, await store.listRequests(token, parts[3])), true;
         if (method === 'POST') {
-          const body = await readJsonBody(request);
-          const created = await store.createRequest(token, parts[3], body);
+          const created = await store.createRequest(token, parts[3], await readJsonBody(request));
           try {
             const routing = await productionRouter.route(created.request);
             return writeJson(response, 201, { ...created, routing: { status: 'routed', ...routing } }), true;
@@ -211,111 +178,70 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
       }
 
       if (parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects' && parts[4] === 'messages') {
-        if (method === 'GET') {
-          return writeJson(response, 200, await store.listMessages(token, parts[3], { requestId: url.searchParams.get('requestId') })), true;
-        }
-        if (method === 'POST') {
-          const body = await readJsonBody(request);
-          return writeJson(response, 201, await store.addMessage(token, parts[3], body)), true;
-        }
+        if (method === 'GET') return writeJson(response, 200, await store.listMessages(token, parts[3], { requestId: url.searchParams.get('requestId') })), true;
+        if (method === 'POST') return writeJson(response, 201, await store.addMessage(token, parts[3], await readJsonBody(request))), true;
       }
 
-      if (method === 'GET' && parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects' && parts[4] === 'production') {
-        return writeJson(response, 200, await store.getProductionStatus(token, parts[3])), true;
-      }
-
-      if (method === 'GET' && parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects' && parts[4] === 'approvals') {
-        return writeJson(response, 200, await store.listApprovals(token, parts[3])), true;
-      }
-
-      if (method === 'POST' && parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects' && parts[4] === 'approvals') {
-        const body = await readJsonBody(request);
-        return writeJson(response, 201, await store.createCustomerApproval(token, parts[3], body)), true;
-      }
-
-      if (method === 'GET' && parts.length === 4 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects') {
-        return writeJson(response, 200, await store.getProject(token, parts[3])), true;
-      }
-
-      if (method === 'GET' && url.pathname === '/api/v2/pricing') {
-        return writeJson(response, 200, store.getPricingCatalog()), true;
-      }
-
-      if (method === 'GET' && parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects' && parts[4] === 'consultation') {
-        return writeJson(response, 200, await store.listConsultation(token, parts[3])), true;
-      }
-
-      if (method === 'POST' && parts.length === 6 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects' && parts[4] === 'consultation' && parts[5] === 'messages') {
-        const body = await readJsonBody(request);
-        return writeJson(response, 201, await store.sendConsultationMessage(token, parts[3], body)), true;
-      }
+      if (method === 'GET' && parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects' && parts[4] === 'production') return writeJson(response, 200, await store.getProductionStatus(token, parts[3])), true;
+      if (method === 'GET' && parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects' && parts[4] === 'approvals') return writeJson(response, 200, await store.listApprovals(token, parts[3])), true;
+      if (method === 'POST' && parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects' && parts[4] === 'approvals') return writeJson(response, 201, await store.createCustomerApproval(token, parts[3], await readJsonBody(request))), true;
+      if (method === 'GET' && parts.length === 4 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects') return writeJson(response, 200, await store.getProject(token, parts[3])), true;
+      if (method === 'GET' && url.pathname === '/api/v2/pricing') return writeJson(response, 200, store.getPricingCatalog()), true;
+      if (method === 'GET' && parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects' && parts[4] === 'consultation') return writeJson(response, 200, await store.listConsultation(token, parts[3])), true;
+      if (method === 'POST' && parts.length === 6 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects' && parts[4] === 'consultation' && parts[5] === 'messages') return writeJson(response, 201, await store.sendConsultationMessage(token, parts[3], await readJsonBody(request))), true;
 
       if (method === 'POST' && parts.length === 6 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'projects' && parts[4] === 'consultation' && parts[5] === 'finalize') {
         const body = await readJsonBody(request);
         const projectId = parts[3];
         const finalized = await store.finalizeConsultationRequest(token, projectId, body);
         await store.markConsultationFinalized(token, projectId, { threadId: finalized.threadId, requestId: finalized.request.id });
-        return writeJson(response, 201, { ...finalized, routing: { status: 'awaiting_admin_approval' } }), true;
+        let proposal = { status: 'ready' };
+        try {
+          proposal = { status: 'ready', data: await commanderProposal.generateForRequest(finalized.request) };
+        } catch {
+          proposal = { status: 'pending_retry' };
+        }
+        return writeJson(response, 201, { ...finalized, routing: { status: 'awaiting_admin_approval' }, commanderProposal: proposal }), true;
       }
 
-      if (method === 'GET' && url.pathname === '/api/v2/billing/summary') {
-        return writeJson(response, 200, await squareBilling.getBillingSummary(token)), true;
+      if (method === 'GET' && url.pathname === '/api/v2/billing/summary') return writeJson(response, 200, await squareBilling.getBillingSummary(token)), true;
+      if (method === 'POST' && url.pathname === '/api/v2/billing/checkout-session') return writeJson(response, 200, await squareBilling.createCheckoutSession(token, (await readJsonBody(request)).planId)), true;
+      if (method === 'POST' && url.pathname === '/api/v2/billing/change-plan') return writeJson(response, 200, await squareBilling.changePlan(token, (await readJsonBody(request)).planId)), true;
+      if (method === 'POST' && url.pathname === '/api/v2/billing/cancel') return writeJson(response, 200, await squareBilling.cancelSubscription(token)), true;
+      if (method === 'PATCH' && url.pathname === '/api/v2/account') return writeJson(response, 200, await store.updateAccount(token, await readJsonBody(request))), true;
+
+      if (method === 'GET' && url.pathname === '/api/v2/admin/customers') return writeJson(response, 200, await store.listAdminCustomers(token)), true;
+      if (method === 'GET' && parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'admin' && parts[3] === 'customers') return writeJson(response, 200, await store.getAdminCustomer(token, parts[4])), true;
+      if (method === 'PATCH' && parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'admin' && parts[3] === 'customers') return writeJson(response, 200, await store.updateAdminCustomer(token, parts[4], await readJsonBody(request))), true;
+
+      if (method === 'GET' && parts.length === 6 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'admin' && parts[3] === 'projects' && parts[5] === 'proposal') {
+        await store.getAdminProject(token, parts[4]);
+        return writeJson(response, 200, await commanderProposal.ensureForProject(parts[4])), true;
       }
 
-      if (method === 'POST' && url.pathname === '/api/v2/billing/checkout-session') {
+      if (method === 'POST' && parts.length === 7 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'admin' && parts[3] === 'projects' && parts[5] === 'proposal' && parts[6] === 'revise') {
+        await store.getAdminProject(token, parts[4]);
+        const me = await store.getMe(token);
         const body = await readJsonBody(request);
-        return writeJson(response, 200, await squareBilling.createCheckoutSession(token, body.planId)), true;
+        const instruction = String(body.instruction || '').trim();
+        if (!instruction) throw new PlatformStoreError('revision instruction is required', { status: 400, code: 'validation_error' });
+        return writeJson(response, 200, await commanderProposal.revise({ projectId: parts[4], instruction, actorUserId: me.user?.id || null })), true;
       }
 
-      if (method === 'POST' && url.pathname === '/api/v2/billing/change-plan') {
-        const body = await readJsonBody(request);
-        return writeJson(response, 200, await squareBilling.changePlan(token, body.planId)), true;
-      }
-
-      if (method === 'POST' && url.pathname === '/api/v2/billing/cancel') {
-        return writeJson(response, 200, await squareBilling.cancelSubscription(token)), true;
-      }
-
-      if (method === 'PATCH' && url.pathname === '/api/v2/account') {
-        const body = await readJsonBody(request);
-        return writeJson(response, 200, await store.updateAccount(token, body)), true;
-      }
-
-      if (method === 'GET' && url.pathname === '/api/v2/admin/customers') {
-        return writeJson(response, 200, await store.listAdminCustomers(token)), true;
-      }
-
-      if (method === 'GET' && parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'admin' && parts[3] === 'customers') {
-        return writeJson(response, 200, await store.getAdminCustomer(token, parts[4])), true;
-      }
-
-      if (method === 'PATCH' && parts.length === 5 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'admin' && parts[3] === 'customers') {
-        const body = await readJsonBody(request);
-        return writeJson(response, 200, await store.updateAdminCustomer(token, parts[4], body)), true;
-      }
-
-      if (method === 'GET' && parts.length === 6 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'admin' && parts[3] === 'projects' && parts[5] === 'chat') {
-        return writeJson(response, 200, await store.listAdminChat(token, parts[4])), true;
-      }
-
-      if (method === 'POST' && parts.length === 7 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'admin' && parts[3] === 'projects' && parts[5] === 'chat' && parts[6] === 'messages') {
-        const body = await readJsonBody(request);
-        return writeJson(response, 201, await store.sendAdminChat(token, parts[4], body)), true;
-      }
+      if (method === 'GET' && parts.length === 6 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'admin' && parts[3] === 'projects' && parts[5] === 'chat') return writeJson(response, 200, await store.listAdminChat(token, parts[4])), true;
+      if (method === 'POST' && parts.length === 7 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'admin' && parts[3] === 'projects' && parts[5] === 'chat' && parts[6] === 'messages') return writeJson(response, 201, await store.sendAdminChat(token, parts[4], await readJsonBody(request))), true;
 
       if (method === 'POST' && parts.length === 6 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'admin' && parts[3] === 'projects' && parts[5] === 'acknowledge') {
         const body = await readJsonBody(request);
         const projectId = parts[4];
+        const me = await store.getMe(token);
+        await commanderProposal.approve({ projectId, actorUserId: me.user?.id || null });
         const approval = await store.acknowledgeAdminProject(token, projectId, body);
         const detail = await store.getAdminProject(token, projectId);
         const latestRequest = detail.requests[0];
-        if (!latestRequest) {
-          throw new PlatformStoreError('production request is not ready', { status: 409, code: 'request_not_ready' });
-        }
+        if (!latestRequest) throw new PlatformStoreError('production request is not ready', { status: 409, code: 'request_not_ready' });
         const existingWorkflow = detail.workflows.find((workflow) => workflow.request_id === latestRequest.id);
-        if (existingWorkflow) {
-          return writeJson(response, 200, { ...approval, routing: { status: 'already_routed', workflow: existingWorkflow } }), true;
-        }
+        if (existingWorkflow) return writeJson(response, 200, { ...approval, routing: { status: 'already_routed', workflow: existingWorkflow } }), true;
         try {
           const routing = await productionRouter.route(latestRequest);
           return writeJson(response, 200, { ...approval, routing: { status: 'routed', ...routing } }), true;
@@ -324,22 +250,15 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
         }
       }
 
-      if (method === 'POST' && parts.length === 6 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'admin' && parts[3] === 'projects' && parts[5] === 'notify-customer') {
-        const body = await readJsonBody(request);
-        return writeJson(response, 200, await store.notifyCustomerAboutProject(token, parts[4], body)), true;
-      }
+      if (method === 'POST' && parts.length === 6 && parts[0] === 'api' && parts[1] === 'v2' && parts[2] === 'admin' && parts[3] === 'projects' && parts[5] === 'notify-customer') return writeJson(response, 200, await store.notifyCustomerAboutProject(token, parts[4], await readJsonBody(request))), true;
 
       return writeJson(response, 404, { error: { code: 'not_found', message: 'not found' } }), true;
     } catch (caught) {
-      if (caught instanceof SupabaseAuthError) {
-        return writeJson(response, caught.status, { error: { code: caught.code, message: caught.message } }, cors), true;
-      }
-      if (caught instanceof PlatformStoreError) {
-        return writeJson(response, caught.status, { error: { code: caught.code, message: caught.message } }, cors), true;
-      }
+      if (caught instanceof SupabaseAuthError) return writeJson(response, caught.status, { error: { code: caught.code, message: caught.message } }, cors), true;
+      if (caught instanceof PlatformStoreError) return writeJson(response, caught.status, { error: { code: caught.code, message: caught.message } }, cors), true;
       return writeJson(response, 500, { error: { code: 'internal_error', message: 'internal server error' } }, cors), true;
     }
   };
 
-  return { handle, store, productionRouter, squareBilling };
+  return { handle, store, productionRouter, squareBilling, commanderProposal };
 };

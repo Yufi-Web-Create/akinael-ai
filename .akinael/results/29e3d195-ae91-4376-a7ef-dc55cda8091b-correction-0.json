@@ -1,0 +1,9 @@
+{
+  "task_id": "29e3d195-ae91-4376-a7ef-dc55cda8091b",
+  "stage": "correction",
+  "cycle": 0,
+  "final_message": "レビュー指摘を修正しました。\n\n- 全体CSSを実装し、レスポンシブ配置・情報カード・可視フォーカス・44px操作領域・モーション抑制を追加  \n  [styles.css](/home/runner/work/akinael-ai/akinael-ai/customer-site/styles.css)\n- OGP画像と関連メタデータを追加  \n  [index.html](/home/runner/work/akinael-ai/akinael-ai/customer-site/index.html:11) / [og-image.svg](/home/runner/work/akinael-ai/akinael-ai/customer-site/og-image.svg)\n- 静的QAを見出し階層・OGP・アクセシビリティ用スタイルまで拡張  \n  [qa.mjs](/home/runner/work/akinael-ai/akinael-ai/customer-site/qa.mjs)\n- QA記録を更新  \n  [QA_REPORT.md](/home/runner/work/akinael-ai/akinael-ai/customer-site/QA_REPORT.md)\n\n検証結果：`npm run qa`、`git diff --check` はPASSです。\n\n判断理由：公開URLが未確定のため、架空のabsolute canonical URLは設定していません。OGP画像は店舗写真・ロゴを使わない抽象イラストです。\n\n未解決事項：この環境はローカルHTTP socketとChromium child socketを禁止しており、実ブラウザのスクリーンショット／コンソール検証は実行不能でした。公開前に許可されたブラウザ環境で、指定8 viewportの表示・横スクロール・フォーカス・コンソール確認と、公開URLを用いたcanonical／OGP絶対URLの設定が必要です。",
+  "qa_conclusion": "success",
+  "codex_conclusion": "success",
+  "generated_at": "2026-09-16T16:43:30.377Z"
+}

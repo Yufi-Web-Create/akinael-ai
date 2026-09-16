@@ -63,7 +63,7 @@ test('verifies Stripe signature and syncs checkout plan/customer id into Supabas
     const parsed = new URL(String(url));
     if (parsed.pathname === '/rest/v1/customers' && options.method === 'PATCH') {
       patches.push({ url: String(url), body: JSON.parse(options.body) });
-      return jsonResponse(null, 204);
+      return new Response(null, { status: 204 });
     }
     throw new Error(`unexpected request: ${url}`);
   };

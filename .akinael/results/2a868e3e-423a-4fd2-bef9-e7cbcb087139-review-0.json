@@ -1,0 +1,9 @@
+{
+  "task_id": "2a868e3e-423a-4fd2-bef9-e7cbcb087139",
+  "stage": "review",
+  "cycle": 0,
+  "final_message": "検査結果：FAIL\n\n静的QA（`npm run qa`）はPASSしました。架空の住所・電話番号を掲載していない点は仕様適合です。\n\nただし、以下の問題があります。\n\n- 正式住所・電話番号・地図が未掲載で、来店導線の必須要件を満たしていません。\n- canonical、構造化データ、sitemap/robots、OGP画像が未実装です。\n- 指定viewportでの実ブラウザ確認とコンソール確認が未完了です。環境の書き込み制限によりChromium実行も確認できませんでした。\n- SVGに`role=\"img\"`と`aria-hidden=\"true\"`が併記されており、アクセシビリティ上不整合です。\n\n{\"status\":\"FAIL\",\"findings\":[{\"severity\":\"major\",\"location\":\"customer-site/index.html:48-49,51\",\"problem\":\"正式住所・電話番号・地図リンクまたは埋め込みが未掲載で、必須のアクセス・電話導線が機能しない\",\"expected\":\"店舗から確認済みの正式住所・電話番号・正確な地図を掲載し、電話番号はtel:リンクとして実装する\"},{\"severity\":\"major\",\"location\":\"customer-site/index.html:4-12\",\"problem\":\"canonical、構造化データ、OGP画像がなく、sitemap/robotsも確認できない\",\"expected\":\"公開URL確定後にcanonicalを設定し、LocalBusiness系の正確な構造化データ、必要なOGP情報、robots/sitemapを整備する\"},{\"severity\":\"major\",\"location\":\"customer-site/QA_REPORT.md\",\"problem\":\"360px〜1440pxの実ブラウザ表示、キーボード操作、コンソールエラーの確認が未完了\",\"expected\":\"指定8viewportで実画面・操作・コンソールを検証し、スクリーンショット等の証跡をQA_REPORT.mdに記録する\"},{\"severity\":\"minor\",\"location\":\"customer-site/index.html:41\",\"problem\":\"SVGにrole=\\\"img\\\"とaria-hidden=\\\"true\\\"が同時指定されている\",\"expected\":\"装飾画像ならrole=\\\"img\\\"を削除し、意味のある画像ならaria-hiddenを外して適切な代替テキストを設定する\"}],\"summary\":\"静的検査は通過したが、公開必須情報、SEOメタ情報、実ブラウザ検証が不足しており、公開判定はFAIL。\"}",
+  "qa_conclusion": "success",
+  "codex_conclusion": "success",
+  "generated_at": "2026-09-16T18:16:56.824Z"
+}

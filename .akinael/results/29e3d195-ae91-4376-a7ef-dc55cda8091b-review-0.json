@@ -1,0 +1,9 @@
+{
+  "task_id": "29e3d195-ae91-4376-a7ef-dc55cda8091b",
+  "stage": "review",
+  "cycle": 0,
+  "final_message": "検証結果はFAILです。\n\n- 自動QA：PASS\n- HTML構造：概ね適切（`lang`、`title`、description、見出し階層、navあり）\n- 重大な問題：`styles.css` が223バイト・1行 בלבדで、実画面のレイアウトやレスポンシブ設計が成立していません。\n- OGP画像、canonical URLが未設定です。\n- ブラウザ実画面・コンソール検証は、既存QA報告のとおり環境上実行できていません。\n\n公開前にCSS実装、OGP画像、複数viewportでの実ブラウザ確認が必要です。\n\n{\"status\":\"FAIL\",\"findings\":[{\"severity\":\"major\",\"location\":\"customer-site/styles.css\",\"problem\":\"CSSがモバイルナビゲーション用の1行 בלבדで、設計されたヒーロー、情報カード、レスポンシブレイアウト、可読性、タッチ操作性を実現できない。実画面の品質を確認できず、主要UI要件を満たさない可能性が高い。\",\"expected\":\"仕様に基づく全体レイアウト、文字サイズ、配色、コントラスト、余白、各viewport対応、フォーカス表示を実装し、実ブラウザで確認できる状態にする。\"},{\"severity\":\"minor\",\"location\":\"customer-site/index.html のhead\",\"problem\":\"OGP画像（og:image）がなく、SNS共有時のプレビュー画像が定義されていない。\",\"expected\":\"権利確認済みの抽象ビジュアルをog:imageとして設定する。\"},{\"severity\":\"minor\",\"location\":\"customer-site/index.html のhead\",\"problem\":\"canonical URLが設定されていない。\",\"expected\":\"公開URLが確定した場合はcanonicalを設定し、重複URLによるSEO上の揺れを防ぐ。\"}],\"summary\":\"基本HTML構造と自動QAは通過したが、CSS不足により実画面・レスポンシブ要件を満たせないためFAIL。OGP画像とcanonicalも公開前に補完が必要。\"}",
+  "qa_conclusion": "success",
+  "codex_conclusion": "success",
+  "generated_at": "2026-09-16T16:39:20.970Z"
+}

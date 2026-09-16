@@ -3,7 +3,7 @@ import { strict as assert } from 'node:assert';
 
 const [html, css, ogImage] = await Promise.all(['index.html', 'styles.css', 'og-image.svg'].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
 for (const value of ['ゆうやけこやけ', '11:00〜18:00', '毎週月曜日', '大分県由布市挾間町古野111-1']) assert.ok(html.includes(value), `Missing required content: ${value}`);
-assert.match(html, /<html lang="ja">/); assert.match(html, /<meta name="description"/); assert.match(html, /<h1[\s>]/); assert.match(html, /<main id="main">/); assert.match(html, /<nav aria-label=/);
+assert.match(html, /<html lang="ja">/); assert.match(html, /<meta name="description"/); assert.match(html, /<link rel="canonical" href="\.\/" \/>/, 'Canonical must resolve to the deployed page directory'); assert.match(html, /<h1[\s>]/); assert.match(html, /<main id="main">/); assert.match(html, /<nav aria-label=/);
 assert.equal((html.match(/<h1[\s>]/g) ?? []).length, 1, 'Page must have exactly one h1');
 assert.deepEqual([...html.matchAll(/<h([1-6])\b/g)].map((match) => Number(match[1])), [1, 2, 2, 2], 'Heading hierarchy must be h1 followed by section h2 elements');
 assert.match(html, /<meta property="og:image" content="og-image\.svg"/); assert.match(html, /<meta property="og:image:alt"/); assert.match(html, /<meta name="twitter:card" content="summary_large_image"/); assert.match(ogImage, /<svg[\s>]/);

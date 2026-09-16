@@ -1,0 +1,9 @@
+{
+  "task_id": "29e3d195-ae91-4376-a7ef-dc55cda8091b",
+  "stage": "correction",
+  "cycle": 1,
+  "final_message": "canonicalを追加し、回帰テストも追加しました。\n\n- [index.html](/home/runner/work/akinael-ai/akinael-ai/customer-site/index.html:8): `<link rel=\"canonical\" href=\"./\">`\n- [qa.mjs](/home/runner/work/akinael-ai/akinael-ai/customer-site/qa.mjs:6): canonicalの存在を検査\n- [QA_REPORT.md](/home/runner/work/akinael-ai/akinael-ai/customer-site/QA_REPORT.md:1): 検証結果と残件を更新\n\n検証済み：\n\n- `npm run qa`：PASS\n- `git diff --check`：PASS\n\n判断理由：公開URL未確定のため架空の絶対URLは使わず、配置先の実URLへ解決される相対canonicalを設定しました。\n\n未解決事項：sandboxがローカルHTTPサーバー、Chromium、Firefoxの起動を拒否するため、必須の実ブラウザ・8 viewport・コンソール確認は未完了です。このため最終公開判定はFAILのままです。公開先確定時にはcanonicalを絶対URLへ置換し、同URLを`og:url`にも設定してください。",
+  "qa_conclusion": "success",
+  "codex_conclusion": "success",
+  "generated_at": "2026-09-16T16:47:00.220Z"
+}

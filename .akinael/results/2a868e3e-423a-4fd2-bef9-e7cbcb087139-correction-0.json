@@ -1,0 +1,9 @@
+{
+  "task_id": "2a868e3e-423a-4fd2-bef9-e7cbcb087139",
+  "stage": "correction",
+  "cycle": 0,
+  "final_message": "SEO/A11yの最終DOMを修正し、静的QAはPASSです。\n\n- `LocalBusiness` JSON-LD、OGP補助メタ、プレビュー用noindex/robotsを追加\n- h1に店名を含め、SVGの矛盾したARIA指定を解消\n- モバイルメニューをEscキーで閉じられるよう改善\n- SEO/A11yの回帰検査を追加\n- 公開前の残作業を [PREPUBLISH_SEO_CHECKLIST.md](/home/runner/work/akinael-ai/akinael-ai/customer-site/PREPUBLISH_SEO_CHECKLIST.md) に整理\n- 検証結果を [QA_REPORT.md](/home/runner/work/akinael-ai/akinael-ai/customer-site/QA_REPORT.md) に記録\n\n検証: `npm run qa`、JSON-LD構文解析、`git diff --check` はすべてPASSです。\n\n判断理由: 正式住所・電話番号・地図URL・公開URLは未提供のため、canonical、`tel:`、OGP画像URL、sitemapを架空値で実装せず、プレビューを検索除外にしました。\n\n未解決事項: 実ブラウザは実行環境のCrashpad/サンドボックス制約によりChromium・Firefoxとも起動できず、8 viewport・キーボード・コンソール確認は未完了です。また正式店舗情報と素材利用許諾も未確定のため、公開判定はFAILのままです。",
+  "qa_conclusion": "success",
+  "codex_conclusion": "success",
+  "generated_at": "2026-09-16T18:20:51.149Z"
+}

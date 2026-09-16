@@ -12,4 +12,12 @@ nav?.querySelectorAll('a').forEach((link) => link.addEventListener('click', () =
   nav.classList.remove('is-open');
 }));
 
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && menuButton?.getAttribute('aria-expanded') === 'true') {
+    menuButton.setAttribute('aria-expanded', 'false');
+    nav?.classList.remove('is-open');
+    menuButton.focus();
+  }
+});
+
 document.querySelector('[data-year]').textContent = new Date().getFullYear();

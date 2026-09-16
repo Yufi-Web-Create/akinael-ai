@@ -33,3 +33,44 @@ jobs:
           echo
           test "$STATUS" = "202"
           grep -q 'confirmationRequired' "$RESPONSE_FILE"
+
+  portal-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: portal
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: portal/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Verify live portal registration link and health endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error https://akinael-ai.com/health | grep -q 'ok'
+          node --input-type=module <<'NODE'
+          import { chromium } from '@playwright/test';
+          const browser = await chromium.launch({ headless: true });
+          const page = await browser.newPage();
+          const errors = [];
+          page.on('console', (message) => {
+            if (message.type() === 'error') errors.push(message.text());
+          });
+          page.on('pageerror', (error) => errors.push(error.message));
+          await page.goto('https://akinael-ai.com/portal/', { waitUntil: 'networkidle' });
+          if (!page.url().startsWith('https://akinael-ai.com/portal/')) throw new Error(`unexpected portal url: ${page.url()}`);
+          const signup = page.getByRole('link', { name: '新規アカウント登録はこちら' });
+          await signup.waitFor({ state: 'visible' });
+          await signup.click();
+          await page.waitForLoadState('networkidle');
+          if (page.url() !== 'https://akinael-ai.com/#register') throw new Error(`unexpected signup target: ${page.url()}`);
+          if (errors.length) throw new Error(`browser errors: ${errors.join(' | ')}`);
+          console.log(`PORTAL_SIGNUP_TARGET=${page.url()}`);
+          await browser.close();
+          NODE

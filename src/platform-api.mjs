@@ -1,6 +1,7 @@
 import { createPlatformStore, PlatformStoreError } from './platform-store.mjs';
 import { createProductionRouter } from './production-router.mjs';
 import { createSupabaseAdmin, createSupabaseAuth, SupabaseAuthError } from './supabase-admin.mjs';
+import { createStripeBilling } from './stripe-billing.mjs';
 
 const MAX_BODY_BYTES = 64 * 1024;
 
@@ -14,8 +15,9 @@ const writeJson = (response, status, payload, extraHeaders = {}) => {
   response.end(JSON.stringify(payload));
 };
 
-const readJsonBody = (request) => new Promise((resolve, reject) => {
+const readRawBody = (request) => new Promise((resolve, reject) => {
   let body = '';
+  request.setEncoding('utf8');
   request.on('data', (chunk) => {
     body += chunk;
     if (Buffer.byteLength(body) > MAX_BODY_BYTES) {
@@ -23,16 +25,19 @@ const readJsonBody = (request) => new Promise((resolve, reject) => {
       request.destroy();
     }
   });
-  request.on('end', () => {
-    if (!body) return resolve({});
-    try {
-      resolve(JSON.parse(body));
-    } catch {
-      reject(new PlatformStoreError('request body must be valid JSON', { status: 400, code: 'invalid_json' }));
-    }
-  });
+  request.on('end', () => resolve(body));
   request.on('error', reject);
 });
+
+const readJsonBody = async (request) => {
+  const body = await readRawBody(request);
+  if (!body) return {};
+  try {
+    return JSON.parse(body);
+  } catch {
+    throw new PlatformStoreError('request body must be valid JSON', { status: 400, code: 'invalid_json' });
+  }
+};
 
 const htmlEscape = (value) => String(value ?? '').replace(/[&<>\"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#39;' }[char]));
 
@@ -54,6 +59,7 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
   const productionRouter = createProductionRouter({ env, fetchImpl });
   const auth = createSupabaseAuth({ env, fetchImpl });
   const admin = createSupabaseAdmin({ env, fetchImpl });
+  const stripeBilling = createStripeBilling({ env, fetchImpl });
 
   const handle = async (request, response) => {
     const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
@@ -87,6 +93,12 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
     }
 
     try {
+      if (method === 'POST' && url.pathname === '/api/v2/billing/webhook') {
+        const rawBody = await readRawBody(request);
+        const signature = request.headers['stripe-signature'];
+        return writeJson(response, 200, await stripeBilling.handleWebhook({ rawBody, signature })), true;
+      }
+
       if (method === 'POST' && url.pathname === '/api/v2/auth/register') {
         const body = await readJsonBody(request);
         const email = String(body.email || '').trim().toLowerCase();
@@ -193,8 +205,6 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
             const routing = await productionRouter.route(created.request);
             return writeJson(response, 201, { ...created, routing: { status: 'routed', ...routing } }), true;
           } catch {
-            // The Request is already safely persisted. Keep it as `new` so a worker or
-            // explicit retry can route it without asking the customer to submit again.
             return writeJson(response, 201, { ...created, routing: { status: 'pending_retry' } }), true;
           }
         }
@@ -248,9 +258,6 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
         try {
           routing = { status: 'routed', ...(await productionRouter.route(finalized.request)) };
         } catch {
-          // The request is already durably persisted (see finalizeConsultationRequest ->
-          // createRequest). A routing hiccup does not undo the customer's approval; a worker
-          // or explicit retry can route it later without asking the customer to resubmit.
           routing = { status: 'pending_retry' };
         }
         await store.markConsultationFinalized(token, projectId, { threadId: finalized.threadId, requestId: finalized.request.id });
@@ -259,6 +266,11 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
 
       if (method === 'GET' && url.pathname === '/api/v2/billing/summary') {
         return writeJson(response, 200, await store.getBillingSummary(token)), true;
+      }
+
+      if (method === 'POST' && url.pathname === '/api/v2/billing/checkout-session') {
+        const body = await readJsonBody(request);
+        return writeJson(response, 200, await stripeBilling.createCheckoutSession(token, body.planId)), true;
       }
 
       if (method === 'POST' && url.pathname === '/api/v2/billing/portal-session') {
@@ -314,5 +326,5 @@ export const createPlatformApi = ({ env = process.env, fetchImpl = fetch } = {})
     }
   };
 
-  return { handle, store, productionRouter };
+  return { handle, store, productionRouter, stripeBilling };
 };

@@ -29,7 +29,11 @@ const initialScreenFromLocation = (): Screen =>
 export default function App() {
   const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
   const recoveryToken = hashParams.get("access_token");
-  const [recoveryMode, setRecoveryMode] = useState(new URLSearchParams(window.location.search).get("mode") === "recovery");
+  const recoveryType = hashParams.get("type");
+  const recoveryFromHash = recoveryType === "recovery" && Boolean(recoveryToken);
+  const [recoveryMode, setRecoveryMode] = useState(
+    new URLSearchParams(window.location.search).get("mode") === "recovery" || recoveryFromHash
+  );
 
   const [token, setToken] = useState<string | null>(null);
   const [me, setMe] = useState<Me | null>(null);

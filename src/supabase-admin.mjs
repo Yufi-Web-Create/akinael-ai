@@ -59,7 +59,7 @@ export const createSupabaseAuth = ({ env = process.env, fetchImpl = fetch } = {}
     signUp: (email, password) => request(`/auth/v1/signup?redirect_to=${encodeURIComponent(`${publicUrl}/portal/`)}`, { body: { email, password } }),
     signIn: (email, password) => request('/auth/v1/token?grant_type=password', { body: { email, password } }),
     signOut: (accessToken) => request('/auth/v1/logout', { accessToken }),
-    requestPasswordRecovery: (email, redirectTo) => request('/auth/v1/recover', { body: { email, redirect_to: redirectTo } }),
+    requestPasswordRecovery: (email, redirectTo) => request(`/auth/v1/recover?redirect_to=${encodeURIComponent(redirectTo)}`, { body: { email } }),
     updatePassword: (accessToken, password) => request('/auth/v1/user', { method: 'PUT', accessToken, body: { password } })
   };
 };
